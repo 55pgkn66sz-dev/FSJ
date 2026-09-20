@@ -1,1542 +1,345 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-fr-scheme="system">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Occurrences du jour</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feuille de service journalier</title>
 
 <!--
-  WIDGET PERSONNALISÉ GRIST — « Occurrences du jour » (habillage DSFR)
-  ======================================================================
-  Ce widget affiche, pour une date choisie dans un sélecteur, toutes les
-  lignes d'une table Grist sous la forme d'un tableau "Horaire / Occurrence",
-  avec l'habillage visuel du Système de Design de l'État (DSFR).
+  Widget personnalisé Grist : génère un PDF "Feuille de service journalier"
+  à partir d'une table d'occurrences (Début / Fin / Occurrence).
 
-  INSTALLATION DANS GRIST — inchangée par rapport aux versions précédentes :
-  1. Hébergez ce fichier (ex: en tant que index.html sur GitHub Pages).
-  2. Dans Grist : Ajouter un widget > Custom Widget > collez l'URL du fichier.
-  3. Dans le panneau de droite du widget, mappez vos colonnes réelles sur :
-       - Date        -> colonne de type Date
-       - Debut       -> colonne "heure de début"
-       - Fin         -> colonne "heure de fin"
-       - Occurrence  -> colonne "libellé / titre de l'occurrence"
-
-  DÉPENDANCE DSFR
-  -----------------
-  Le CSS officiel du DSFR est chargé depuis jsDelivr (CDN public, mirroir du
-  paquet npm @gouvfr/dsfr), avec la police Marianne incluse. Cela nécessite
-  que la page ait accès à Internet au moment de l'affichage (c'est le cas
-  normalement, aussi bien dans un onglet Grist que dans un navigateur
-  classique). On cible la branche majeure "@1" pour recevoir automatiquement
-  les mises à jour mineures du DSFR sans avoir à changer ce fichier.
+  Interface conforme au DSFR (Système de Design de l'État) :
+  https://www.systeme-de-design.gouv.fr/ — via le package officiel @gouvfr/dsfr.
+  Le DSFR régit les interfaces web ; il n'impose pas de gabarit pour les PDF,
+  donc le PDF reprend simplement le bleu France (#000091) en accent visuel.
 -->
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1/dist/dsfr.min.css">
-<script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1/dist/dsfr.module.min.js"></script>
-<script type="text/javascript" nomodule src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1/dist/dsfr.nomodule.min.js"></script>
+<!-- DSFR (Système de Design de l'État) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.15.3/dist/dsfr.min.css">
 
+<!-- API du widget Grist -->
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 
+<!-- jsPDF pour la génération du PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <style>
-  /* Ajustements propres au contexte "petit widget embarqué", en plus du DSFR */
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: var(--background-default-grey, #fff);
-  }
-
-  .widget-wrap {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    box-sizing: border-box;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .toolbar .fr-input-group {
-    margin-bottom: 0;
-  }
-
-  .toolbar .spacer {
-    flex: 1 1 auto;
-  }
-
-  .result-zone {
-    flex: 1;
-    overflow-y: auto;
-    margin-top: 1rem;
-  }
-
-  #table-wrap {
-    margin: 0;
-  }
-
-  #table-wrap table {
-    width: 100%;
-  }
-
-  #table-wrap th:first-child,
-  #table-wrap td:first-child {
-    white-space: nowrap;
-    width: 1%;
-  }
-
-  .diagnostic-pre {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.75rem;
-    margin: 0.5rem 0 0 0;
-    max-height: 180px;
-    overflow-y: auto;
-  }
+  :root { --bleu-france: #000091; }
+  html, body { margin: 0; padding: 0; }
+  .widget-wrap { padding: 1.5rem 1.25rem; max-width: 640px; }
+  .fr-logo { transform: scale(0.85); transform-origin: left top; margin-bottom: 0.5rem; }
+  #previewZone table caption { text-align: left; }
+  .occ-count { color: var(--text-mention-grey); }
+  .fr-alert { margin-bottom: 0; }
 </style>
 </head>
 <body>
-  <div class="widget-wrap fr-p-2w">
+<div class="widget-wrap">
 
-    <div class="toolbar fr-mb-2w">
-      <div class="fr-input-group">
-        <label class="fr-label" for="date-picker">Date</label>
-        <input class="fr-input" type="date" id="date-picker" />
-      </div>
-      <button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" id="today-btn">
-        Aujourd'hui
-      </button>
-      <div class="spacer"></div>
-      <span class="fr-badge fr-badge--sm" id="count"></span>
-    </div>
+  <p class="fr-logo">République<br>Française</p>
 
-    <div class="result-zone">
-      <p class="fr-text--sm fr-text-mention--grey" id="status-msg">
-        En attente des données Grist…
-      </p>
+  <h1 class="fr-h4 fr-mb-1w">Feuille de service journalier</h1>
+  <p class="fr-text--sm fr-mb-3w">
+    Choisissez un jour puis générez le PDF listant les occurrences de ce jour,
+    au format « Heure de début - Heure de fin : <strong>Occurrence</strong> ».
+  </p>
 
-      <div class="fr-table fr-table--sm fr-table--bordered" id="table-wrap" style="display:none;">
-        <table>
-          <caption class="fr-sr-only">Occurrences pour la date sélectionnée</caption>
-          <thead>
-            <tr>
-              <th scope="col">Horaire</th>
-              <th scope="col">Occurrence</th>
-            </tr>
-          </thead>
-          <tbody id="rows-body"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <button type="button" class="fr-link fr-link--sm" id="diag-toggle">
-      Diagnostic
-    </button>
-    <div class="fr-alert fr-alert--info fr-alert--sm fr-mt-1w" id="diagnostic" style="display:none;">
-      <p class="fr-alert__title">Diagnostic</p>
-      <pre class="diagnostic-pre" id="diagnostic-content"></pre>
-    </div>
-
+  <div class="fr-input-group">
+    <label class="fr-label" for="dayPicker">
+      Jour à générer
+      <span class="fr-hint-text">La date choisie apparaîtra dans le titre du document.</span>
+    </label>
+    <input class="fr-input" type="date" id="dayPicker" name="dayPicker">
   </div>
+
+  <button class="fr-btn fr-mt-3w" id="generateBtn" type="button" disabled>
+    Générer le PDF
+  </button>
+
+  <div id="statusZone" class="fr-mt-3w" aria-live="polite"></div>
+
+  <div id="previewZone" class="fr-mt-4w"></div>
+
+</div>
+
+<!-- DSFR : comportements JS (non indispensable ici, mais recommandé par le DSFR) -->
+<script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.15.3/dist/dsfr/dsfr.module.min.js"></script>
+<script nomodule src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.15.3/dist/dsfr/dsfr.nomodule.min.js"></script>
 
 <script>
 (function () {
-  var allRecords = [];
-  var ready = false;
+  'use strict';
 
-  // --- Configuration du widget : mapping générique des colonnes ---
+  var allRecords = [];
+  var recordsLoaded = false;
+
+  var dayPicker = document.getElementById('dayPicker');
+  var generateBtn = document.getElementById('generateBtn');
+  var statusZone = document.getElementById('statusZone');
+  var previewZone = document.getElementById('previewZone');
+
+  // ---- Initialisation du widget Grist ------------------------------------
+
+  // Déclare les colonnes attendues : l'utilisateur les associe à ses propres
+  // colonnes ("Début", "Fin", "Occurrence") depuis le panneau de configuration
+  // du widget dans Grist. Type "Any" pour accepter Date, DateTime ou Texte.
   grist.ready({
+    requiredAccess: 'read table',
     columns: [
-      { name: "Date", title: "Date", type: "Date", optional: false },
-      { name: "Debut", title: "Heure de début", type: "Any", optional: false },
-      { name: "Fin", title: "Heure de fin", type: "Any", optional: false },
-      { name: "Occurrence", title: "Occurrence", type: "Text", optional: false }
-    ],
-    requiredAccess: "read table"
+      { name: 'Debut', title: 'Heure de début', type: 'Any', optional: false },
+      { name: 'Fin', title: 'Heure de fin', type: 'Any', optional: false },
+      { name: 'Occurrence', title: 'Occurrence', type: 'Any', optional: false }
+    ]
   });
 
   grist.onRecords(function (records, mappings) {
-    try {
-      allRecords = records.map(function (r) {
-        return grist.mapColumnNames(r, mappings);
-      }).filter(Boolean);
-    } catch (e) {
-      allRecords = [];
-    }
-    ready = true;
-    render();
+    var mapped = (grist.mapColumnNames && mappings)
+      ? grist.mapColumnNames(records, mappings)
+      : records;
+    allRecords = (mapped || []).filter(Boolean);
+    recordsLoaded = true;
+    generateBtn.disabled = false;
+    renderPreview();
   });
 
-  // --- Utilitaires de dates/heures ---
+  // ---- Date du jour par défaut --------------------------------------------
 
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
+  (function initDate() {
+    var today = new Date();
+    dayPicker.value = toInputDateValue(today);
+  })();
 
-  function todayLocalISO() {
-    var d = new Date();
-    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
-  }
+  dayPicker.addEventListener('change', renderPreview);
+  generateBtn.addEventListener('click', generatePDF);
 
-  // Renvoie {y, m, d} en UTC pour une valeur Date/DateTime Grist
-  // (nombre = secondes depuis epoch), une chaîne ISO "YYYY-MM-DD",
-  // une chaîne "JJ/MM/AAAA" ou "JJ-MM-AAAA", ou un objet Date JS.
-  function extractDateParts(value) {
-    if (value == null) return null;
+  // ---- Parsing des dates Grist ---------------------------------------------
 
-    if (value instanceof Date) {
-      if (isNaN(value.getTime())) return null;
-      return { y: value.getUTCFullYear(), m: value.getUTCMonth() + 1, d: value.getUTCDate() };
+  // Les colonnes Date/DateTime de Grist sont renvoyées via l'API comme un
+  // horodatage Unix (en secondes). Si la colonne est du texte au format
+  // "JJ/MM/AAAA HH:mm", on la parse directement.
+  function parseGristDateTime(value) {
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === 'number') {
+      return new Date(value * 1000);
     }
 
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return null;
-      return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
-    }
+    if (value instanceof Date) return value;
 
-    if (typeof value === "string") {
-      var s = value.trim();
-
-      var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (iso) {
-        return { y: Number(iso[1]), m: Number(iso[2]), d: Number(iso[3]) };
-      }
-
-      var fr = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-      if (fr) {
-        return { y: Number(fr[3]), m: Number(fr[2]), d: Number(fr[1]) };
-      }
-
-      var parsed = new Date(s);
-      if (!isNaN(parsed.getTime())) {
-        return { y: parsed.getUTCFullYear(), m: parsed.getUTCMonth() + 1, d: parsed.getUTCDate() };
-      }
-    }
-
-    return null;
-  }
-
-  function dateKey(value) {
-    var p = extractDateParts(value);
-    if (!p) return null;
-    return p.y + "-" + pad2(p.m) + "-" + pad2(p.d);
-  }
-
-  function formatTime(value) {
-    if (value == null || value === "") return "?";
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return String(value);
-      return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-    }
-
-    if (typeof value === "string") {
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return pad2(Number(m[1])) + ":" + m[2];
-      return value;
-    }
-
-    return String(value);
-  }
-
-  function sortKey(value) {
-    if (value == null || value === "") return Number.MAX_SAFE_INTEGER;
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
-      return d.getHours() * 60 + d.getMinutes();
-    }
-
-    if (typeof value === "string") {
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return Number(m[1]) * 60 + Number(m[2]);
-    }
-
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  // --- Diagnostic ---
-
-  function buildDiagnostic(selected) {
-    var lines = [];
-    lines.push("Lignes reçues de Grist : " + allRecords.length);
-
-    if (allRecords.length === 0) {
-      lines.push("→ Aucune ligne n'arrive du tout. Vérifiez :");
-      lines.push("  - que le mapping des 4 colonnes est bien enregistré (panneau de droite du widget)");
-      lines.push("  - que la table n'est pas vide");
-      lines.push("  - que l'accès accordé au widget couvre bien cette table");
-      document.getElementById("diagnostic-content").textContent = lines.join("\n");
-      return;
-    }
-
-    var sample = allRecords[0];
-    lines.push("Exemple de 1ère ligne reçue (valeurs brutes) :");
-    ["Date", "Debut", "Fin", "Occurrence"].forEach(function (k) {
-      lines.push("  " + k + " (" + typeof sample[k] + ") = " + JSON.stringify(sample[k]));
-    });
-
-    var keys = {};
-    allRecords.forEach(function (r) {
-      var k = dateKey(r.Date);
-      if (k) keys[k] = (keys[k] || 0) + 1;
-    });
-    var distinctDates = Object.keys(keys).sort();
-
-    lines.push("");
-    lines.push("Date recherchée : " + selected);
-    lines.push("Dates trouvées dans la table (" + distinctDates.length + " distinctes) :");
-    if (distinctDates.length === 0) {
-      lines.push("  → aucune valeur de la colonne \"Date\" n'a pu être interprétée comme une date.");
-    } else {
-      distinctDates.slice(0, 15).forEach(function (k) {
-        lines.push("  " + k + "  (" + keys[k] + " ligne" + (keys[k] > 1 ? "s" : "") + ")");
-      });
-      if (distinctDates.length > 15) lines.push("  … (" + (distinctDates.length - 15) + " de plus)");
-    }
-
-    document.getElementById("diagnostic-content").textContent = lines.join("\n");
-  }
-
-  // --- Rendu ---
-
-  function render() {
-    var statusEl = document.getElementById("status-msg");
-    var tableWrapEl = document.getElementById("table-wrap");
-    var rowsBodyEl = document.getElementById("rows-body");
-    var countEl = document.getElementById("count");
-    var picker = document.getElementById("date-picker");
-    var selected = picker.value;
-
-    if (!ready) {
-      statusEl.style.display = "";
-      statusEl.textContent = "En attente des données Grist…";
-      tableWrapEl.style.display = "none";
-      countEl.textContent = "";
-      return;
-    }
-
-    if (!selected) {
-      statusEl.style.display = "";
-      statusEl.textContent = "Choisissez une date.";
-      tableWrapEl.style.display = "none";
-      countEl.textContent = "";
-      return;
-    }
-
-    var matches = allRecords.filter(function (r) {
-      return dateKey(r.Date) === selected;
-    });
-
-    matches.sort(function (a, b) {
-      return sortKey(a.Debut) - sortKey(b.Debut);
-    });
-
-    countEl.textContent = matches.length
-      ? matches.length + " occurrence" + (matches.length > 1 ? "s" : "")
-      : "";
-
-    buildDiagnostic(selected);
-
-    if (matches.length === 0) {
-      tableWrapEl.style.display = "none";
-      statusEl.style.display = "";
-      statusEl.textContent = allRecords.length === 0
-        ? "Aucune donnée reçue de Grist. Ouvrez le diagnostic ci-dessous."
-        : "Aucune occurrence pour cette date. Ouvrez le diagnostic ci-dessous pour voir les dates disponibles.";
-      return;
-    }
-
-    statusEl.style.display = "none";
-    tableWrapEl.style.display = "";
-
-    rowsBodyEl.innerHTML = matches.map(function (r) {
-      var debut = escapeHtml(formatTime(r.Debut));
-      var fin = escapeHtml(formatTime(r.Fin));
-      var label = escapeHtml(r.Occurrence == null ? "" : r.Occurrence);
-      return (
-        '<tr>' +
-          '<td><span class="fr-badge fr-badge--info fr-badge--sm">' + debut + '–' + fin + '</span></td>' +
-          '<td>' + label + '</td>' +
-        '</tr>'
-      );
-    }).join("");
-  }
-
-  // --- Interactions ---
-
-  var datePicker = document.getElementById("date-picker");
-  datePicker.value = todayLocalISO();
-  datePicker.addEventListener("change", render);
-
-  document.getElementById("today-btn").addEventListener("click", function () {
-    datePicker.value = todayLocalISO();
-    render();
-  });
-
-  document.getElementById("diag-toggle").addEventListener("click", function () {
-    var el = document.getElementById("diagnostic");
-    var showing = el.style.display !== "none";
-    el.style.display = showing ? "none" : "block";
-    this.textContent = showing ? "Diagnostic" : "Masquer le diagnostic";
-  });
-
-  render();
-})();
-</script>
-</body>
-</html>
-<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-
-<style>
-  /* Ajustements propres au contexte "petit widget embarqué", en plus du DSFR */
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: var(--background-default-grey, #fff);
-  }
-
-  .widget-wrap {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    box-sizing: border-box;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .toolbar .fr-input-group {
-    margin-bottom: 0;
-  }
-
-  .toolbar .spacer {
-    flex: 1 1 auto;
-  }
-
-  .result-zone {
-    flex: 1;
-    overflow-y: auto;
-    margin-top: 1rem;
-  }
-
-  #table-wrap {
-    margin: 0;
-  }
-
-  #table-wrap table {
-    width: 100%;
-  }
-
-  #table-wrap th:first-child,
-  #table-wrap td:first-child {
-    white-space: nowrap;
-    width: 1%;
-  }
-
-  .diagnostic-pre {
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.75rem;
-    margin: 0.5rem 0 0 0;
-    max-height: 180px;
-    overflow-y: auto;
-  }
-</style>
-</head>
-<body>
-  <div class="widget-wrap fr-p-2w">
-
-    <div class="toolbar fr-mb-2w">
-      <div class="fr-input-group">
-        <label class="fr-label" for="date-picker">Date</label>
-        <input class="fr-input" type="date" id="date-picker" />
-      </div>
-      <button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" id="today-btn">
-        Aujourd'hui
-      </button>
-      <div class="spacer"></div>
-      <span class="fr-badge fr-badge--sm" id="count"></span>
-    </div>
-
-    <div class="result-zone">
-      <p class="fr-text--sm fr-text-mention--grey" id="status-msg">
-        En attente des données Grist…
-      </p>
-
-      <div class="fr-table fr-table--sm fr-table--bordered" id="table-wrap" style="display:none;">
-        <table>
-          <caption class="fr-sr-only">Occurrences pour la date sélectionnée</caption>
-          <thead>
-            <tr>
-              <th scope="col">Horaire</th>
-              <th scope="col">Occurrence</th>
-            </tr>
-          </thead>
-          <tbody id="rows-body"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <button type="button" class="fr-link fr-link--sm" id="diag-toggle">
-      Diagnostic
-    </button>
-    <div class="fr-alert fr-alert--info fr-alert--sm fr-mt-1w" id="diagnostic" style="display:none;">
-      <p class="fr-alert__title">Diagnostic</p>
-      <pre class="diagnostic-pre" id="diagnostic-content"></pre>
-    </div>
-
-  </div>
-
-<script>
-(function () {
-  var allRecords = [];
-  var ready = false;
-
-  // --- Configuration du widget : mapping générique des colonnes ---
-  grist.ready({
-    columns: [
-      { name: "Date", title: "Date", type: "Date", optional: false },
-      { name: "Debut", title: "Heure de début", type: "Any", optional: false },
-      { name: "Fin", title: "Heure de fin", type: "Any", optional: false },
-      { name: "Occurrence", title: "Occurrence", type: "Text", optional: false }
-    ],
-    requiredAccess: "read table"
-  });
-
-  grist.onRecords(function (records, mappings) {
-    try {
-      allRecords = records.map(function (r) {
-        return grist.mapColumnNames(r, mappings);
-      }).filter(Boolean);
-    } catch (e) {
-      allRecords = [];
-    }
-    ready = true;
-    render();
-  });
-
-  // --- Utilitaires de dates/heures ---
-
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
-
-  function todayLocalISO() {
-    var d = new Date();
-    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
-  }
-
-  // Renvoie {y, m, d} en UTC pour une valeur Date/DateTime Grist
-  // (nombre = secondes depuis epoch), une chaîne ISO "YYYY-MM-DD",
-  // une chaîne "JJ/MM/AAAA" ou "JJ-MM-AAAA", ou un objet Date JS.
-  function extractDateParts(value) {
-    if (value == null) return null;
-
-    if (value instanceof Date) {
-      if (isNaN(value.getTime())) return null;
-      return { y: value.getUTCFullYear(), m: value.getUTCMonth() + 1, d: value.getUTCDate() };
-    }
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return null;
-      return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
-    }
-
-    if (typeof value === "string") {
-      var s = value.trim();
-
-      var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (iso) {
-        return { y: Number(iso[1]), m: Number(iso[2]), d: Number(iso[3]) };
-      }
-
-      var fr = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-      if (fr) {
-        return { y: Number(fr[3]), m: Number(fr[2]), d: Number(fr[1]) };
-      }
-
-      var parsed = new Date(s);
-      if (!isNaN(parsed.getTime())) {
-        return { y: parsed.getUTCFullYear(), m: parsed.getUTCMonth() + 1, d: parsed.getUTCDate() };
-      }
-    }
-
-    return null;
-  }
-
-  function dateKey(value) {
-    var p = extractDateParts(value);
-    if (!p) return null;
-    return p.y + "-" + pad2(p.m) + "-" + pad2(p.d);
-  }
-
-  function formatTime(value) {
-    if (value == null || value === "") return "?";
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return String(value);
-      return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-    }
-
-    if (typeof value === "string") {
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return pad2(Number(m[1])) + ":" + m[2];
-      return value;
-    }
-
-    return String(value);
-  }
-
-  function sortKey(value) {
-    if (value == null || value === "") return Number.MAX_SAFE_INTEGER;
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
-      return d.getHours() * 60 + d.getMinutes();
-    }
-
-    if (typeof value === "string") {
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return Number(m[1]) * 60 + Number(m[2]);
-    }
-
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  // --- Diagnostic ---
-
-  function buildDiagnostic(selected) {
-    var lines = [];
-    lines.push("Lignes reçues de Grist : " + allRecords.length);
-
-    if (allRecords.length === 0) {
-      lines.push("→ Aucune ligne n'arrive du tout. Vérifiez :");
-      lines.push("  - que le mapping des 4 colonnes est bien enregistré (panneau de droite du widget)");
-      lines.push("  - que la table n'est pas vide");
-      lines.push("  - que l'accès accordé au widget couvre bien cette table");
-      document.getElementById("diagnostic-content").textContent = lines.join("\n");
-      return;
-    }
-
-    var sample = allRecords[0];
-    lines.push("Exemple de 1ère ligne reçue (valeurs brutes) :");
-    ["Date", "Debut", "Fin", "Occurrence"].forEach(function (k) {
-      lines.push("  " + k + " (" + typeof sample[k] + ") = " + JSON.stringify(sample[k]));
-    });
-
-    var keys = {};
-    allRecords.forEach(function (r) {
-      var k = dateKey(r.Date);
-      if (k) keys[k] = (keys[k] || 0) + 1;
-    });
-    var distinctDates = Object.keys(keys).sort();
-
-    lines.push("");
-    lines.push("Date recherchée : " + selected);
-    lines.push("Dates trouvées dans la table (" + distinctDates.length + " distinctes) :");
-    if (distinctDates.length === 0) {
-      lines.push("  → aucune valeur de la colonne \"Date\" n'a pu être interprétée comme une date.");
-    } else {
-      distinctDates.slice(0, 15).forEach(function (k) {
-        lines.push("  " + k + "  (" + keys[k] + " ligne" + (keys[k] > 1 ? "s" : "") + ")");
-      });
-      if (distinctDates.length > 15) lines.push("  … (" + (distinctDates.length - 15) + " de plus)");
-    }
-
-    document.getElementById("diagnostic-content").textContent = lines.join("\n");
-  }
-
-  // --- Rendu ---
-
-  function render() {
-    var statusEl = document.getElementById("status-msg");
-    var tableWrapEl = document.getElementById("table-wrap");
-    var rowsBodyEl = document.getElementById("rows-body");
-    var countEl = document.getElementById("count");
-    var picker = document.getElementById("date-picker");
-    var selected = picker.value;
-
-    if (!ready) {
-      statusEl.style.display = "";
-      statusEl.textContent = "En attente des données Grist…";
-      tableWrapEl.style.display = "none";
-      countEl.textContent = "";
-      return;
-    }
-
-    if (!selected) {
-      statusEl.style.display = "";
-      statusEl.textContent = "Choisissez une date.";
-      tableWrapEl.style.display = "none";
-      countEl.textContent = "";
-      return;
-    }
-
-    var matches = allRecords.filter(function (r) {
-      return dateKey(r.Date) === selected;
-    });
-
-    matches.sort(function (a, b) {
-      return sortKey(a.Debut) - sortKey(b.Debut);
-    });
-
-    countEl.textContent = matches.length
-      ? matches.length + " occurrence" + (matches.length > 1 ? "s" : "")
-      : "";
-
-    buildDiagnostic(selected);
-
-    if (matches.length === 0) {
-      tableWrapEl.style.display = "none";
-      statusEl.style.display = "";
-      statusEl.textContent = allRecords.length === 0
-        ? "Aucune donnée reçue de Grist. Ouvrez le diagnostic ci-dessous."
-        : "Aucune occurrence pour cette date. Ouvrez le diagnostic ci-dessous pour voir les dates disponibles.";
-      return;
-    }
-
-    statusEl.style.display = "none";
-    tableWrapEl.style.display = "";
-
-    rowsBodyEl.innerHTML = matches.map(function (r) {
-      var debut = escapeHtml(formatTime(r.Debut));
-      var fin = escapeHtml(formatTime(r.Fin));
-      var label = escapeHtml(r.Occurrence == null ? "" : r.Occurrence);
-      return (
-        '<tr>' +
-          '<td><span class="fr-badge fr-badge--info fr-badge--sm">' + debut + '–' + fin + '</span></td>' +
-          '<td>' + label + '</td>' +
-        '</tr>'
-      );
-    }).join("");
-  }
-
-  // --- Interactions ---
-
-  var datePicker = document.getElementById("date-picker");
-  datePicker.value = todayLocalISO();
-  datePicker.addEventListener("change", render);
-
-  document.getElementById("today-btn").addEventListener("click", function () {
-    datePicker.value = todayLocalISO();
-    render();
-  });
-
-  document.getElementById("diag-toggle").addEventListener("click", function () {
-    var el = document.getElementById("diagnostic");
-    var showing = el.style.display !== "none";
-    el.style.display = showing ? "none" : "block";
-    this.textContent = showing ? "Diagnostic" : "Masquer le diagnostic";
-  });
-
-  render();
-})();
-</script>
-</body>
-</html>  l'affichage — pensez à vérifier que le fuseau horaire de la colonne
-  correspond à celui attendu.
--->
-
-<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-
-<style>
-  :root {
-    --border: #e1e4e8;
-    --text: #1a1d21;
-    --muted: #6b7280;
-    --accent: #2f80ed;
-    --row-bg: #ffffff;
-    --row-bg-alt: #f7f9fb;
-    --bg: #ffffff;
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif;
-  }
-
-  .wrap {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 14px 16px;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-
-  .toolbar label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-  }
-
-  .toolbar input[type="date"] {
-    font-size: 14px;
-    padding: 6px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: white;
-    color: var(--text);
-  }
-
-  .toolbar .today-btn {
-    font-size: 13px;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: white;
-    color: var(--accent);
-    cursor: pointer;
-  }
-
-  .toolbar .today-btn:hover {
-    background: #eef4fd;
-  }
-
-  .count {
-    margin-left: auto;
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .list {
-    flex: 1;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-
-  .row {
-    display: flex;
-    gap: 8px;
-    padding: 9px 12px;
-    font-size: 14px;
-    line-height: 1.4;
-    border-bottom: 1px solid var(--border);
-    background: var(--row-bg);
-  }
-
-  .row:nth-child(even) {
-    background: var(--row-bg-alt);
-  }
-
-  .row:last-child {
-    border-bottom: none;
-  }
-
-  .row .time {
-    font-variant-numeric: tabular-nums;
-    color: var(--accent);
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .row .sep {
-    color: var(--muted);
-  }
-
-  .row .label {
-    color: var(--text);
-  }
-
-  .empty, .status {
-    padding: 24px 12px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 14px;
-  }
-
-  .diag-toggle {
-    align-self: flex-start;
-    margin-top: 8px;
-    font-size: 11px;
-    color: var(--muted);
-    background: none;
-    border: none;
-    cursor: pointer;
-    text-decoration: underline;
-    padding: 2px 0;
-  }
-
-  .diagnostic {
-    margin-top: 8px;
-    padding: 10px 12px;
-    border: 1px dashed var(--border);
-    border-radius: 6px;
-    font-size: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    color: var(--muted);
-    white-space: pre-wrap;
-    word-break: break-word;
-    max-height: 180px;
-    overflow-y: auto;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --border: #333940;
-      --text: #f0f2f5;
-      --muted: #9aa4b2;
-      --accent: #5b9dfa;
-      --row-bg: #1e2126;
-      --row-bg-alt: #24272d;
-      --bg: #17191c;
-    }
-    .toolbar input[type="date"],
-    .toolbar .today-btn {
-      background: #24272d;
-    }
-    .toolbar .today-btn:hover {
-      background: #2b3038;
-    }
-  }
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="toolbar">
-      <label for="date-picker">Date&nbsp;:</label>
-      <input type="date" id="date-picker" />
-      <button type="button" class="today-btn" id="today-btn">Aujourd'hui</button>
-      <span class="count" id="count"></span>
-    </div>
-    <div class="list" id="list">
-      <div class="status">En attente des données Grist…</div>
-    </div>
-    <div id="diagnostic" class="diagnostic" style="display:none;"></div>
-    <button type="button" class="diag-toggle" id="diag-toggle">Diagnostic</button>
-  </div>
-
-<script>
-(function () {
-  var allRecords = [];
-  var ready = false;
-
-  // --- Configuration du widget : mapping générique des colonnes ---
-  grist.ready({
-    columns: [
-      { name: "Date", title: "Date", type: "Date", optional: false },
-      { name: "Debut", title: "Heure de début", type: "Any", optional: false },
-      { name: "Fin", title: "Heure de fin", type: "Any", optional: false },
-      { name: "Occurrence", title: "Occurrence", type: "Text", optional: false }
-    ],
-    requiredAccess: "read table"
-  });
-
-  grist.onRecords(function (records, mappings) {
-    try {
-      allRecords = records.map(function (r) {
-        return grist.mapColumnNames(r, mappings);
-      }).filter(Boolean);
-    } catch (e) {
-      allRecords = [];
-    }
-    ready = true;
-    render();
-  });
-
-  // --- Utilitaires de dates/heures ---
-
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
-
-  function todayLocalISO() {
-    var d = new Date();
-    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
-  }
-
-  // Renvoie {y, m, d} en UTC pour une valeur Date/DateTime Grist
-  // (nombre = secondes depuis epoch), une chaîne ISO "YYYY-MM-DD",
-  // une chaîne "JJ/MM/AAAA" ou "JJ-MM-AAAA", ou un objet Date JS.
-  function extractDateParts(value) {
-    if (value == null) return null;
-
-    if (value instanceof Date) {
-      if (isNaN(value.getTime())) return null;
-      return { y: value.getUTCFullYear(), m: value.getUTCMonth() + 1, d: value.getUTCDate() };
-    }
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return null;
-      return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
-    }
-
-    if (typeof value === "string") {
-      var s = value.trim();
-
-      // ISO : "YYYY-MM-DD..."
-      var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (iso) {
-        return { y: Number(iso[1]), m: Number(iso[2]), d: Number(iso[3]) };
-      }
-
-      // Format français : "JJ/MM/AAAA" ou "JJ-MM-AAAA"
-      var fr = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-      if (fr) {
-        return { y: Number(fr[3]), m: Number(fr[2]), d: Number(fr[1]) };
-      }
-
-      var parsed = new Date(s);
-      if (!isNaN(parsed.getTime())) {
-        return { y: parsed.getUTCFullYear(), m: parsed.getUTCMonth() + 1, d: parsed.getUTCDate() };
-      }
-    }
-
-    return null;
-  }
-
-  function dateKey(value) {
-    var p = extractDateParts(value);
-    if (!p) return null;
-    return p.y + "-" + pad2(p.m) + "-" + pad2(p.d);
-  }
-
-  // Formatte une valeur "heure" (Debut/Fin) pour l'affichage.
-  function formatTime(value) {
-    if (value == null || value === "") return "?";
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return String(value);
-      return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-    }
-
-    if (typeof value === "string") {
-      // Déjà au format HH:MM ou HH:MM:SS -> on garde HH:MM
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return pad2(Number(m[1])) + ":" + m[2];
-      return value;
-    }
-
-    return String(value);
-  }
-
-  // Clé numérique (minutes depuis minuit) pour trier par heure de début.
-  function sortKey(value) {
-    if (value == null || value === "") return Number.MAX_SAFE_INTEGER;
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
-      return d.getHours() * 60 + d.getMinutes();
-    }
-
-    if (typeof value === "string") {
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return Number(m[1]) * 60 + Number(m[2]);
-    }
-
-    return Number.MAX_SAFE_INTEGER;
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  // --- Rendu ---
-
-  function buildDiagnostic(selected) {
-    var lines = [];
-    lines.push("Lignes reçues de Grist : " + allRecords.length);
-
-    if (allRecords.length === 0) {
-      lines.push("→ Aucune ligne n'arrive du tout. Vérifiez :");
-      lines.push("  - que le mapping des 4 colonnes est bien enregistré (panneau de droite du widget)");
-      lines.push("  - que la table n'est pas vide");
-      lines.push("  - que l'accès accordé au widget couvre bien cette table");
-      document.getElementById("diagnostic").textContent = lines.join("\n");
-      return;
-    }
-
-    var sample = allRecords[0];
-    lines.push("Exemple de 1ère ligne reçue (valeurs brutes) :");
-    ["Date", "Debut", "Fin", "Occurrence"].forEach(function (k) {
-      lines.push("  " + k + " (" + typeof sample[k] + ") = " + JSON.stringify(sample[k]));
-    });
-
-    var keys = {};
-    allRecords.forEach(function (r) {
-      var k = dateKey(r.Date);
-      if (k) keys[k] = (keys[k] || 0) + 1;
-    });
-    var distinctDates = Object.keys(keys).sort();
-
-    lines.push("");
-    lines.push("Date recherchée : " + selected);
-    lines.push("Dates trouvées dans la table (" + distinctDates.length + " distinctes) :");
-    if (distinctDates.length === 0) {
-      lines.push("  → aucune valeur de la colonne \"Date\" n'a pu être interprétée comme une date.");
-    } else {
-      distinctDates.slice(0, 15).forEach(function (k) {
-        lines.push("  " + k + "  (" + keys[k] + " ligne" + (keys[k] > 1 ? "s" : "") + ")");
-      });
-      if (distinctDates.length > 15) lines.push("  … (" + (distinctDates.length - 15) + " de plus)");
-    }
-
-    document.getElementById("diagnostic").textContent = lines.join("\n");
-  }
-
-  function render() {
-    var listEl = document.getElementById("list");
-    var countEl = document.getElementById("count");
-    var picker = document.getElementById("date-picker");
-    var selected = picker.value;
-
-    if (!ready) {
-      listEl.innerHTML = '<div class="status">En attente des données Grist…</div>';
-      countEl.textContent = "";
-      return;
-    }
-
-    if (!selected) {
-      listEl.innerHTML = '<div class="status">Choisissez une date.</div>';
-      countEl.textContent = "";
-      return;
-    }
-
-    var matches = allRecords.filter(function (r) {
-      return dateKey(r.Date) === selected;
-    });
-
-    matches.sort(function (a, b) {
-      return sortKey(a.Debut) - sortKey(b.Debut);
-    });
-
-    countEl.textContent = matches.length
-      ? matches.length + " occurrence" + (matches.length > 1 ? "s" : "")
-      : "";
-
-    buildDiagnostic(selected);
-
-    if (matches.length === 0) {
-      listEl.innerHTML = allRecords.length === 0
-        ? '<div class="empty">Aucune donnée reçue de Grist. Ouvrez le diagnostic ci-dessous.</div>'
-        : '<div class="empty">Aucune occurrence pour cette date. Ouvrez le diagnostic ci-dessous pour voir les dates disponibles.</div>';
-      return;
-    }
-
-    listEl.innerHTML = matches.map(function (r) {
-      var debut = escapeHtml(formatTime(r.Debut));
-      var fin = escapeHtml(formatTime(r.Fin));
-      var label = escapeHtml(r.Occurrence == null ? "" : r.Occurrence);
-      return (
-        '<div class="row">' +
-          '<span class="time">' + debut + ' - ' + fin + '</span>' +
-          '<span class="sep">:</span>' +
-          '<span class="label">' + label + '</span>' +
-        '</div>'
-      );
-    }).join("");
-  }
-
-  // --- Interactions ---
-
-  var datePicker = document.getElementById("date-picker");
-  datePicker.value = todayLocalISO();
-  datePicker.addEventListener("change", render);
-
-  document.getElementById("today-btn").addEventListener("click", function () {
-    datePicker.value = todayLocalISO();
-    render();
-  });
-
-  document.getElementById("diag-toggle").addEventListener("click", function () {
-    var el = document.getElementById("diagnostic");
-    var showing = el.style.display !== "none";
-    el.style.display = showing ? "none" : "block";
-    this.textContent = showing ? "Diagnostic" : "Masquer le diagnostic";
-  });
-
-  render();
-})();
-</script>
-</body>
-</html>  l'affichage — pensez à vérifier que le fuseau horaire de la colonne
-  correspond à celui attendu.
--->
-
-<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-
-<style>
-  :root {
-    --border: #e1e4e8;
-    --text: #1a1d21;
-    --muted: #6b7280;
-    --accent: #2f80ed;
-    --row-bg: #ffffff;
-    --row-bg-alt: #f7f9fb;
-    --bg: #ffffff;
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif;
-  }
-
-  .wrap {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 14px 16px;
-  }
-
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-
-  .toolbar label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-  }
-
-  .toolbar input[type="date"] {
-    font-size: 14px;
-    padding: 6px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: white;
-    color: var(--text);
-  }
-
-  .toolbar .today-btn {
-    font-size: 13px;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: white;
-    color: var(--accent);
-    cursor: pointer;
-  }
-
-  .toolbar .today-btn:hover {
-    background: #eef4fd;
-  }
-
-  .count {
-    margin-left: auto;
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .list {
-    flex: 1;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-
-  .row {
-    display: flex;
-    gap: 8px;
-    padding: 9px 12px;
-    font-size: 14px;
-    line-height: 1.4;
-    border-bottom: 1px solid var(--border);
-    background: var(--row-bg);
-  }
-
-  .row:nth-child(even) {
-    background: var(--row-bg-alt);
-  }
-
-  .row:last-child {
-    border-bottom: none;
-  }
-
-  .row .time {
-    font-variant-numeric: tabular-nums;
-    color: var(--accent);
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .row .sep {
-    color: var(--muted);
-  }
-
-  .row .label {
-    color: var(--text);
-  }
-
-  .empty, .status {
-    padding: 24px 12px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 14px;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --border: #333940;
-      --text: #f0f2f5;
-      --muted: #9aa4b2;
-      --accent: #5b9dfa;
-      --row-bg: #1e2126;
-      --row-bg-alt: #24272d;
-      --bg: #17191c;
-    }
-    .toolbar input[type="date"],
-    .toolbar .today-btn {
-      background: #24272d;
-    }
-    .toolbar .today-btn:hover {
-      background: #2b3038;
-    }
-  }
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="toolbar">
-      <label for="date-picker">Date&nbsp;:</label>
-      <input type="date" id="date-picker" />
-      <button type="button" class="today-btn" id="today-btn">Aujourd'hui</button>
-      <span class="count" id="count"></span>
-    </div>
-    <div class="list" id="list">
-      <div class="status">En attente des données Grist…</div>
-    </div>
-  </div>
-
-<script>
-(function () {
-  var allRecords = [];
-  var ready = false;
-
-  // --- Configuration du widget : mapping générique des colonnes ---
-  grist.ready({
-    columns: [
-      { name: "Date", title: "Date", type: "Date", optional: false },
-      { name: "Debut", title: "Heure de début", type: "Any", optional: false },
-      { name: "Fin", title: "Heure de fin", type: "Any", optional: false },
-      { name: "Occurrence", title: "Occurrence", type: "Text", optional: false }
-    ],
-    requiredAccess: "read table"
-  });
-
-  grist.onRecords(function (records, mappings) {
-    try {
-      allRecords = records.map(function (r) {
-        return grist.mapColumnNames(r, mappings);
-      }).filter(Boolean);
-    } catch (e) {
-      allRecords = [];
-    }
-    ready = true;
-    render();
-  });
-
-  // --- Utilitaires de dates/heures ---
-
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
-
-  function todayLocalISO() {
-    var d = new Date();
-    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
-  }
-
-  // Renvoie {y, m, d} en UTC pour une valeur Date/DateTime Grist
-  // (nombre = secondes depuis epoch) ou une chaîne ISO/"YYYY-MM-DD".
-  function extractDateParts(value) {
-    if (value == null) return null;
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return null;
-      return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
-    }
-
-    if (typeof value === "string") {
-      var m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (typeof value === 'string') {
+      var m = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})[ T]+(\d{1,2}):(\d{2})/);
       if (m) {
-        return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+        var d = parseInt(m[1], 10);
+        var mo = parseInt(m[2], 10);
+        var y = parseInt(m[3], 10);
+        var h = parseInt(m[4], 10);
+        var mi = parseInt(m[5], 10);
+        return new Date(y, mo - 1, d, h, mi);
       }
       var parsed = new Date(value);
-      if (!isNaN(parsed.getTime())) {
-        return { y: parsed.getUTCFullYear(), m: parsed.getUTCMonth() + 1, d: parsed.getUTCDate() };
-      }
+      if (!isNaN(parsed.getTime())) return parsed;
     }
 
     return null;
   }
 
-  function dateKey(value) {
-    var p = extractDateParts(value);
-    if (!p) return null;
-    return p.y + "-" + pad2(p.m) + "-" + pad2(p.d);
+  function toInputDateValue(date) {
+    var y = date.getFullYear();
+    var m = String(date.getMonth() + 1).padStart(2, '0');
+    var d = String(date.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
   }
 
-  // Formatte une valeur "heure" (Debut/Fin) pour l'affichage.
-  function formatTime(value) {
-    if (value == null || value === "") return "?";
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return String(value);
-      return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-    }
-
-    if (typeof value === "string") {
-      // Déjà au format HH:MM ou HH:MM:SS -> on garde HH:MM
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return pad2(Number(m[1])) + ":" + m[2];
-      return value;
-    }
-
-    return String(value);
+  function getSelectedDate() {
+    var val = dayPicker.value;
+    if (!val) return new Date();
+    var parts = val.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
   }
 
-  // Clé numérique (minutes depuis minuit) pour trier par heure de début.
-  function sortKey(value) {
-    if (value == null || value === "") return Number.MAX_SAFE_INTEGER;
-
-    if (typeof value === "number") {
-      var d = new Date(value * 1000);
-      if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
-      return d.getHours() * 60 + d.getMinutes();
-    }
-
-    if (typeof value === "string") {
-      var m = value.match(/^(\d{1,2}):(\d{2})/);
-      if (m) return Number(m[1]) * 60 + Number(m[2]);
-    }
-
-    return Number.MAX_SAFE_INTEGER;
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
   }
+
+  function fmtHM(date) {
+    if (!date) return '--:--';
+    var h = String(date.getHours()).padStart(2, '0');
+    var m = String(date.getMinutes()).padStart(2, '0');
+    return h + ':' + m;
+  }
+
+  function fmtDayTitle(date) {
+    var d = String(date.getDate()).padStart(2, '0');
+    var m = String(date.getMonth() + 1).padStart(2, '0');
+    var y = date.getFullYear();
+    return d + '/' + m + '/' + y;
+  }
+
+  // ---- Sélection et tri des occurrences du jour -----------------------------
+
+  function getOccurrencesForDay(day) {
+    return allRecords
+      .map(function (r) {
+        return {
+          debut: parseGristDateTime(r.Debut),
+          fin: parseGristDateTime(r.Fin),
+          occurrence: (r.Occurrence === null || r.Occurrence === undefined) ? '' : String(r.Occurrence)
+        };
+      })
+      .filter(function (r) { return r.debut && sameDay(r.debut, day); })
+      .sort(function (a, b) { return a.debut - b.debut; });
+  }
+
+  // ---- Aperçu dans le widget -------------------------------------------------
 
   function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
   }
 
-  // --- Rendu ---
+  function renderPreview() {
+    if (!recordsLoaded) {
+      previewZone.innerHTML = '';
+      return;
+    }
+    var day = getSelectedDate();
+    var occ = getOccurrencesForDay(day);
 
-  function render() {
-    var listEl = document.getElementById("list");
-    var countEl = document.getElementById("count");
-    var picker = document.getElementById("date-picker");
-    var selected = picker.value;
-
-    if (!ready) {
-      listEl.innerHTML = '<div class="status">En attente des données Grist…</div>';
-      countEl.textContent = "";
+    if (occ.length === 0) {
+      previewZone.innerHTML =
+        '<div class="fr-alert fr-alert--info fr-alert--sm">' +
+        '<p>Aucune occurrence trouvée pour le ' + escapeHtml(fmtDayTitle(day)) + '.</p>' +
+        '</div>';
       return;
     }
 
-    if (!selected) {
-      listEl.innerHTML = '<div class="status">Choisissez une date.</div>';
-      countEl.textContent = "";
-      return;
-    }
+    var rows = occ.map(function (o) {
+      return '<tr>' +
+        '<td>' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + '</td>' +
+        '<td><strong>' + escapeHtml(o.occurrence) + '</strong></td>' +
+        '</tr>';
+    }).join('');
 
-    var matches = allRecords.filter(function (r) {
-      return dateKey(r.Date) === selected;
-    });
-
-    matches.sort(function (a, b) {
-      return sortKey(a.Debut) - sortKey(b.Debut);
-    });
-
-    countEl.textContent = matches.length
-      ? matches.length + " occurrence" + (matches.length > 1 ? "s" : "")
-      : "";
-
-    if (matches.length === 0) {
-      listEl.innerHTML = '<div class="empty">Aucune occurrence pour cette date.</div>';
-      return;
-    }
-
-    listEl.innerHTML = matches.map(function (r) {
-      var debut = escapeHtml(formatTime(r.Debut));
-      var fin = escapeHtml(formatTime(r.Fin));
-      var label = escapeHtml(r.Occurrence == null ? "" : r.Occurrence);
-      return (
-        '<div class="row">' +
-          '<span class="time">' + debut + ' - ' + fin + '</span>' +
-          '<span class="sep">:</span>' +
-          '<span class="label">' + label + '</span>' +
-        '</div>'
-      );
-    }).join("");
+    previewZone.innerHTML =
+      '<p class="fr-text--sm occ-count">' + occ.length + ' occurrence(s) pour le ' + escapeHtml(fmtDayTitle(day)) + '</p>' +
+      '<table class="fr-table fr-table--sm" aria-label="Aperçu de la feuille de service">' +
+      '<thead><tr><th scope="col">Horaires</th><th scope="col">Occurrence</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+      '</table>';
   }
 
-  // --- Interactions ---
+  // ---- Génération du PDF -------------------------------------------------
 
-  var datePicker = document.getElementById("date-picker");
-  datePicker.value = todayLocalISO();
-  datePicker.addEventListener("change", render);
+  function showStatus(type, message) {
+    // type: 'success' | 'error' | 'info'
+    statusZone.innerHTML =
+      '<div class="fr-alert fr-alert--' + type + ' fr-alert--sm">' +
+      '<p>' + escapeHtml(message) + '</p>' +
+      '</div>';
+  }
 
-  document.getElementById("today-btn").addEventListener("click", function () {
-    datePicker.value = todayLocalISO();
-    render();
-  });
+  function generatePDF() {
+    if (!recordsLoaded) return;
 
-  render();
+    var day = getSelectedDate();
+    var occ = getOccurrencesForDay(day);
+
+    if (occ.length === 0) {
+      showStatus('warning', 'Aucune occurrence à exporter pour le ' + fmtDayTitle(day) + '.');
+      return;
+    }
+
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if (!jsPDFCtor) {
+      showStatus('error', 'La bibliothèque de génération PDF (jsPDF) n\'a pas pu être chargée.');
+      return;
+    }
+
+    var doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
+    var marginLeft = 20;
+    var marginRight = 20;
+    var marginTop = 22;
+    var marginBottom = 20;
+    var pageWidth = doc.internal.pageSize.getWidth();
+    var pageHeight = doc.internal.pageSize.getHeight();
+    var lineHeight = 7.5;
+    var y = marginTop;
+
+    var bleuFrance = [0, 0, 145]; // #000091 — Bleu France (DSFR)
+
+    // Titre
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
+    var title = 'Feuille de service journalier du ' + fmtDayTitle(day);
+    doc.text(title, pageWidth / 2, y, { align: 'center' });
+
+    y += 4;
+    doc.setDrawColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
+    doc.setLineWidth(0.5);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
+    y += lineHeight * 1.6;
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
+
+    occ.forEach(function (o) {
+      if (y > pageHeight - marginBottom) {
+        doc.addPage();
+        y = marginTop;
+      }
+
+      var prefix = fmtHM(o.debut) + ' - ' + fmtHM(o.fin) + ' : ';
+      doc.setFont('helvetica', 'normal');
+      doc.text(prefix, marginLeft, y);
+      var prefixWidth = doc.getTextWidth(prefix);
+
+      doc.setFont('helvetica', 'bold');
+      var maxWidth = pageWidth - marginLeft - marginRight - prefixWidth;
+      var wrapped = doc.splitTextToSize(o.occurrence || '', maxWidth > 10 ? maxWidth : pageWidth - marginLeft - marginRight);
+
+      if (maxWidth > 10) {
+        doc.text(wrapped[0] || '', marginLeft + prefixWidth, y);
+        for (var i = 1; i < wrapped.length; i++) {
+          y += lineHeight;
+          if (y > pageHeight - marginBottom) {
+            doc.addPage();
+            y = marginTop;
+          }
+          doc.text(wrapped[i], marginLeft + prefixWidth, y);
+        }
+      } else {
+        // Occurrence trop longue pour tenir à côté du préfixe : ligne suivante
+        y += lineHeight;
+        if (y > pageHeight - marginBottom) {
+          doc.addPage();
+          y = marginTop;
+        }
+        var wrappedFull = doc.splitTextToSize(o.occurrence || '', pageWidth - marginLeft - marginRight);
+        wrappedFull.forEach(function (line, idx) {
+          if (idx > 0) {
+            y += lineHeight;
+            if (y > pageHeight - marginBottom) {
+              doc.addPage();
+              y = marginTop;
+            }
+          }
+          doc.text(line, marginLeft, y);
+        });
+      }
+
+      y += lineHeight;
+    });
+
+    var filename = 'Feuille_de_service_' + fmtDayTitle(day).replace(/\//g, '-') + '.pdf';
+    doc.save(filename);
+    showStatus('success', 'PDF généré : ' + filename);
+  }
+
 })();
 </script>
 </body>
