@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Occurrences du jour</title>
+
+<!--
+  WIDGET PERSONNALISÉ GRIST — « Occurrences du jour »
+  ====================================================
+  Ce widget affiche, pour une date choisie dans un sélecteur, toutes les
+  lignes d'une table Grist sous la forme :
+      Heure de début - Heure de fin : Occurrence
+
+  INSTALLATION DANS GRIST
+  ------------------------
+  1. Hébergez ce fichier HTML quelque part d'accessible publiquement
+     (GitHub Pages, Netlify, Vercel, etc.) pour obtenir une URL en https.
+  2. Dans Grist : Ajouter un widget > Custom Widget (ou "Personnalisé") >
+     collez l'URL de ce fichier.
+  3. Dans le panneau de droite du widget, section "Colonnes" (Column
+     Mapping), associez vos colonnes réelles aux rôles demandés :
+       - Date        -> votre colonne de type Date (ou DateTime)
+       - Debut       -> votre colonne "heure de début" (Texte ou DateTime)
+       - Fin         -> votre colonne "heure de fin" (Texte ou DateTime)
+       - Occurrence  -> votre colonne "libellé / titre de l'occurrence"
+  4. Le widget lit alors TOUTES les lignes visibles de la table à laquelle
+     il est attaché (pas seulement la ligne sélectionnée), et le sélecteur
+     de date en haut du widget permet de filtrer les occurrences du jour
+     choisi.
+
+  NOTE SUR LES HEURES
+  --------------------
+  Si vos colonnes "Debut"/"Fin" sont du texte au format "HH:MM" (ex: 09:00),
+  elles s'affichent telles quelles. Si ce sont des colonnes Grist de type
+  DateTime, elles sont converties en heure locale du navigateur pour
+  l'affichage — pensez à vérifier que le fuseau horaire de la colonne
+  correspond à celui attendu.
+-->
+
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+
+<style>
+  :root {
+    --border: #e1e4e8;
+    --text: #1a1d21;
+    --muted: #6b7280;
+    --accent: #2f80ed;
+    --row-bg: #ffffff;
+    --row-bg-alt: #f7f9fb;
+    --bg: #ffffff;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
+  }
+
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 14px 16px;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .toolbar input[type="date"] {
+    font-size: 14px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: white;
+    color: var(--text);
+  }
+
+  .toolbar .today-btn {
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: white;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .toolbar .today-btn:hover {
+    background: #eef4fd;
+  }
+
+  .count {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .list {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    line-height: 1.4;
+    border-bottom: 1px solid var(--border);
+    background: var(--row-bg);
+  }
+
+  .row:nth-child(even) {
+    background: var(--row-bg-alt);
+  }
+
+  .row:last-child {
+    border-bottom: none;
+  }
+
+  .row .time {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .row .sep {
+    color: var(--muted);
+  }
+
+  .row .label {
+    color: var(--text);
+  }
+
+  .empty, .status {
+    padding: 24px 12px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --border: #333940;
+      --text: #f0f2f5;
+      --muted: #9aa4b2;
+      --accent: #5b9dfa;
+      --row-bg: #1e2126;
+      --row-bg-alt: #24272d;
+      --bg: #17191c;
+    }
+    .toolbar input[type="date"],
+    .toolbar .today-btn {
+      background: #24272d;
+    }
+    .toolbar .today-btn:hover {
+      background: #2b3038;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="toolbar">
+      <label for="date-picker">Date&nbsp;:</label>
+      <input type="date" id="date-picker" />
+      <button type="button" class="today-btn" id="today-btn">Aujourd'hui</button>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="list" id="list">
+      <div class="status">En attente des données Grist…</div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var allRecords = [];
+  var ready = false;
+
+  // --- Configuration du widget : mapping générique des colonnes ---
+  grist.ready({
+    columns: [
+      { name: "Date", title: "Date", type: "Date", optional: false },
+      { name: "Debut", title: "Heure de début", type: "Any", optional: false },
+      { name: "Fin", title: "Heure de fin", type: "Any", optional: false },
+      { name: "Occurrence", title: "Occurrence", type: "Text", optional: false }
+    ],
+    requiredAccess: "read table"
+  });
+
+  grist.onRecords(function (records, mappings) {
+    try {
+      allRecords = records.map(function (r) {
+        return grist.mapColumnNames(r, mappings);
+      }).filter(Boolean);
+    } catch (e) {
+      allRecords = [];
+    }
+    ready = true;
+    render();
+  });
+
+  // --- Utilitaires de dates/heures ---
+
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function todayLocalISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+
+  // Renvoie {y, m, d} en UTC pour une valeur Date/DateTime Grist
+  // (nombre = secondes depuis epoch) ou une chaîne ISO/"YYYY-MM-DD".
+  function extractDateParts(value) {
+    if (value == null) return null;
+
+    if (typeof value === "number") {
+      var d = new Date(value * 1000);
+      if (isNaN(d.getTime())) return null;
+      return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+    }
+
+    if (typeof value === "string") {
+      var m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) {
+        return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+      }
+      var parsed = new Date(value);
+      if (!isNaN(parsed.getTime())) {
+        return { y: parsed.getUTCFullYear(), m: parsed.getUTCMonth() + 1, d: parsed.getUTCDate() };
+      }
+    }
+
+    return null;
+  }
+
+  function dateKey(value) {
+    var p = extractDateParts(value);
+    if (!p) return null;
+    return p.y + "-" + pad2(p.m) + "-" + pad2(p.d);
+  }
+
+  // Formatte une valeur "heure" (Debut/Fin) pour l'affichage.
+  function formatTime(value) {
+    if (value == null || value === "") return "?";
+
+    if (typeof value === "number") {
+      var d = new Date(value * 1000);
+      if (isNaN(d.getTime())) return String(value);
+      return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+    }
+
+    if (typeof value === "string") {
+      // Déjà au format HH:MM ou HH:MM:SS -> on garde HH:MM
+      var m = value.match(/^(\d{1,2}):(\d{2})/);
+      if (m) return pad2(Number(m[1])) + ":" + m[2];
+      return value;
+    }
+
+    return String(value);
+  }
+
+  // Clé numérique (minutes depuis minuit) pour trier par heure de début.
+  function sortKey(value) {
+    if (value == null || value === "") return Number.MAX_SAFE_INTEGER;
+
+    if (typeof value === "number") {
+      var d = new Date(value * 1000);
+      if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
+      return d.getHours() * 60 + d.getMinutes();
+    }
+
+    if (typeof value === "string") {
+      var m = value.match(/^(\d{1,2}):(\d{2})/);
+      if (m) return Number(m[1]) * 60 + Number(m[2]);
+    }
+
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // --- Rendu ---
+
+  function render() {
+    var listEl = document.getElementById("list");
+    var countEl = document.getElementById("count");
+    var picker = document.getElementById("date-picker");
+    var selected = picker.value;
+
+    if (!ready) {
+      listEl.innerHTML = '<div class="status">En attente des données Grist…</div>';
+      countEl.textContent = "";
+      return;
+    }
+
+    if (!selected) {
+      listEl.innerHTML = '<div class="status">Choisissez une date.</div>';
+      countEl.textContent = "";
+      return;
+    }
+
+    var matches = allRecords.filter(function (r) {
+      return dateKey(r.Date) === selected;
+    });
+
+    matches.sort(function (a, b) {
+      return sortKey(a.Debut) - sortKey(b.Debut);
+    });
+
+    countEl.textContent = matches.length
+      ? matches.length + " occurrence" + (matches.length > 1 ? "s" : "")
+      : "";
+
+    if (matches.length === 0) {
+      listEl.innerHTML = '<div class="empty">Aucune occurrence pour cette date.</div>';
+      return;
+    }
+
+    listEl.innerHTML = matches.map(function (r) {
+      var debut = escapeHtml(formatTime(r.Debut));
+      var fin = escapeHtml(formatTime(r.Fin));
+      var label = escapeHtml(r.Occurrence == null ? "" : r.Occurrence);
+      return (
+        '<div class="row">' +
+          '<span class="time">' + debut + ' - ' + fin + '</span>' +
+          '<span class="sep">:</span>' +
+          '<span class="label">' + label + '</span>' +
+        '</div>'
+      );
+    }).join("");
+  }
+
+  // --- Interactions ---
+
+  var datePicker = document.getElementById("date-picker");
+  datePicker.value = todayLocalISO();
+  datePicker.addEventListener("change", render);
+
+  document.getElementById("today-btn").addEventListener("click", function () {
+    datePicker.value = todayLocalISO();
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
