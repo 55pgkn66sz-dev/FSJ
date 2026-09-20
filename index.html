@@ -54,7 +54,8 @@
   }
   .prog-card .prog-title { font-weight: 700; }
   .prog-card .prog-line { margin: 0.15rem 0; }
-  .prog-card .prog-line--consignes { font-size: 0.8em; }
+  .prog-card .prog-line--meta { font-size: 0.85em; color: var(--text-mention-grey); }
+  .prog-card .prog-line--consignes { font-size: 0.75em; }
   .badges { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
   #fsjFieldset .fr-radio-group label {
@@ -447,8 +448,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       html += '<p class="section-title">Progression</p>';
       html += sections.progression.map(function (o) {
         var lines = '';
-        if (o.lieu) lines += '<p class="prog-line">' + escapeHtml(o.lieu) + '</p>';
-        if (o.encadrement) lines += '<p class="prog-line">' + escapeHtml(o.encadrement) + '</p>';
+        var metaText = [o.encadrement, o.lieu].filter(Boolean).join(', ');
+        if (metaText) lines += '<p class="prog-line prog-line--meta">' + escapeHtml(metaText) + '</p>';
         if (o.consignes) lines += '<p class="prog-line prog-line--consignes">' + escapeHtml(o.consignes) + '</p>';
         var cardClass = 'prog-card' + (isExcludedCode(o.code) ? ' prog-card--encadrement-only' : '');
         return '<div class="' + cardClass + '">' +
@@ -563,27 +564,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // Bandeau (page 1)
     paintBannerIfNeeded();
 
-    // Bloc marque (lettre à en-tête)
-    doc.setFont(baseFont, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Ministère de l\'Intérieur', marginLeft, y);
-    y += lineHeight * 0.75;
+    // Titre
     doc.setFont(baseFont, 'bold');
-    doc.text('Direction Gendarmerie nationale', marginLeft, y);
-    y += lineHeight * 1.5;
-
-    // Titre du document (gras, majuscules, centré)
-    doc.setFont(baseFont, 'bold');
-    doc.setFontSize(15);
+    doc.setFontSize(16);
     doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
-    var docTitle = 'Préparation militaire gendarmerie - Octobre 2026';
-    doc.text(docTitle.toUpperCase(), pageWidth / 2, y, { align: 'center' });
-    y += lineHeight * 1.3;
-
-    // Sous-titre : feuille de service du jour
-    doc.setFont(baseFont, 'bold');
-    doc.setFontSize(13);
     var title = 'Feuille de service journalier du ' + fmtDayTitle(day);
     doc.text(title, pageWidth / 2, y, { align: 'center' });
 
@@ -678,38 +662,93 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     // ---- Section Progression ----
     if (sections.progression.length) {
+      var contentWidth = pageWidth - marginLeft - marginRight;
+      var META_LH = 5.0;
+      var CONSIGNES_LH = 4.3;
+      var BADGE_H = 5.2;
+      var metaColor = [110, 110, 110];
+      var pastel = [235, 241, 250]; // fond pastel (une ligne sur deux)
+
+      function measureWrapped(text, fontSize, bold) {
+        doc.setFont(baseFont, bold ? 'bold' : 'normal');
+        doc.setFontSize(fontSize);
+        return doc.splitTextToSize(text || '', contentWidth);
+      }
+
+      function measureBadgeRows(names) {
+        if (!names.length) return 0;
+        var paddingX = 1.8, gap = 1.8;
+        var rightLimit = pageWidth - marginRight;
+        doc.setFont(baseFont, 'normal');
+        doc.setFontSize(8);
+        var rows = 1;
+        var x = marginLeft;
+        names.forEach(function (name) {
+          var badgeW = doc.getTextWidth(name) + paddingX * 2;
+          if (x + badgeW > rightLimit && x > marginLeft) {
+            rows += 1;
+            x = marginLeft;
+          }
+          x += badgeW + gap;
+        });
+        return rows;
+      }
+
+      function drawLines(lines, fontSize, bold, color, lh) {
+        doc.setFont(baseFont, bold ? 'bold' : 'normal');
+        doc.setFontSize(fontSize);
+        doc.setTextColor(color[0], color[1], color[2]);
+        lines.forEach(function (line) {
+          doc.text(line, marginLeft, y);
+          y += lh;
+        });
+        doc.setTextColor(0, 0, 0);
+      }
+
       ensureRoom(lineHeight);
       doc.setFont(baseFont, 'bold');
+      doc.setFontSize(11);
       drawUnderlinedText(doc, 'Progression', marginLeft, y);
       y += lineHeight * 1.3;
 
-      sections.progression.forEach(function (o) {
-        ensureRoom(lineHeight);
-        var titleLine = fmtHM(o.debut) + ' - ' + fmtHM(o.fin) + ' : ' + o.intitule;
-        printWrapped(titleLine, marginLeft, pageWidth - marginLeft - marginRight, true);
-        y += lineHeight;
+      sections.progression.forEach(function (o, index) {
+        var titleText = fmtHM(o.debut) + ' - ' + fmtHM(o.fin) + ' : ' + o.intitule;
+        var metaText = [o.encadrement, o.lieu].filter(Boolean).join(', ');
+        var consignesText = o.consignes || '';
 
-        if (o.lieu) {
-          ensureRoom(lineHeight);
-          printWrapped(o.lieu, marginLeft, pageWidth - marginLeft - marginRight, false);
-          y += lineHeight;
+        var titleLines = measureWrapped(titleText, 11, true);
+        var metaLines = metaText ? measureWrapped(metaText, 9, false) : [];
+        var consignesLines = consignesText ? measureWrapped(consignesText, 7.5, false) : [];
+        var badgeRows = measureBadgeRows(o.apprenants);
+
+        var blockHeight = titleLines.length * lineHeight;
+        if (metaLines.length) blockHeight += metaLines.length * META_LH + 1.2;
+        if (consignesLines.length) blockHeight += consignesLines.length * CONSIGNES_LH + 1.0;
+        if (badgeRows) blockHeight += badgeRows * (BADGE_H + 1.2) + 1.5;
+
+        ensureRoom(blockHeight + 4);
+
+        var rowStartY = y;
+        if (index % 2 === 0) {
+          doc.setFillColor(pastel[0], pastel[1], pastel[2]);
+          doc.rect(marginLeft - 3, rowStartY - 4.5, contentWidth + 6, blockHeight + 3, 'F');
         }
-        if (o.encadrement) {
-          ensureRoom(lineHeight);
-          printWrapped(o.encadrement, marginLeft, pageWidth - marginLeft - marginRight, false);
-          y += lineHeight;
+
+        drawLines(titleLines, 11, true, [0, 0, 0], lineHeight);
+        if (metaLines.length) {
+          y += 1.2;
+          drawLines(metaLines, 9, false, metaColor, META_LH);
         }
-        if (o.consignes) {
-          ensureRoom(lineHeight);
-          printWrapped(o.consignes, marginLeft, pageWidth - marginLeft - marginRight, false);
-          y += lineHeight;
+        if (consignesLines.length) {
+          y += 1.0;
+          drawLines(consignesLines, 7.5, false, [0, 0, 0], CONSIGNES_LH);
         }
         if (o.apprenants.length) {
+          y += 1.5;
           drawBadges(o.apprenants);
-          y += 2;
         }
 
-        y += lineHeight * 0.5; // séparation entre occurrences
+        y += lineHeight * 0.6; // séparation entre occurrences
       });
     }
 
