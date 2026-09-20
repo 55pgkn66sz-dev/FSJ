@@ -399,6 +399,371 @@
 })();
 </script>
 </body>
+</html>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+
+<style>
+  /* Ajustements propres au contexte "petit widget embarqué", en plus du DSFR */
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--background-default-grey, #fff);
+  }
+
+  .widget-wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .toolbar .fr-input-group {
+    margin-bottom: 0;
+  }
+
+  .toolbar .spacer {
+    flex: 1 1 auto;
+  }
+
+  .result-zone {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 1rem;
+  }
+
+  #table-wrap {
+    margin: 0;
+  }
+
+  #table-wrap table {
+    width: 100%;
+  }
+
+  #table-wrap th:first-child,
+  #table-wrap td:first-child {
+    white-space: nowrap;
+    width: 1%;
+  }
+
+  .diagnostic-pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    margin: 0.5rem 0 0 0;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+  <div class="widget-wrap fr-p-2w">
+
+    <div class="toolbar fr-mb-2w">
+      <div class="fr-input-group">
+        <label class="fr-label" for="date-picker">Date</label>
+        <input class="fr-input" type="date" id="date-picker" />
+      </div>
+      <button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" id="today-btn">
+        Aujourd'hui
+      </button>
+      <div class="spacer"></div>
+      <span class="fr-badge fr-badge--sm" id="count"></span>
+    </div>
+
+    <div class="result-zone">
+      <p class="fr-text--sm fr-text-mention--grey" id="status-msg">
+        En attente des données Grist…
+      </p>
+
+      <div class="fr-table fr-table--sm fr-table--bordered" id="table-wrap" style="display:none;">
+        <table>
+          <caption class="fr-sr-only">Occurrences pour la date sélectionnée</caption>
+          <thead>
+            <tr>
+              <th scope="col">Horaire</th>
+              <th scope="col">Occurrence</th>
+            </tr>
+          </thead>
+          <tbody id="rows-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <button type="button" class="fr-link fr-link--sm" id="diag-toggle">
+      Diagnostic
+    </button>
+    <div class="fr-alert fr-alert--info fr-alert--sm fr-mt-1w" id="diagnostic" style="display:none;">
+      <p class="fr-alert__title">Diagnostic</p>
+      <pre class="diagnostic-pre" id="diagnostic-content"></pre>
+    </div>
+
+  </div>
+
+<script>
+(function () {
+  var allRecords = [];
+  var ready = false;
+
+  // --- Configuration du widget : mapping générique des colonnes ---
+  grist.ready({
+    columns: [
+      { name: "Date", title: "Date", type: "Date", optional: false },
+      { name: "Debut", title: "Heure de début", type: "Any", optional: false },
+      { name: "Fin", title: "Heure de fin", type: "Any", optional: false },
+      { name: "Occurrence", title: "Occurrence", type: "Text", optional: false }
+    ],
+    requiredAccess: "read table"
+  });
+
+  grist.onRecords(function (records, mappings) {
+    try {
+      allRecords = records.map(function (r) {
+        return grist.mapColumnNames(r, mappings);
+      }).filter(Boolean);
+    } catch (e) {
+      allRecords = [];
+    }
+    ready = true;
+    render();
+  });
+
+  // --- Utilitaires de dates/heures ---
+
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function todayLocalISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+
+  // Renvoie {y, m, d} en UTC pour une valeur Date/DateTime Grist
+  // (nombre = secondes depuis epoch), une chaîne ISO "YYYY-MM-DD",
+  // une chaîne "JJ/MM/AAAA" ou "JJ-MM-AAAA", ou un objet Date JS.
+  function extractDateParts(value) {
+    if (value == null) return null;
+
+    if (value instanceof Date) {
+      if (isNaN(value.getTime())) return null;
+      return { y: value.getUTCFullYear(), m: value.getUTCMonth() + 1, d: value.getUTCDate() };
+    }
+
+    if (typeof value === "number") {
+      var d = new Date(value * 1000);
+      if (isNaN(d.getTime())) return null;
+      return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+    }
+
+    if (typeof value === "string") {
+      var s = value.trim();
+
+      var iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) {
+        return { y: Number(iso[1]), m: Number(iso[2]), d: Number(iso[3]) };
+      }
+
+      var fr = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (fr) {
+        return { y: Number(fr[3]), m: Number(fr[2]), d: Number(fr[1]) };
+      }
+
+      var parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) {
+        return { y: parsed.getUTCFullYear(), m: parsed.getUTCMonth() + 1, d: parsed.getUTCDate() };
+      }
+    }
+
+    return null;
+  }
+
+  function dateKey(value) {
+    var p = extractDateParts(value);
+    if (!p) return null;
+    return p.y + "-" + pad2(p.m) + "-" + pad2(p.d);
+  }
+
+  function formatTime(value) {
+    if (value == null || value === "") return "?";
+
+    if (typeof value === "number") {
+      var d = new Date(value * 1000);
+      if (isNaN(d.getTime())) return String(value);
+      return pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+    }
+
+    if (typeof value === "string") {
+      var m = value.match(/^(\d{1,2}):(\d{2})/);
+      if (m) return pad2(Number(m[1])) + ":" + m[2];
+      return value;
+    }
+
+    return String(value);
+  }
+
+  function sortKey(value) {
+    if (value == null || value === "") return Number.MAX_SAFE_INTEGER;
+
+    if (typeof value === "number") {
+      var d = new Date(value * 1000);
+      if (isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
+      return d.getHours() * 60 + d.getMinutes();
+    }
+
+    if (typeof value === "string") {
+      var m = value.match(/^(\d{1,2}):(\d{2})/);
+      if (m) return Number(m[1]) * 60 + Number(m[2]);
+    }
+
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // --- Diagnostic ---
+
+  function buildDiagnostic(selected) {
+    var lines = [];
+    lines.push("Lignes reçues de Grist : " + allRecords.length);
+
+    if (allRecords.length === 0) {
+      lines.push("→ Aucune ligne n'arrive du tout. Vérifiez :");
+      lines.push("  - que le mapping des 4 colonnes est bien enregistré (panneau de droite du widget)");
+      lines.push("  - que la table n'est pas vide");
+      lines.push("  - que l'accès accordé au widget couvre bien cette table");
+      document.getElementById("diagnostic-content").textContent = lines.join("\n");
+      return;
+    }
+
+    var sample = allRecords[0];
+    lines.push("Exemple de 1ère ligne reçue (valeurs brutes) :");
+    ["Date", "Debut", "Fin", "Occurrence"].forEach(function (k) {
+      lines.push("  " + k + " (" + typeof sample[k] + ") = " + JSON.stringify(sample[k]));
+    });
+
+    var keys = {};
+    allRecords.forEach(function (r) {
+      var k = dateKey(r.Date);
+      if (k) keys[k] = (keys[k] || 0) + 1;
+    });
+    var distinctDates = Object.keys(keys).sort();
+
+    lines.push("");
+    lines.push("Date recherchée : " + selected);
+    lines.push("Dates trouvées dans la table (" + distinctDates.length + " distinctes) :");
+    if (distinctDates.length === 0) {
+      lines.push("  → aucune valeur de la colonne \"Date\" n'a pu être interprétée comme une date.");
+    } else {
+      distinctDates.slice(0, 15).forEach(function (k) {
+        lines.push("  " + k + "  (" + keys[k] + " ligne" + (keys[k] > 1 ? "s" : "") + ")");
+      });
+      if (distinctDates.length > 15) lines.push("  … (" + (distinctDates.length - 15) + " de plus)");
+    }
+
+    document.getElementById("diagnostic-content").textContent = lines.join("\n");
+  }
+
+  // --- Rendu ---
+
+  function render() {
+    var statusEl = document.getElementById("status-msg");
+    var tableWrapEl = document.getElementById("table-wrap");
+    var rowsBodyEl = document.getElementById("rows-body");
+    var countEl = document.getElementById("count");
+    var picker = document.getElementById("date-picker");
+    var selected = picker.value;
+
+    if (!ready) {
+      statusEl.style.display = "";
+      statusEl.textContent = "En attente des données Grist…";
+      tableWrapEl.style.display = "none";
+      countEl.textContent = "";
+      return;
+    }
+
+    if (!selected) {
+      statusEl.style.display = "";
+      statusEl.textContent = "Choisissez une date.";
+      tableWrapEl.style.display = "none";
+      countEl.textContent = "";
+      return;
+    }
+
+    var matches = allRecords.filter(function (r) {
+      return dateKey(r.Date) === selected;
+    });
+
+    matches.sort(function (a, b) {
+      return sortKey(a.Debut) - sortKey(b.Debut);
+    });
+
+    countEl.textContent = matches.length
+      ? matches.length + " occurrence" + (matches.length > 1 ? "s" : "")
+      : "";
+
+    buildDiagnostic(selected);
+
+    if (matches.length === 0) {
+      tableWrapEl.style.display = "none";
+      statusEl.style.display = "";
+      statusEl.textContent = allRecords.length === 0
+        ? "Aucune donnée reçue de Grist. Ouvrez le diagnostic ci-dessous."
+        : "Aucune occurrence pour cette date. Ouvrez le diagnostic ci-dessous pour voir les dates disponibles.";
+      return;
+    }
+
+    statusEl.style.display = "none";
+    tableWrapEl.style.display = "";
+
+    rowsBodyEl.innerHTML = matches.map(function (r) {
+      var debut = escapeHtml(formatTime(r.Debut));
+      var fin = escapeHtml(formatTime(r.Fin));
+      var label = escapeHtml(r.Occurrence == null ? "" : r.Occurrence);
+      return (
+        '<tr>' +
+          '<td><span class="fr-badge fr-badge--info fr-badge--sm">' + debut + '–' + fin + '</span></td>' +
+          '<td>' + label + '</td>' +
+        '</tr>'
+      );
+    }).join("");
+  }
+
+  // --- Interactions ---
+
+  var datePicker = document.getElementById("date-picker");
+  datePicker.value = todayLocalISO();
+  datePicker.addEventListener("change", render);
+
+  document.getElementById("today-btn").addEventListener("click", function () {
+    datePicker.value = todayLocalISO();
+    render();
+  });
+
+  document.getElementById("diag-toggle").addEventListener("click", function () {
+    var el = document.getElementById("diagnostic");
+    var showing = el.style.display !== "none";
+    el.style.display = showing ? "none" : "block";
+    this.textContent = showing ? "Diagnostic" : "Masquer le diagnostic";
+  });
+
+  render();
+})();
+</script>
+</body>
 </html>  l'affichage — pensez à vérifier que le fuseau horaire de la colonne
   correspond à celui attendu.
 -->
