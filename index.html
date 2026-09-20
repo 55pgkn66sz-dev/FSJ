@@ -55,6 +55,9 @@
   #fsjFieldset .fr-radio-group label {
     white-space: nowrap;
   }
+  #fsjFieldset .fr-radio-group label .fr-hint-text {
+    white-space: normal;
+  }
 </style>
 </head>
 <body>
@@ -92,18 +95,23 @@
   <fieldset class="fr-fieldset fr-mt-2w" id="fsjFieldset" aria-labelledby="fsjFieldset-legend">
     <legend class="fr-fieldset__legend fr-text--regular" id="fsjFieldset-legend">
       Version à générer
-      <span class="fr-hint-text">La feuille de service à destination des stagiaires ne contient pas certaines informations 😏</span>
     </legend>
     <div class="fr-fieldset__element">
       <div class="fr-radio-group">
         <input type="radio" id="fsjCadres" name="fsjType" value="cadres" checked>
-        <label class="fr-label" for="fsjCadres">Feuille de service <strong>encadrement</strong></label>
+        <label class="fr-label" for="fsjCadres">
+          Feuille de service encadrement
+          <span class="fr-hint-text">Cette version ne doit en aucun cas être diffusée aux stagiaires.</span>
+        </label>
       </div>
     </div>
     <div class="fr-fieldset__element">
       <div class="fr-radio-group">
         <input type="radio" id="fsjStagiaires" name="fsjType" value="stagiaires">
-        <label class="fr-label" for="fsjStagiaires">Feuille de service <strong>stagiaires</strong></label>
+        <label class="fr-label" for="fsjStagiaires">
+          Feuille de service stagiaires
+          <span class="fr-hint-text">Cette version ne contient que les occurrences nécessaires à l'élève de jour.</span>
+        </label>
       </div>
     </div>
   </fieldset>
@@ -513,11 +521,18 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     var marginLeft = 20;
     var marginRight = 20;
-    var marginTop = 22;
     var marginBottom = 20;
     var pageWidth = doc.internal.pageSize.getWidth();
     var pageHeight = doc.internal.pageSize.getHeight();
     var lineHeight = 6.2;
+
+    // La version "encadrement" affiche un bandeau d'information importante
+    // en haut de chaque page (façon DSFR fr-notice) : on réserve la place
+    // correspondante en haut de page.
+    var bannerHeight = 14;
+    var bannerText = 'Cette version ne doit en aucun cas être diffusée aux stagiaires.';
+    var hasBanner = (mode === 'cadres');
+    var marginTop = hasBanner ? (22 + bannerHeight) : 22;
     var y = marginTop;
 
     var bleuFrance = [0, 0, 145]; // #000091 — Bleu France (DSFR)
@@ -536,7 +551,15 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var title = 'Feuille de service journalier du ' + fmtDayTitle(day);
     doc.text(title, pageWidth / 2, y, { align: 'center' });
 
-    y += 4;
+    // Ligne d'édition (petite, grise) sous le titre
+    y += lineHeight * 0.9;
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(130, 130, 130);
+    var editionLine = 'Version en vigueur le ' + fmtDayTitle(new Date()) + ', sous réserve de modifications par l\'AE.';
+    doc.text(editionLine, pageWidth / 2, y, { align: 'center' });
+
+    y += lineHeight * 0.9;
     doc.setDrawColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
     doc.setLineWidth(0.5);
     doc.line(marginLeft, y, pageWidth - marginRight, y);
@@ -653,11 +676,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       });
     }
 
-    if (mode === 'cadres') {
+    if (hasBanner) {
       var totalPages = doc.internal.getNumberOfPages();
       for (var p = 1; p <= totalPages; p++) {
         doc.setPage(p);
-        drawWatermark(doc, pageWidth, pageHeight, baseFont);
+        drawImportantNotice(doc, pageWidth, bannerHeight, bannerText, baseFont);
       }
     }
 
@@ -697,27 +720,28 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     showStatus('info', 'PDF téléchargé (' + built.filename + ') et WhatsApp ouvert : joignez le fichier manuellement, le partage automatique n\'étant pas disponible dans ce navigateur.');
   }
 
-  function drawWatermark(doc, pageWidth, pageHeight, baseFont) {
-    var text = 'NE PAS DIFFUSER';
-    var centerX = pageWidth / 2;
-    var centerY = pageHeight / 2;
-    var usedGState = false;
+  // Bandeau d'information importante (façon DSFR fr-notice / fr-notice--alert)
+  // en haut de page : fond rouge clair, texte rouge foncé en gras, sur toute
+  // la largeur. Remplace l'ancien filigrane diagonal "NE PAS DIFFUSER".
+  function drawImportantNotice(doc, pageWidth, bannerHeight, text, baseFont) {
+    // Couleurs approximant les tokens DSFR --background-contrast-error /
+    // --text-default-error (le PDF ne peut pas consommer les variables CSS).
+    var bg = [254, 231, 231];
+    var fg = [206, 5, 0];
 
-    try {
-      if (doc.GState && doc.saveGraphicsState) {
-        doc.saveGraphicsState();
-        doc.setGState(new doc.GState({ opacity: 0.25 }));
-        usedGState = true;
-      }
-      doc.setFont(baseFont, 'bold');
-      doc.setFontSize(56);
-      doc.setTextColor(usedGState ? 200 : 220, usedGState ? 0 : 220, usedGState ? 0 : 220);
-      doc.text(text, centerX, centerY, { angle: 45, align: 'center' });
-    } finally {
-      if (usedGState && doc.restoreGraphicsState) {
-        doc.restoreGraphicsState();
-      }
-    }
+    doc.setFillColor(bg[0], bg[1], bg[2]);
+    doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+    doc.setDrawColor(fg[0], fg[1], fg[2]);
+    doc.setLineWidth(0.6);
+    doc.line(0, bannerHeight, pageWidth, bannerHeight);
+
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(fg[0], fg[1], fg[2]);
+    doc.text(text, pageWidth / 2, bannerHeight / 2 + 1.5, { align: 'center', maxWidth: pageWidth - 16 });
+
+    doc.setTextColor(0, 0, 0);
   }
 
 })();
