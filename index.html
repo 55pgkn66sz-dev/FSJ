@@ -34,7 +34,6 @@
   :root { --bleu-france: #000091; }
   html, body { margin: 0; padding: 0; }
   .widget-wrap { padding: 1.5rem 1.25rem; max-width: 720px; }
-  .fr-logo { transform: scale(0.85); transform-origin: left top; margin-bottom: 0.5rem; }
   .occ-count { color: var(--text-mention-grey); }
   .fr-alert { margin-bottom: 0; }
 
@@ -52,22 +51,39 @@
   .prog-card .prog-title { font-weight: 700; }
   .prog-card .prog-line { margin: 0.15rem 0; }
   .badges { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+
+  #fsjFieldset .fr-radio-group label {
+    white-space: nowrap;
+  }
 </style>
 </head>
 <body>
+
+<header role="banner" class="fr-header">
+  <div class="fr-header__body">
+    <div class="fr-container">
+      <div class="fr-header__body-row">
+        <div class="fr-header__brand fr-enlarge-link">
+          <div class="fr-header__brand-top">
+            <div class="fr-header__logo">
+              <p class="fr-logo">Ministère<br>de l'Intérieur</p>
+            </div>
+          </div>
+          <div class="fr-header__service">
+            <p class="fr-header__service-title">Division réserves jeunesse</p>
+            <p class="fr-header__service-tagline">Générateur de FSJ</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
 <div class="widget-wrap">
-
-  <p class="fr-logo">Ministère<br>de l'Intérieur</p>
-
-  <h1 class="fr-h4 fr-mb-1w">Feuille de service journalier</h1>
-  <p class="fr-text--sm fr-mb-3w">
-    Choisissez un jour puis générez le PDF au format Marianne / DSFR,
-    avec les permanences et la progression du jour.
-  </p>
 
   <div class="fr-input-group">
     <label class="fr-label" for="dayPicker">
-      Jour à générer
+      Feuille de service à générer
       <span class="fr-hint-text">La date choisie apparaîtra dans le titre du document.</span>
     </label>
     <input class="fr-input" type="date" id="dayPicker" name="dayPicker">
@@ -75,26 +91,35 @@
 
   <fieldset class="fr-fieldset fr-mt-2w" id="fsjFieldset" aria-labelledby="fsjFieldset-legend">
     <legend class="fr-fieldset__legend fr-text--regular" id="fsjFieldset-legend">
-      Type de feuille de service
-      <span class="fr-hint-text">« FSJ stagiaires » masque les occurrences dont le code est CONFIDENTIEL, CDT, SOUTIEN, REUNION, AE ou POPOTE.</span>
+      Version à générer
+      <span class="fr-hint-text">La feuille de service à destination des stagiaires ne contient pas certaines informations 😏</span>
     </legend>
     <div class="fr-fieldset__element">
       <div class="fr-radio-group">
         <input type="radio" id="fsjCadres" name="fsjType" value="cadres" checked>
-        <label class="fr-label" for="fsjCadres">FSJ cadres</label>
+        <label class="fr-label" for="fsjCadres">Feuille de service <strong>encadrement</strong></label>
       </div>
     </div>
     <div class="fr-fieldset__element">
       <div class="fr-radio-group">
         <input type="radio" id="fsjStagiaires" name="fsjType" value="stagiaires">
-        <label class="fr-label" for="fsjStagiaires">FSJ stagiaires</label>
+        <label class="fr-label" for="fsjStagiaires">Feuille de service <strong>stagiaires</strong></label>
       </div>
     </div>
   </fieldset>
 
-  <button class="fr-btn fr-mt-3w" id="generateBtn" type="button" disabled>
-    Générer le PDF
-  </button>
+  <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-3w">
+    <li>
+      <button class="fr-btn" id="generateBtn" type="button" disabled>
+        Générer le PDF
+      </button>
+    </li>
+    <li>
+      <button class="fr-btn fr-btn--secondary" id="generateWhatsappBtn" type="button" disabled>
+        Générer le PDF et l'envoyer via WhatsApp
+      </button>
+    </li>
+  </ul>
 
   <div id="statusZone" class="fr-mt-3w" aria-live="polite"></div>
 
@@ -130,6 +155,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var dayPicker = document.getElementById('dayPicker');
   var generateBtn = document.getElementById('generateBtn');
+  var generateWhatsappBtn = document.getElementById('generateWhatsappBtn');
   var statusZone = document.getElementById('statusZone');
   var previewZone = document.getElementById('previewZone');
   var fsjRadios = document.querySelectorAll('input[name="fsjType"]');
@@ -161,6 +187,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     allRecords = (mapped || []).filter(Boolean);
     recordsLoaded = true;
     generateBtn.disabled = false;
+    generateWhatsappBtn.disabled = false;
     renderPreview();
   });
 
@@ -172,7 +199,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   })();
 
   dayPicker.addEventListener('change', renderPreview);
-  generateBtn.addEventListener('click', generatePDF);
+  generateBtn.addEventListener('click', function () {
+    var built = buildPdfDocument();
+    if (!built) return;
+    built.doc.save(built.filename);
+    showStatus('success', 'PDF généré : ' + built.filename);
+  });
+  generateWhatsappBtn.addEventListener('click', generateAndShareWhatsApp);
   fsjRadios.forEach(function (radio) {
     radio.addEventListener('change', renderPreview);
   });
@@ -452,8 +485,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     doc.line(x, y + 1, x + w, y + 1);
   }
 
-  function generatePDF() {
-    if (!recordsLoaded) return;
+  // Construit le document PDF (sans le télécharger ni l'envoyer).
+  // Retourne { doc, filename, day, mode } ou null si rien à générer
+  // (un message est alors déjà affiché via showStatus).
+  function buildPdfDocument() {
+    if (!recordsLoaded) return null;
 
     var day = getSelectedDate();
     var mode = getSelectedMode();
@@ -462,13 +498,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     if (occ.length === 0) {
       showStatus('warning', 'Aucune occurrence à exporter pour le ' + fmtDayTitle(day) + '.');
-      return;
+      return null;
     }
 
     var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDFCtor) {
       showStatus('error', 'La bibliothèque de génération PDF (jsPDF) n\'a pas pu être chargée.');
-      return;
+      return null;
     }
 
     var doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
@@ -626,8 +662,39 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }
 
     var filename = 'Feuille_de_service_' + fmtDayTitle(day).replace(/\//g, '-') + '.pdf';
-    doc.save(filename);
-    showStatus('success', 'PDF généré : ' + filename);
+    return { doc: doc, filename: filename, day: day, mode: mode };
+  }
+
+  // Génère le PDF (blob, sans le télécharger) puis tente un partage natif
+  // (Web Share API avec fichier) vers WhatsApp ; si ce n'est pas possible
+  // dans ce contexte (navigateur ou iframe Grist ne le permettant pas), on
+  // télécharge le PDF et on ouvre WhatsApp Web avec un message pré-rempli,
+  // le fichier étant alors à joindre manuellement (aucune API web ne permet
+  // de pré-attacher un fichier à une conversation WhatsApp).
+  async function generateAndShareWhatsApp() {
+    var built = buildPdfDocument();
+    if (!built) return;
+
+    var blob = built.doc.output('blob');
+    var waMessage = 'Feuille de service du ' + fmtDayTitle(built.day) + ' ci-jointe.';
+
+    try {
+      if (navigator.canShare && typeof File !== 'undefined') {
+        var file = new File([blob], built.filename, { type: 'application/pdf' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: built.filename, text: waMessage });
+          showStatus('success', 'Partage WhatsApp lancé pour ' + built.filename + '.');
+          return;
+        }
+      }
+    } catch (e) {
+      // Partage annulé ou indisponible (ex. politique de permissions de
+      // l'iframe Grist) : on continue avec la solution de repli ci-dessous.
+    }
+
+    built.doc.save(built.filename);
+    window.open('https://wa.me/?text=' + encodeURIComponent(waMessage), '_blank');
+    showStatus('info', 'PDF téléchargé (' + built.filename + ') et WhatsApp ouvert : joignez le fichier manuellement, le partage automatique n\'étant pas disponible dans ce navigateur.');
   }
 
   function drawWatermark(doc, pageWidth, pageHeight, baseFont) {
