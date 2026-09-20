@@ -49,6 +49,9 @@
     padding: 0.25rem 0 0.25rem 0.75rem;
     margin-bottom: 0.75rem;
   }
+  .prog-card--encadrement-only {
+    border-left-color: #CE0500;
+  }
   .prog-card .prog-title { font-weight: 700; }
   .prog-card .prog-line { margin: 0.15rem 0; }
   .prog-card .prog-line--consignes { font-size: 0.8em; }
@@ -447,7 +450,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         if (o.lieu) lines += '<p class="prog-line">' + escapeHtml(o.lieu) + '</p>';
         if (o.encadrement) lines += '<p class="prog-line">' + escapeHtml(o.encadrement) + '</p>';
         if (o.consignes) lines += '<p class="prog-line prog-line--consignes">' + escapeHtml(o.consignes) + '</p>';
-        return '<div class="prog-card">' +
+        var cardClass = 'prog-card' + (isExcludedCode(o.code) ? ' prog-card--encadrement-only' : '');
+        return '<div class="' + cardClass + '">' +
           '<p class="prog-title">' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + ' : ' + escapeHtml(o.intitule) + '</p>' +
           lines +
           badgesHtml(o.apprenants) +
@@ -531,10 +535,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // La version "encadrement" affiche un bandeau d'information importante
     // en haut de chaque page (façon DSFR fr-notice) : on réserve la place
     // correspondante en haut de page.
-    var bannerHeight = 9;
+    var bannerHeight = 14;
     var bannerText = 'Cette version ne doit en aucun cas être diffusée aux stagiaires.';
     var hasBanner = (mode === 'cadres');
-    var marginTop = hasBanner ? (18 + bannerHeight) : 22;
+    var marginTop = hasBanner ? (22 + bannerHeight) : 22;
     var y = marginTop;
 
     var bleuFrance = [0, 0, 145]; // #000091 — Bleu France (DSFR)
@@ -559,10 +563,27 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // Bandeau (page 1)
     paintBannerIfNeeded();
 
-    // Titre
+    // Bloc marque (lettre à en-tête)
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text('Ministère de l\'Intérieur', marginLeft, y);
+    y += lineHeight * 0.75;
     doc.setFont(baseFont, 'bold');
-    doc.setFontSize(16);
+    doc.text('Direction Gendarmerie nationale', marginLeft, y);
+    y += lineHeight * 1.5;
+
+    // Titre du document (gras, majuscules, centré)
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(15);
     doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
+    var docTitle = 'Préparation militaire gendarmerie - Octobre 2026';
+    doc.text(docTitle.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    y += lineHeight * 1.3;
+
+    // Sous-titre : feuille de service du jour
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(13);
     var title = 'Feuille de service journalier du ' + fmtDayTitle(day);
     doc.text(title, pageWidth / 2, y, { align: 'center' });
 
@@ -734,20 +755,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function drawImportantNotice(doc, pageWidth, bannerHeight, text, baseFont, marginLeft) {
     // Couleurs approximant les tokens DSFR --background-contrast-error /
     // --text-default-error (le PDF ne peut pas consommer les variables CSS).
-    var bg = [253, 210, 210];
+    var bg = [254, 231, 231];
     var fg = [206, 5, 0];
 
     doc.setFillColor(bg[0], bg[1], bg[2]);
     doc.rect(0, 0, pageWidth, bannerHeight, 'F');
 
     doc.setDrawColor(fg[0], fg[1], fg[2]);
-    doc.setLineWidth(0.5);
+    doc.setLineWidth(0.6);
     doc.line(0, bannerHeight, pageWidth, bannerHeight);
 
     doc.setFont(baseFont, 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(10.5);
     doc.setTextColor(fg[0], fg[1], fg[2]);
-    doc.text(text, marginLeft, bannerHeight / 2 + 1.3);
+    doc.text(text, pageWidth / 2, bannerHeight / 2 + 1.5, { align: 'center', maxWidth: pageWidth - 16 });
 
     doc.setTextColor(0, 0, 0);
   }
