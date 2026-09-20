@@ -33,7 +33,8 @@
 <style>
   :root { --bleu-france: #000091; }
   html, body { margin: 0; padding: 0; }
-  .widget-wrap { padding: 1.5rem 1.25rem; max-width: 720px; }
+  .widget-wrap { padding: 1.5rem 1.25rem; width: 100%; box-sizing: border-box; }
+  .fr-header .fr-container { width: 100%; max-width: none; }
   .occ-count { color: var(--text-mention-grey); }
   .fr-alert { margin-bottom: 0; }
 
@@ -50,6 +51,7 @@
   }
   .prog-card .prog-title { font-weight: 700; }
   .prog-card .prog-line { margin: 0.15rem 0; }
+  .prog-card .prog-line--consignes { font-size: 0.8em; }
   .badges { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
   #fsjFieldset .fr-radio-group label {
@@ -444,7 +446,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         var lines = '';
         if (o.lieu) lines += '<p class="prog-line">' + escapeHtml(o.lieu) + '</p>';
         if (o.encadrement) lines += '<p class="prog-line">' + escapeHtml(o.encadrement) + '</p>';
-        if (o.consignes) lines += '<p class="prog-line">' + escapeHtml(o.consignes) + '</p>';
+        if (o.consignes) lines += '<p class="prog-line prog-line--consignes">' + escapeHtml(o.consignes) + '</p>';
         return '<div class="prog-card">' +
           '<p class="prog-title">' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + ' : ' + escapeHtml(o.intitule) + '</p>' +
           lines +
@@ -529,10 +531,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // La version "encadrement" affiche un bandeau d'information importante
     // en haut de chaque page (façon DSFR fr-notice) : on réserve la place
     // correspondante en haut de page.
-    var bannerHeight = 14;
+    var bannerHeight = 9;
     var bannerText = 'Cette version ne doit en aucun cas être diffusée aux stagiaires.';
     var hasBanner = (mode === 'cadres');
-    var marginTop = hasBanner ? (22 + bannerHeight) : 22;
+    var marginTop = hasBanner ? (18 + bannerHeight) : 22;
     var y = marginTop;
 
     var bleuFrance = [0, 0, 145]; // #000091 — Bleu France (DSFR)
@@ -541,8 +543,21 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       if (y + (extra || 0) > pageHeight - marginBottom) {
         doc.addPage();
         y = marginTop;
+        paintBannerIfNeeded();
       }
     }
+
+    function paintBannerIfNeeded() {
+      if (!hasBanner) return;
+      try {
+        drawImportantNotice(doc, pageWidth, bannerHeight, bannerText, baseFont, marginLeft);
+      } catch (e) {
+        // Ne bloque jamais la génération du PDF si le bandeau échoue.
+      }
+    }
+
+    // Bandeau (page 1)
+    paintBannerIfNeeded();
 
     // Titre
     doc.setFont(baseFont, 'bold');
@@ -556,7 +571,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     doc.setFont(baseFont, 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(130, 130, 130);
-    var editionLine = 'Version en vigueur le ' + fmtDayTitle(new Date()) + ', sous réserve de modifications par l\'AE.';
+    var editionMoment = new Date();
+    var editionLine = 'Version en vigueur le ' + fmtDayTitle(editionMoment) + ' à ' + fmtHM(editionMoment) + ', sous réserve de modifications par l\'AE.';
     doc.text(editionLine, pageWidth / 2, y, { align: 'center' });
 
     y += lineHeight * 0.9;
@@ -676,14 +692,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       });
     }
 
-    if (hasBanner) {
-      var totalPages = doc.internal.getNumberOfPages();
-      for (var p = 1; p <= totalPages; p++) {
-        doc.setPage(p);
-        drawImportantNotice(doc, pageWidth, bannerHeight, bannerText, baseFont);
-      }
-    }
-
     var filename = 'Feuille_de_service_' + fmtDayTitle(day).replace(/\//g, '-') + '.pdf';
     return { doc: doc, filename: filename, day: day, mode: mode };
   }
@@ -723,23 +731,23 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // Bandeau d'information importante (façon DSFR fr-notice / fr-notice--alert)
   // en haut de page : fond rouge clair, texte rouge foncé en gras, sur toute
   // la largeur. Remplace l'ancien filigrane diagonal "NE PAS DIFFUSER".
-  function drawImportantNotice(doc, pageWidth, bannerHeight, text, baseFont) {
+  function drawImportantNotice(doc, pageWidth, bannerHeight, text, baseFont, marginLeft) {
     // Couleurs approximant les tokens DSFR --background-contrast-error /
     // --text-default-error (le PDF ne peut pas consommer les variables CSS).
-    var bg = [254, 231, 231];
+    var bg = [253, 210, 210];
     var fg = [206, 5, 0];
 
     doc.setFillColor(bg[0], bg[1], bg[2]);
     doc.rect(0, 0, pageWidth, bannerHeight, 'F');
 
     doc.setDrawColor(fg[0], fg[1], fg[2]);
-    doc.setLineWidth(0.6);
+    doc.setLineWidth(0.5);
     doc.line(0, bannerHeight, pageWidth, bannerHeight);
 
     doc.setFont(baseFont, 'bold');
-    doc.setFontSize(10.5);
+    doc.setFontSize(9);
     doc.setTextColor(fg[0], fg[1], fg[2]);
-    doc.text(text, pageWidth / 2, bannerHeight / 2 + 1.5, { align: 'center', maxWidth: pageWidth - 16 });
+    doc.text(text, marginLeft, bannerHeight / 2 + 1.3);
 
     doc.setTextColor(0, 0, 0);
   }
