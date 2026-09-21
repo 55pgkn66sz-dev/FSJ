@@ -127,6 +127,7 @@
     border: none;
     background: none;
     font: inherit;
+    font-size: 0.85em;
     cursor: pointer;
     color: inherit;
   }
@@ -408,13 +409,8 @@
 
     <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-3w">
       <li>
-        <button class="fr-btn" id="generateBtn" type="button" disabled>
-          Générer le PDF
-        </button>
-      </li>
-      <li>
-        <button class="fr-btn fr-btn--secondary" id="generateWhatsappBtn" type="button" disabled>
-          Générer le PDF et l'envoyer via WhatsApp
+        <button class="fr-btn fr-icon-download-line fr-btn--icon-left" id="generateBtn" type="button" disabled>
+          Générer la FSJ
         </button>
       </li>
     </ul>
@@ -452,7 +448,7 @@
         </button>
         <ul class="dropdown-menu__list" id="progressionFilterList" role="menu" aria-label="Filtrer la progression" hidden></ul>
       </div>
-      <button class="fr-btn fr-btn--secondary fr-btn--sm" id="generateProgressionPdfBtn" type="button" disabled>
+      <button class="fr-btn fr-btn--secondary fr-btn--sm fr-icon-download-line fr-btn--icon-left" id="generateProgressionPdfBtn" type="button" disabled>
         Progression en PDF
       </button>
     </div>
@@ -496,7 +492,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var dayPicker = document.getElementById('dayPicker');
   var generateBtn = document.getElementById('generateBtn');
-  var generateWhatsappBtn = document.getElementById('generateWhatsappBtn');
   var statusZone = document.getElementById('statusZone');
   var previewZone = document.getElementById('previewZone');
   var fsjRadios = document.querySelectorAll('input[name="fsjType"]');
@@ -585,7 +580,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     allRecords = (mapped || []).filter(Boolean);
     recordsLoaded = true;
     generateBtn.disabled = false;
-    generateWhatsappBtn.disabled = false;
     progressionPdfBtn.disabled = false;
     renderPreview();
     if (!panelProgression.hidden) renderWeekView();
@@ -609,7 +603,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     built.doc.save(built.filename);
     showStatus('success', 'PDF généré : ' + built.filename);
   });
-  generateWhatsappBtn.addEventListener('click', generateAndShareWhatsApp);
   progressionPdfBtn.addEventListener('click', function () {
     var built = buildProgressionPdfDocument();
     if (!built) return;
@@ -2320,38 +2313,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     doc.setDrawColor(120, 120, 120);
     doc.setLineWidth(0.3);
     doc.rect(marginLeft, contentTop, gridRight - marginLeft, y - contentTop, 'S');
-  }
-
-  // Génère le PDF (blob, sans le télécharger) puis tente un partage natif
-  // (Web Share API avec fichier) vers WhatsApp ; si ce n'est pas possible
-  // dans ce contexte (navigateur ou iframe Grist ne le permettant pas), on
-  // télécharge le PDF et on ouvre WhatsApp Web avec un message pré-rempli,
-  // le fichier étant alors à joindre manuellement (aucune API web ne permet
-  // de pré-attacher un fichier à une conversation WhatsApp).
-  async function generateAndShareWhatsApp() {
-    var built = buildPdfDocument();
-    if (!built) return;
-
-    var blob = built.doc.output('blob');
-    var waMessage = 'Feuille de service du ' + fmtDayTitle(built.day) + ' ci-jointe.';
-
-    try {
-      if (navigator.canShare && typeof File !== 'undefined') {
-        var file = new File([blob], built.filename, { type: 'application/pdf' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: built.filename, text: waMessage });
-          showStatus('success', 'Partage WhatsApp lancé pour ' + built.filename + '.');
-          return;
-        }
-      }
-    } catch (e) {
-      // Partage annulé ou indisponible (ex. politique de permissions de
-      // l'iframe Grist) : on continue avec la solution de repli ci-dessous.
-    }
-
-    built.doc.save(built.filename);
-    window.open('https://wa.me/?text=' + encodeURIComponent(waMessage), '_blank');
-    showStatus('info', 'PDF téléchargé (' + built.filename + ') et WhatsApp ouvert : joignez le fichier manuellement, le partage automatique n\'étant pas disponible dans ce navigateur.');
   }
 
   // Bandeau d'information importante (façon DSFR fr-notice / fr-notice--alert)
