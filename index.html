@@ -69,14 +69,19 @@
   .top-controls-row {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 1rem;
   }
   #generateProgressionPdfBtn { flex: 0 0 auto; }
 
-  /* Menus déroulants (choix de la vue, filtre de la Progression) :
-     bouton + liste positionnée en absolu juste dessous, fermée par défaut. */
+  /* Menu de navigation principale, dans le header (choix de la vue) :
+     liens toujours visibles, l'élément actif porte aria-current="page"
+     (le CSS DSFR le souligne/le met en évidence automatiquement). */
+  #header-navigation .fr-nav__link { cursor: pointer; }
+
+  /* Menu déroulant (filtre de la Progression) : bouton + liste
+     positionnée en absolu juste dessous, fermée par défaut. */
   .dropdown-menu { position: relative; display: inline-block; }
   .dropdown-menu__list {
     position: absolute;
@@ -164,7 +169,8 @@
     border-bottom: 2px solid #8a8a8a;
   }
   .week-timegrid__daylabel-date { font-weight: 700; font-size: 0.8em; }
-  .week-timegrid__daylabel-sop { font-weight: 700; font-size: 0.7em; color: var(--bleu-france); }
+  .week-timegrid__daylabel-sop { font-size: 0.7em; color: var(--bleu-france); }
+  .week-timegrid__daylabel-sop-name { font-weight: 400; }
   .week-timegrid__daylabel--today .week-timegrid__daylabel-date { color: var(--bleu-france); }
 
   .week-timegrid__pelotons {
@@ -308,27 +314,27 @@
       </div>
     </div>
   </div>
+  <div class="fr-header__menu fr-header__menu--sticky">
+    <div class="fr-container">
+      <nav class="fr-nav" id="header-navigation" role="navigation" aria-label="Menu principal">
+        <ul class="fr-nav__list">
+          <li class="fr-nav__item">
+            <button class="fr-nav__link" id="navProgression" type="button">Progression</button>
+          </li>
+          <li class="fr-nav__item">
+            <button class="fr-nav__link" id="navGenerer" type="button" aria-current="page">Générer FSJ</button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
 </header>
 
 <div class="widget-wrap">
 
   <div class="top-controls-row fr-mb-3w">
-    <div class="dropdown-menu" id="viewMenu">
-      <button class="fr-btn fr-btn--secondary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="viewMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="viewMenuList">
-        Générer FSJ
-      </button>
-      <ul class="dropdown-menu__list" id="viewMenuList" role="menu" aria-label="Affichage" hidden>
-        <li role="none">
-          <button class="dropdown-menu__item" role="menuitem" type="button" data-view="progression">Progression</button>
-        </li>
-        <li role="none">
-          <button class="dropdown-menu__item" role="menuitem" type="button" data-view="generer" aria-current="true">Générer FSJ</button>
-        </li>
-      </ul>
-    </div>
-
     <button class="fr-btn fr-btn--secondary fr-btn--sm" id="generateProgressionPdfBtn" type="button" disabled>
-      Générer le PDF Progression
+      Progression en PDF
     </button>
   </div>
 
@@ -445,8 +451,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var previewZone = document.getElementById('previewZone');
   var fsjRadios = document.querySelectorAll('input[name="fsjType"]');
 
-  var viewMenuBtn = document.getElementById('viewMenuBtn');
-  var viewMenuList = document.getElementById('viewMenuList');
+  var navProgression = document.getElementById('navProgression');
+  var navGenerer = document.getElementById('navGenerer');
   var panelGenerer = document.getElementById('panelGenerer');
   var panelProgression = document.getElementById('panelProgression');
   var weekPrevBtn = document.getElementById('weekPrevBtn');
@@ -553,18 +559,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return { open: open, close: close };
   }
 
-  // ---- Menu "Affichage" : Progression / Générer FSJ ----------------------
-
-  var viewLabels = { generer: 'Générer FSJ', progression: 'Progression' };
-  var viewMenuDropdown = setupDropdown(viewMenuBtn, viewMenuList);
+  // ---- Menu de navigation principale (header) : Progression / Générer FSJ
 
   function setView(view) {
-    viewMenuBtn.textContent = viewLabels[view];
-    viewMenuList.querySelectorAll('.dropdown-menu__item').forEach(function (el) {
-      var isCurrent = el.getAttribute('data-view') === view;
-      if (isCurrent) el.setAttribute('aria-current', 'true');
-      else el.removeAttribute('aria-current');
-    });
+    if (view === 'progression') {
+      navProgression.setAttribute('aria-current', 'page');
+      navGenerer.removeAttribute('aria-current');
+    } else {
+      navGenerer.setAttribute('aria-current', 'page');
+      navProgression.removeAttribute('aria-current');
+    }
     panelGenerer.hidden = (view !== 'generer');
     panelProgression.hidden = (view !== 'progression');
     if (view === 'progression') {
@@ -573,12 +577,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }
   }
 
-  viewMenuList.querySelectorAll('.dropdown-menu__item').forEach(function (el) {
-    el.addEventListener('click', function () {
-      setView(el.getAttribute('data-view'));
-      viewMenuDropdown.close();
-    });
-  });
+  navProgression.addEventListener('click', function () { setView('progression'); });
+  navGenerer.addEventListener('click', function () { setView('generer'); });
 
   // ---- Filtre de la vue Progression : par peloton ou par cadre ----------
 
@@ -961,7 +961,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var pelotonsHtml = '<div class="week-timegrid__label-spacer" style="height:' + AXIS_H + 'px"></div>';
     days.forEach(function (day, i) {
       var sopLineHtml = day.sopCadre
-        ? '<div class="week-timegrid__daylabel-sop">SOP&nbsp;: ' + escapeHtml(day.sopCadre) + '</div>'
+        ? '<div class="week-timegrid__daylabel-sop"><strong>SOP&nbsp;:</strong> <span class="week-timegrid__daylabel-sop-name">' + escapeHtml(day.sopCadre) + '</span></div>'
         : '';
       labelsHtml += '<div class="week-timegrid__daylabel' + (day.isToday ? ' week-timegrid__daylabel--today' : '') + '" style="height:' + day.totalHeight + 'px">' +
         '<div class="week-timegrid__daylabel-date">' + dayNames[i] + '&nbsp;' + escapeHtml(fmtDayTitle(day.date)) + '</div>' +
@@ -1557,7 +1557,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // de badge — ici c'est l'inverse, il faut la place pour la hampe
     // montante du texte du titre au-dessus de sa ligne de base.
     var GAP_BADGE_TITLE = 2.3 * scale;
-    var ROW_PAD = 1.1 * scale; // marge haut/bas du fond pastel autour de chaque bloc
+    var ROW_PAD = 2 * scale; // marge haut/bas de chaque bloc (occurrence) ; dégage le trait séparateur
 
     // La version "encadrement" affiche un bandeau d'information importante
     // en haut de chaque page (façon DSFR fr-notice) : on réserve la place
@@ -1615,14 +1615,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     doc.setTextColor(0, 0, 0);
 
-    // Dessine une rangée de badges (apprenants), avec retour à la ligne et
-    // saut de page si nécessaire.
+    // Dessine une rangée de badges (apprenants) empilée sur ses propres
+    // lignes (contrairement à drawBadgesInline, utilisée dans la section
+    // Progression pour des badges sur la même ligne qu'un titre), avec
+    // retour à la ligne et saut de page si nécessaire.
     // Convention : `y` en entrée = HAUT du premier badge (comme un flux de
-    // texte classique) ; `y` en sortie = BAS du dernier badge. Ceci garantit
-    // que la hauteur réellement dessinée correspond exactement à la hauteur
-    // mesurée par measureBadgeRows, quel que soit le nombre de lignes de
-    // badges — et élimine le chevauchement avec le bloc suivant (les badges
-    // débordaient auparavant sur le fond pastel de l'occurrence d'après).
+    // texte classique) ; `y` en sortie = BAS du dernier badge.
     function drawBadges(names) {
       if (!names.length) return;
       var paddingX = 1.6;
@@ -1700,39 +1698,58 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     if (sections.progression.length) {
       var contentWidth = pageWidth - marginLeft - marginRight;
       var metaColor = [110, 110, 110];
-      var pastel = [235, 241, 250]; // fond pastel (une ligne sur deux)
+      var BADGE_GAP_INLINE = 1.8 * scale; // espace entre les badges et le titre, sur la même ligne
 
-      function measureWrapped(text, fontSize, bold) {
+      function measureWrapped(text, fontSize, bold, maxWidth) {
         doc.setFont(baseFont, bold ? 'bold' : 'normal');
         doc.setFontSize(fontSize);
-        return doc.splitTextToSize(text || '', contentWidth);
+        return doc.splitTextToSize(text || '', maxWidth || contentWidth);
       }
 
-      function measureBadgeRows(names) {
+      // Largeur totale des badges (apprenants), sur une seule ligne : les
+      // occurrences de progression n'ont normalement que 1 à 2 codes de
+      // peloton, donc pas de retour à la ligne à prévoir ici (à la
+      // différence de drawBadges, utilisé ailleurs pour des listes plus
+      // longues de noms).
+      function measureBadgesWidth(names) {
         if (!names.length) return 0;
         var paddingX = 1.6, gap = 1.6;
-        var rightLimit = pageWidth - marginRight;
         doc.setFont(baseFont, 'normal');
         doc.setFontSize(BADGE_FONT);
-        var rows = 1;
-        var x = marginLeft;
-        names.forEach(function (name) {
-          var badgeW = doc.getTextWidth(name) + paddingX * 2;
-          if (x + badgeW > rightLimit && x > marginLeft) {
-            rows += 1;
-            x = marginLeft;
-          }
-          x += badgeW + gap;
+        var w = 0;
+        names.forEach(function (name, i) {
+          w += doc.getTextWidth(name) + paddingX * 2 + (i > 0 ? gap : 0);
         });
-        return rows;
+        return w;
       }
 
-      function drawLines(lines, fontSize, bold, color, lh) {
+      // Dessine les badges à gauche du titre, sur la même ligne que sa
+      // première ligne de texte (alignement approximatif sur la ligne de
+      // base `baselineY`, avec un léger dégagement pour la descendante).
+      function drawBadgesInline(names, x0, baselineY) {
+        var paddingX = 1.6, gap = 1.6;
+        var badgeTop = baselineY - BADGE_H + 0.9;
+        var x = x0;
+        doc.setFont(baseFont, 'normal');
+        doc.setFontSize(BADGE_FONT);
+        names.forEach(function (name) {
+          var badgeW = doc.getTextWidth(name) + paddingX * 2;
+          doc.setFillColor(238, 238, 238);
+          doc.setDrawColor(238, 238, 238);
+          doc.roundedRect(x, badgeTop, badgeW, BADGE_H, 0.8, 0.8, 'F');
+          doc.setTextColor(58, 58, 58);
+          doc.text(name, x + paddingX, badgeTop + BADGE_H - 1.3);
+          x += badgeW + gap;
+        });
+        doc.setTextColor(0, 0, 0);
+      }
+
+      function drawLines(lines, fontSize, bold, color, lh, indent) {
         doc.setFont(baseFont, bold ? 'bold' : 'normal');
         doc.setFontSize(fontSize);
         doc.setTextColor(color[0], color[1], color[2]);
         lines.forEach(function (line) {
-          doc.text(line, marginLeft, y);
+          doc.text(line, marginLeft + (indent || 0), y);
           y += lh;
         });
         doc.setTextColor(0, 0, 0);
@@ -1749,29 +1766,31 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         var metaText = [o.encadrement, o.lieu].filter(Boolean).join(', ');
         var consignesText = o.consignes || '';
 
-        var titleLines = measureWrapped(titleText, TITLE_FONT, true);
+        // Les badges se placent à gauche de la première ligne du titre :
+        // celle-ci (et, par souci d'alignement, les lignes suivantes en
+        // cas de retour à la ligne) dispose donc d'une largeur réduite de
+        // la place qu'ils occupent.
+        var badgesWidth = measureBadgesWidth(o.apprenants);
+        var titleIndent = badgesWidth ? badgesWidth + BADGE_GAP_INLINE : 0;
+        var titleMaxWidth = Math.max(20, contentWidth - titleIndent);
+
+        var titleLines = measureWrapped(titleText, TITLE_FONT, true, titleMaxWidth);
         var metaLines = metaText ? measureWrapped(metaText, META_FONT, false) : [];
         var consignesLines = consignesText ? measureWrapped(consignesText, CONSIGNES_FONT, false) : [];
-        var badgeRows = measureBadgeRows(o.apprenants);
 
         var blockHeight = titleLines.length * lineHeight;
         if (metaLines.length) blockHeight += metaLines.length * META_LH + GAP_META;
         if (consignesLines.length) blockHeight += consignesLines.length * CONSIGNES_LH + GAP_CONSIGNES;
-        if (badgeRows) blockHeight += (badgeRows - 1) * (BADGE_H + BADGE_ROW_GAP) + BADGE_H + GAP_BADGE_TITLE;
 
         ensureRoom(blockHeight + ROW_PAD * 2);
 
         var rowStartY = y;
-        if (index % 2 === 0) {
-          doc.setFillColor(pastel[0], pastel[1], pastel[2]);
-          doc.rect(marginLeft - 3, rowStartY - ROW_PAD, contentWidth + 6, blockHeight + ROW_PAD * 2, 'F');
-        }
 
-        if (o.apprenants.length) {
-          drawBadges(o.apprenants);
-          y += GAP_BADGE_TITLE;
-        }
-        drawLines(titleLines, TITLE_FONT, true, [0, 0, 0], lineHeight);
+        // Titre (badges alignés sur sa première ligne de base, avant même
+        // de dessiner le texte, puisque sa position ne dépend que de `y`
+        // au moment d'entrer dans le bloc).
+        if (badgesWidth) drawBadgesInline(o.apprenants, marginLeft, y);
+        drawLines(titleLines, TITLE_FONT, true, [0, 0, 0], lineHeight, titleIndent);
         if (metaLines.length) {
           y += GAP_META;
           drawLines(metaLines, META_FONT, false, metaColor, META_LH);
@@ -1783,9 +1802,15 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
         // `y` est maintenant exactement à rowStartY + blockHeight (fin du
         // contenu). ROW_PAD de part et d'autre forme l'espacement inter-
-        // occurrences : les fonds pastel se touchent sans jamais chevaucher
-        // le contenu du bloc voisin.
-        y += ROW_PAD * 2;
+        // occurrences ; un trait très fin, centré dans cet espacement,
+        // sépare chaque occurrence de la suivante (sauf la dernière).
+        y += ROW_PAD;
+        if (index < sections.progression.length - 1) {
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.1);
+          doc.line(marginLeft, y, pageWidth - marginRight, y);
+        }
+        y += ROW_PAD;
       });
     }
   }
@@ -1829,31 +1854,45 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var dates = eachDayBetween(PROGRESSION_PDF_START, PROGRESSION_PDF_END);
     var days = dates.map(function (d) {
       var occ = splitBySection(getOccurrencesForDay(d, mode)).progression;
-      return { date: d, occ: occ, layout: computeDayPelotonLayout(d, occ) };
+      if (activeFilter && activeFilter.type === 'cadre') {
+        occ = occ.filter(function (o) { return matchesCadre(o.encadrement, activeFilter.name); });
+      }
+      var layout = computeDayPelotonLayout(d, occ);
+      if (activeFilter && activeFilter.type === 'peloton') {
+        layout = restrictLayoutToPeloton(layout, activeFilter.code);
+      }
+      return { date: d, occ: layout.occ, layout: layout };
     });
 
     var totalOcc = days.reduce(function (sum, day) { return sum + day.occ.length; }, 0);
     if (totalOcc === 0) {
-      showStatus('warning', 'Aucune occurrence de progression à exporter entre le ' + fmtDayTitle(PROGRESSION_PDF_START) + ' et le ' + fmtDayTitle(PROGRESSION_PDF_END) + '.');
+      showStatus('warning', 'Aucune occurrence de progression à exporter entre le ' + fmtDayTitle(PROGRESSION_PDF_START) + ' et le ' + fmtDayTitle(PROGRESSION_PDF_END) + (activeFilter ? ' (avec le filtre actif)' : '') + '.');
       return null;
     }
 
-    var doc = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: 'landscape' });
-    renderProgressionPdfContent(doc, days);
+    // Le filtre actif de la vue Progression (peloton ou cadre) s'applique
+    // aussi à cet export : le PDF généré ne montre alors que les
+    // occurrences qui le concernent, et son titre le rappelle.
+    var filterSuffix = '';
+    if (activeFilter) {
+      filterSuffix = activeFilter.type === 'peloton' ? (' — ' + rowLabel(activeFilter.code)) : (' — ' + activeFilter.name);
+    }
 
-    var filename = 'Progression_' + fmtDayTitle(PROGRESSION_PDF_START).replace(/\//g, '-') + '_au_' + fmtDayTitle(PROGRESSION_PDF_END).replace(/\//g, '-') + '.pdf';
+    var doc = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+    renderProgressionPdfContent(doc, days, filterSuffix);
+
+    var filenameSuffix = activeFilter
+      ? '_' + (activeFilter.type === 'peloton' ? activeFilter.code : activeFilter.name).replace(/[^a-zA-Z0-9]+/g, '-')
+      : '';
+    var filename = 'Progression_' + fmtDayTitle(PROGRESSION_PDF_START).replace(/\//g, '-') + '_au_' + fmtDayTitle(PROGRESSION_PDF_END).replace(/\//g, '-') + filenameSuffix + '.pdf';
     return { doc: doc, filename: filename };
   }
 
   // Dessine le planning complet (tous les jours de `days`, chacun déjà
   // réparti par peloton via computeDayPelotonLayout) sur une seule page,
-  // au format paysage. À la différence de la FSJ journalière (dont la
-  // hauteur dépend du texte, donc variable et ajustée par essais
-  // successifs), chaque ligne de peloton a ici une hauteur FIXE — le
-  // texte trop long est tronqué plutôt que de faire déborder la page —
-  // ce qui permet de calculer d'avance, sans essai, la hauteur de ligne
-  // exacte qui fait tenir tout le stage sur une seule page.
-  function renderProgressionPdfContent(doc, days) {
+  // au format paysage. `filterSuffix`, s'il est fourni, rappelle dans le
+  // titre le filtre (peloton ou cadre) actif au moment de l'export.
+  function renderProgressionPdfContent(doc, days, filterSuffix) {
     var marianneOk = registerMarianneFont(doc);
     var baseFont = marianneOk ? 'Marianne' : 'helvetica';
     var bleuFrance = [0, 0, 145];
@@ -1871,7 +1910,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     doc.setFont(baseFont, 'bold');
     doc.setFontSize(14);
     doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
-    var title = 'Progression PMG4 et stage d\'acculturation du ' + fmtDayTitle(PROGRESSION_PDF_START) + ' au ' + fmtDayTitle(PROGRESSION_PDF_END);
+    var title = 'Progression PMG4 et stage d\'acculturation du ' + fmtDayTitle(PROGRESSION_PDF_START) + ' au ' + fmtDayTitle(PROGRESSION_PDF_END) + (filterSuffix || '');
     doc.text(title, pageWidth / 2, 9, { align: 'center' });
     doc.setTextColor(0, 0, 0);
 
