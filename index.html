@@ -753,13 +753,14 @@
             <select class="fr-select" id="absCol_commentaire" name="absCol_commentaire"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_modele">Modèle d'autorisation d'absence <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="absCol_modele" name="absCol_modele"></select>
+            <label class="fr-label" for="absCol_creeLe">Date de la demande <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="absCol_creeLe" name="absCol_creeLe"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_derniereMiseAJour">Date de la décision <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="absCol_derniereMiseAJour" name="absCol_derniereMiseAJour"></select>
           </div>
         </div>
-        <p class="fr-hint-text fr-mb-2w">
-          « Modèle d'autorisation d'absence » : colonne contenant, pour chaque demande, le contenu HTML à partir duquel le PDF est généré (à défaut, une mise en page par défaut est utilisée). Les jetons {{demandeur}}, {{datedebut}}, {{datefin}}, {{motif}}, {{destination}}, {{commentaire}}, {{decision}} et {{dategeneration}} y sont remplacés par les valeurs de la demande.
-        </p>
 
         <p class="fr-hint-text fr-mt-2w fr-mb-1w">Libellés utilisés dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
         <div class="config-grid-3col">
@@ -775,6 +776,15 @@
             <label class="fr-label" for="absVal_refusee">Refusée</label>
             <input class="fr-input" type="text" id="absVal_refusee" name="absVal_refusee" placeholder="Refusée">
           </div>
+        </div>
+
+        <h3 class="fr-text--lead config-section-title">Signataire</h3>
+        <div class="fr-input-group">
+          <label class="fr-label" for="absSignataire">
+            Signataire de l'autorisation d'absence
+            <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « SLT de HAZE Vincent, directeur de stage »).</span>
+          </label>
+          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : SLT de HAZE Vincent, directeur de stage">
         </div>
       </div>
 
@@ -907,11 +917,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     destination: document.getElementById('absCol_destination'),
     decision: document.getElementById('absCol_decision'),
     commentaire: document.getElementById('absCol_commentaire'),
-    modele: document.getElementById('absCol_modele')
+    creeLe: document.getElementById('absCol_creeLe'),
+    derniereMiseAJour: document.getElementById('absCol_derniereMiseAJour')
   };
   var absValAttente = document.getElementById('absVal_attente');
   var absValValidee = document.getElementById('absVal_validee');
   var absValRefusee = document.getElementById('absVal_refusee');
+  var absSignataire = document.getElementById('absSignataire');
 
   // ---- Échelle de la vue Progression : Semaine ou Jour -------------------
   //
@@ -1114,7 +1126,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // option du widget (clé "absencesConfig"), au même principe que le
   // widget Réservations.
 
-  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire', 'modele'];
+  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire', 'creeLe', 'derniereMiseAJour'];
 
   // Valeur exacte du type d'absence (colonne "Type d'absence") qui
   // conditionne la disponibilité du PDF, et son libellé abrégé pour
@@ -1132,11 +1144,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function defaultAbsencesConfig() {
     return {
       table: '',
-      // "modele" : colonne contenant, pour chaque demande, le modèle HTML
-      // à éditer en PDF (optionnel : à défaut, une mise en page par défaut
-      // codée en dur est utilisée — voir renderAbsenceAuthorizationPdfContent).
-      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', modele: '' },
-      valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' }
+      // "creeLe"/"derniereMiseAJour" : colonnes optionnelles donnant la date
+      // de la demande et la date de la décision, imprimées sur le PDF
+      // « Autorisation d'absence » (voir renderAbsenceAuthorizationPdfContent).
+      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', creeLe: '', derniereMiseAJour: '' },
+      valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' },
+      signataire: ''
     };
   }
 
@@ -1157,6 +1170,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         if (raw.valeurs.validee) cfg.valeurs.validee = String(raw.valeurs.validee);
         if (raw.valeurs.refusee) cfg.valeurs.refusee = String(raw.valeurs.refusee);
       }
+      if (typeof raw.signataire === 'string') cfg.signataire = raw.signataire;
     }
     return cfg;
   }
@@ -1251,6 +1265,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     absValAttente.value = absencesConfig.valeurs.attente;
     absValValidee.value = absencesConfig.valeurs.validee;
     absValRefusee.value = absencesConfig.valeurs.refusee;
+    absSignataire.value = absencesConfig.signataire;
     refreshAbsencesTableList(); // pré-sélectionne aussi la table et les colonnes déjà enregistrées
   }
 
@@ -1261,6 +1276,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     cfg.valeurs.attente = absValAttente.value.trim() || 'En attente';
     cfg.valeurs.validee = absValValidee.value.trim() || 'Validée';
     cfg.valeurs.refusee = absValRefusee.value.trim() || 'Refusée';
+    cfg.signataire = absSignataire.value.trim();
     return cfg;
   }
 
@@ -1444,7 +1460,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           destination: cfg.col.destination ? textOf(r[cfg.col.destination]) : '',
           decision: textOf(r[cfg.col.decision]),
           commentaire: cfg.col.commentaire ? textOf(r[cfg.col.commentaire]) : '',
-          modele: cfg.col.modele ? textOf(r[cfg.col.modele]) : ''
+          creeLe: cfg.col.creeLe ? r[cfg.col.creeLe] : null,
+          derniereMiseAJour: cfg.col.derniereMiseAJour ? r[cfg.col.derniereMiseAJour] : null
         };
       });
       if (absDemandeurLooksLikeRefId) {
@@ -1690,157 +1707,154 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   absRefreshBtn.addEventListener('click', renderAbsencesPage);
 
   // ---- Génération du PDF « Autorisation d'absence » ----------------------
-
-  // ---- Modèle HTML par demande (colonne "Modèle d'autorisation d'absence") --
   //
-  // Si la ligne d'absence a une valeur dans la colonne "modele" (configurée
-  // dans le backoffice, rôle ABS_ROLES "modele"), ce contenu HTML est
-  // utilisé comme corps du PDF (à la place du bloc de champs + phrase
-  // d'autorisation codés en dur ci-dessous) : les jetons {{champ}} y sont
-  // remplacés par les valeurs de la demande, puis le HTML restant est
-  // réduit à du texte simple (sauts de ligne aux balises de bloc) avant
-  // d'être imprimé dans le PDF. Titre et bloc "Fait le / signature"
-  // restent, eux, toujours générés de la même façon.
+  // Modèle fixe (gendarmerie, « autorisation d'absence courte durée »),
+  // transcrit ici en dessins jsPDF (rectangles/texte) faute de moteur de
+  // rendu HTML/CSS dans jsPDF : en-tête, titre, encart identité, tableau
+  // DURÉE, encart DESTINATION(S) et tableau TRANSMIS ET DÉCISION (décision,
+  // dates, observations et signataire). Seul le signataire est configurable
+  // (rôle "signataire" de absencesConfig, backoffice) ; les autres champs
+  // viennent du mapping de colonnes (ABS_ROLES).
 
-  function fillModeleTemplate(html, row) {
-    var debut = parseGristDateTime(row.dateDebut);
-    var fin = parseGristDateTime(row.dateFin);
-    var tokens = {
-      demandeur: row.demandeur || '',
-      datedebut: debut ? (fmtDayTitle(debut) + ' à ' + fmtHM(debut)) : '',
-      datefin: fin ? (fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '',
-      motif: row.motif || '',
-      destination: row.destination || '',
-      commentaire: row.commentaire || '',
-      decision: row.decision || '',
-      dategeneration: fmtDayTitle(new Date())
-    };
-    return html.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, function (m, name) {
-      var key = name.toLowerCase();
-      return Object.prototype.hasOwnProperty.call(tokens, key) ? tokens[key] : m;
-    });
+  function pdfFmtDate(value, withTime) {
+    var d = parseGristDateTime(value);
+    if (!d) return null;
+    return withTime ? (fmtDayTitle(d) + ' à ' + fmtHM(d)) : fmtDayTitle(d);
   }
 
-  function htmlTemplateToPlainText(html) {
-    var text = html
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&lt;/gi, '<')
-      .replace(/&gt;/gi, '>')
-      .replace(/&#39;/gi, '\'')
-      .replace(/&quot;/gi, '"');
-    return text.split('\n').map(function (l) { return l.trim(); }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  // Dessine un encart bordé sur toute la largeur donnée ; retourne le y
+  // (bas de l'encart).
+  function pdfDrawBox(doc, x, y, width, text, opts) {
+    opts = opts || {};
+    var padding = opts.padding || 3;
+    var lineHeight = opts.lineHeight || 5;
+    doc.setFont('times', opts.bold ? 'bold' : 'normal');
+    doc.setFontSize(opts.fontSize || 10.5);
+    var lines = doc.splitTextToSize(text, width - padding * 2);
+    var height = Math.max(opts.minHeight || 0, lines.length * lineHeight + padding * 2);
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(x, y, width, height);
+    doc.text(lines, x + padding, y + padding + 3.2);
+    return y + height;
   }
 
-  function buildAbsenceAuthorizationPdfDocument(row, modeleText) {
+  // Dessine une ligne de tableau à 2 colonnes bordées, chacune pouvant
+  // contenir plusieurs lignes de texte (séparées par "\n") et son propre
+  // style ; retourne le y (bas de la ligne).
+  function pdfDrawTableRow(doc, x, y, colWidths, left, right, opts) {
+    opts = opts || {};
+    var padding = 3;
+    var lineHeight = opts.lineHeight || 5;
+    doc.setFontSize(opts.fontSize || 10.5);
+    doc.setFont('times', opts.leftBold ? 'bold' : 'normal');
+    var leftLines = doc.splitTextToSize(left || '', colWidths[0] - padding * 2);
+    doc.setFont('times', opts.rightBold ? 'bold' : 'normal');
+    var rightLines = doc.splitTextToSize(right || '', colWidths[1] - padding * 2);
+    var lineCount = Math.max(leftLines.length, rightLines.length, 1);
+    var height = Math.max(opts.minHeight || 0, lineCount * lineHeight + padding * 2);
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(x, y, colWidths[0], height);
+    doc.rect(x + colWidths[0], y, colWidths[1], height);
+    doc.setFont('times', opts.leftBold ? 'bold' : 'normal');
+    doc.text(leftLines, x + padding, y + padding + 3.2);
+    doc.setFont('times', opts.rightBold ? 'bold' : 'normal');
+    doc.text(rightLines, x + colWidths[0] + padding, y + padding + 3.2);
+    return y + height;
+  }
+
+  function buildAbsenceAuthorizationPdfDocument(row) {
     var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDFCtor) {
       showAbsStatus('error', 'La bibliothèque de génération PDF (jsPDF) n\'a pas pu être chargée.');
       return null;
     }
     var doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
-    renderAbsenceAuthorizationPdfContent(doc, row, modeleText);
+    renderAbsenceAuthorizationPdfContent(doc, row);
     var debut = parseGristDateTime(row.dateDebut);
     var filename = 'Autorisation_absence_' + (row.demandeur || 'demandeur').replace(/[^a-zA-Z0-9]+/g, '-') +
       (debut ? '_' + fmtDayTitle(debut).replace(/\//g, '-') : '') + '.pdf';
     return { doc: doc, filename: filename };
   }
 
-  function renderAbsenceAuthorizationPdfContent(doc, row, modeleText) {
-    var marianneOk = registerMarianneFont(doc);
-    var baseFont = marianneOk ? 'Marianne' : 'helvetica';
-    var bleuFrance = [0, 0, 145];
+  function renderAbsenceAuthorizationPdfContent(doc, row) {
     var pageWidth = doc.internal.pageSize.getWidth();
-    var marginLeft = 20;
-    var marginRight = 20;
-    var y = 24;
+    var marginLeft = 18;
+    var marginRight = 18;
+    var contentWidth = pageWidth - marginLeft - marginRight;
+    var halfWidth = contentWidth / 2;
+    var y = 20;
 
-    doc.setFont(baseFont, 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
-    doc.text('AUTORISATION D\'ABSENCE', pageWidth / 2, y, { align: 'center' });
-
-    y += 6;
-    doc.setFont(baseFont, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(130, 130, 130);
-    doc.text('Division réserves jeunesse', pageWidth / 2, y, { align: 'center' });
     doc.setTextColor(0, 0, 0);
 
-    y += 18;
+    // En-tête
+    doc.setFont('times', 'bold');
+    doc.setFontSize(12);
+    doc.text('GENDARMERIE NATIONALE', marginLeft, y);
+    y += 14;
 
-    var debut = parseGristDateTime(row.dateDebut);
-    var fin = parseGristDateTime(row.dateFin);
+    // Titre / sous-titre
+    doc.setFontSize(13);
+    doc.text('AUTORISATION D\'ABSENCE', pageWidth / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFontSize(11);
+    doc.text('« COURTE DURÉE »', pageWidth / 2, y, { align: 'center' });
+    y += 10;
 
-    if (modeleText) {
-      doc.setFont(baseFont, 'normal');
-      doc.setFontSize(10.5);
-      modeleText.split('\n').forEach(function (para) {
-        if (!para) { y += 4; return; }
-        var wrapped = doc.splitTextToSize(para, pageWidth - marginLeft - marginRight);
-        doc.text(wrapped, marginLeft, y);
-        y += wrapped.length * 5.5 + 2;
-      });
-      y += 12;
-    } else {
-      var labelX = marginLeft;
-      var valueX = marginLeft + 42;
+    // Identité
+    y = pdfDrawBox(doc, marginLeft, y, contentWidth, 'Grade, nom et prénom de l\'intéressé : ' + (row.demandeur || '—')) + 8;
 
-      var field = function (label, value) {
-        doc.setFont(baseFont, 'bold');
-        doc.setFontSize(11);
-        doc.text(label, labelX, y);
-        doc.setFont(baseFont, 'normal');
-        var wrapped = doc.splitTextToSize(String(value || '—'), pageWidth - marginRight - valueX);
-        doc.text(wrapped, valueX, y);
-        y += Math.max(8, wrapped.length * 5.5);
-      };
+    // DURÉE
+    doc.setFont('times', 'bold');
+    doc.setFontSize(11);
+    doc.text('DURÉE', pageWidth / 2, y, { align: 'center' });
+    y += 6;
+    var debutStr = pdfFmtDate(row.dateDebut, true) || '—';
+    var finStr = pdfFmtDate(row.dateFin, true) || '—';
+    y = pdfDrawTableRow(doc, marginLeft, y, [halfWidth, halfWidth], 'Pour la période du', debutStr);
+    y = pdfDrawTableRow(doc, marginLeft, y, [halfWidth, halfWidth], 'au', finStr);
+    y += 8;
 
-      field('Bénéficiaire :', row.demandeur);
-      field('Du :', debut ? (fmtDayTitle(debut) + ' à ' + fmtHM(debut)) : '—');
-      field('Au :', fin ? (fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '—');
-      if (row.destination) field('Destination :', row.destination);
-      if (row.motif) field('Motif :', row.motif);
-      field('Décision :', row.decision);
-      if (row.commentaire) field('Commentaire :', row.commentaire);
+    // DESTINATION(S)
+    doc.setFont('times', 'bold');
+    doc.setFontSize(11);
+    doc.text('DESTINATION (S)', pageWidth / 2, y, { align: 'center' });
+    y += 6;
+    y = pdfDrawBox(doc, marginLeft, y, contentWidth, 'Pour aller à : ' + (row.destination || '—')) + 8;
 
-      y += 8;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(marginLeft, y, pageWidth - marginRight, y);
-      y += 10;
+    // TRANSMIS ET DÉCISION
+    doc.setFont('times', 'bold');
+    doc.setFontSize(11);
+    doc.text('TRANSMIS ET DÉCISION', pageWidth / 2, y, { align: 'center' });
+    y += 6;
+    y = pdfDrawTableRow(doc, marginLeft, y, [halfWidth, halfWidth],
+      'Le demandeur',
+      'Décision de l\'autorité habilitée : ' + (row.decision || '—'),
+      { leftBold: true, rightBold: true });
 
-      doc.setFont(baseFont, 'normal');
-      doc.setFontSize(10.5);
-      var statement = 'Le signataire autorise ' + (row.demandeur || 'l\'intéressé(e)') + ' à s\'absenter' +
-        (row.destination ? (' pour se rendre à ' + row.destination) : '') +
-        (debut && fin ? (' du ' + fmtDayTitle(debut) + ' à ' + fmtHM(debut) + ' au ' + fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '') +
-        (row.motif ? (', pour le motif suivant : ' + row.motif) : '') + '.';
-      var wrappedStatement = doc.splitTextToSize(statement, pageWidth - marginLeft - marginRight);
-      doc.text(wrappedStatement, marginLeft, y);
-      y += wrappedStatement.length * 5.5 + 22;
+    var creeLeStr = pdfFmtDate(row.creeLe, false);
+    var derniereMiseAJourStr = pdfFmtDate(row.derniereMiseAJour, false);
+    if (!derniereMiseAJourStr && row.decision && normalizeNameKey(row.decision) !== normalizeNameKey(absencesConfig.valeurs.attente)) {
+      // Pas de colonne "date de la décision" configurée : à défaut, la
+      // date de génération du PDF (une décision a bien été rendue).
+      derniereMiseAJourStr = fmtDayTitle(new Date());
     }
+    y = pdfDrawTableRow(doc, marginLeft, y, [halfWidth, halfWidth],
+      'Date de la demande :\n' + (creeLeStr || '—'),
+      'Date de la décision :\n' + (derniereMiseAJourStr || '—'));
 
-    var genMoment = new Date();
-    doc.setFontSize(10);
-    doc.text('Fait le ' + fmtDayTitle(genMoment) + '.', marginLeft, y);
-
-    y += 22;
-    var sigWidth = 65;
-    var sigX = pageWidth - marginRight - sigWidth;
-    doc.setFont(baseFont, 'bold');
-    doc.text('Le signataire', sigX, y);
-    y += 16;
-    doc.setDrawColor(150, 150, 150);
-    doc.line(sigX, y, sigX + sigWidth, y);
+    var signataire = (absencesConfig.signataire || '').trim();
+    var commaIdx = signataire.indexOf(',');
+    var signataireText = !signataire ? '—' :
+      (commaIdx !== -1 ? (signataire.slice(0, commaIdx + 1) + '\n' + signataire.slice(commaIdx + 1).trim()) : signataire);
+    y = pdfDrawTableRow(doc, marginLeft, y, [halfWidth, halfWidth],
+      'Observations :\n' + (row.commentaire || ''),
+      signataireText,
+      { rightBold: true, minHeight: 36 });
   }
 
   function generateAbsenceAuthorizationPdf(row) {
     try {
-      var modeleText = row.modele ? htmlTemplateToPlainText(fillModeleTemplate(row.modele, row)) : null;
-      var built = buildAbsenceAuthorizationPdfDocument(row, modeleText);
+      var built = buildAbsenceAuthorizationPdfDocument(row);
       if (!built) return;
       built.doc.save(built.filename);
       showAbsStatus('success', 'PDF généré : ' + built.filename);
