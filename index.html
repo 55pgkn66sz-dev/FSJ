@@ -1590,7 +1590,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var fmtAbsDate = function (d) { return isRepos ? fmtDayTitle(d) : (fmtDayTitle(d) + ' ' + fmtHM(d)); };
 
       // Le PDF n'est proposé que pour les demandes validées ET de type
-      // "Autorisation d'absence" (si le type n'est pas configuré, seule la
+      // "Autorisation d'absence temporaire" (si le type n'est pas configuré, seule la
       // validation conditionne sa disponibilité). Deux infobulles DSFR
       // distinctes selon la raison du blocage.
       var isAutorisationType = !cfg.col.motif || (!!r.motif && normalizeNameKey(r.motif) === normalizeNameKey('Autorisation d\'absence'));
@@ -1600,7 +1600,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       if (!pdfAvailable) {
         pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++);
         pdfTooltipText = !isAutorisationType
-          ? 'Le PDF n\'est disponible que pour les demandes de type « Autorisation d\'absence ».'
+          ? 'Le PDF n\'est disponible que pour les demandes de type « Autorisation d\'absence temporaire ».'
           : 'Le PDF est disponible une fois la demande validée.';
       }
 
