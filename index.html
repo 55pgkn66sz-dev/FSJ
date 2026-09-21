@@ -23,6 +23,15 @@
 
 <!-- DSFR (Système de Design de l'État) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.15.3/dist/dsfr.min.css">
+<!-- Icônes DSFR (fr-icon-*, fr-btn--icon-*) : les définitions par icône
+     (mask-image vers le SVG correspondant) ne sont pas dans dsfr.min.css
+     ci-dessus, seulement le style générique du masque. Elles sont censées
+     être injectées dynamiquement par le JS du DSFR (chargé plus bas), mais
+     ce mécanisme repose sur document.currentScript, toujours null dans un
+     script type="module" — ce qui empêche les icônes de s'afficher dans
+     le contexte d'un widget Grist. On charge donc ce fichier directement,
+     en complément, pour garantir leur affichage. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.15.3/dist/utility/icons/icons.min.css">
 
 <!-- API du widget Grist -->
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
@@ -153,9 +162,27 @@
   .week-filter-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.75rem;
+  }
+
+  /* Bascule Semaine / Jour de la vue Progression : présentée comme un
+     petit contrôle segmenté, l'option active étant surlignée. */
+  .scale-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border-default-grey);
+    border-radius: 0.25rem;
+    overflow: hidden;
+  }
+  .scale-toggle .fr-btn {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+  }
+  .scale-toggle .fr-btn[aria-pressed="true"] {
+    background-color: var(--bleu-france);
+    color: #fff;
   }
 
   /* Planning hebdomadaire : heures à l'horizontale, jours à la verticale.
@@ -411,6 +438,14 @@
     </div>
 
     <div class="week-filter-row fr-mb-2w">
+      <div class="scale-toggle" id="progressionScaleToggle" role="group" aria-label="Échelle d'affichage">
+        <button class="fr-btn fr-btn--tertiary fr-btn--sm" id="scaleWeekBtn" type="button" aria-pressed="false">
+          Semaine
+        </button>
+        <button class="fr-btn fr-btn--tertiary fr-btn--sm" id="scaleDayBtn" type="button" aria-pressed="false">
+          Jour
+        </button>
+      </div>
       <div class="dropdown-menu" id="progressionFilterMenu">
         <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="progressionFilterBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="progressionFilterList">
           Filtrer
@@ -474,10 +509,53 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var weekNextBtn = document.getElementById('weekNextBtn');
   var weekLabel = document.getElementById('weekLabel');
   var weekGrid = document.getElementById('weekGrid');
-  var weekReferenceDate = null; // un jour quelconque de la semaine affichée
+  var weekReferenceDate = null; // le jour affiché en vue Jour, ou un jour quelconque de la semaine affichée en vue Semaine
   var progressionPdfBtn = document.getElementById('generateProgressionPdfBtn');
   var progressionFilterBtn = document.getElementById('progressionFilterBtn');
   var progressionFilterList = document.getElementById('progressionFilterList');
+  var scaleWeekBtn = document.getElementById('scaleWeekBtn');
+  var scaleDayBtn = document.getElementById('scaleDayBtn');
+
+  // ---- Échelle de la vue Progression : Semaine ou Jour -------------------
+  //
+  // Par défaut, semaine sur ordinateur ou tablette, jour sur mobile (au sens
+  // du point de rupture DSFR "md", 48em/768px) ; l'utilisateur peut ensuite
+  // basculer librement via les boutons Semaine/Jour, ce choix étant alors
+  // conservé pour le reste de la session (pas de re-bascule automatique au
+  // redimensionnement).
+  var progressionScale = null; // null (pas encore déterminée) | 'week' | 'day'
+
+  function defaultProgressionScale() {
+    try {
+      return window.matchMedia('(max-width: 47.99em)').matches ? 'day' : 'week';
+    } catch (e) {
+      return 'week';
+    }
+  }
+
+  function applyScaleButtons() {
+    scaleWeekBtn.setAttribute('aria-pressed', progressionScale === 'week' ? 'true' : 'false');
+    scaleDayBtn.setAttribute('aria-pressed', progressionScale === 'day' ? 'true' : 'false');
+    var isDay = (progressionScale === 'day');
+    weekPrevBtn.textContent = isDay ? 'Jour précédent' : 'Semaine précédente';
+    weekNextBtn.textContent = isDay ? 'Jour suivant' : 'Semaine suivante';
+  }
+
+  function ensureProgressionScale() {
+    if (!progressionScale) {
+      progressionScale = defaultProgressionScale();
+      applyScaleButtons();
+    }
+  }
+
+  function setProgressionScale(scale) {
+    progressionScale = scale;
+    applyScaleButtons();
+    renderWeekView();
+  }
+
+  scaleWeekBtn.addEventListener('click', function () { setProgressionScale('week'); });
+  scaleDayBtn.addEventListener('click', function () { setProgressionScale('day'); });
 
   // ---- Initialisation du widget Grist ------------------------------------
 
@@ -588,6 +666,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     panelProgression.hidden = (view !== 'progression');
     if (view === 'progression') {
       if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
+      ensureProgressionScale();
       renderWeekView();
     }
   }
@@ -726,12 +805,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   weekPrevBtn.addEventListener('click', function () {
     if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
-    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() - 7);
+    var step = (progressionScale === 'day') ? 1 : 7;
+    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() - step);
     renderWeekView();
   });
   weekNextBtn.addEventListener('click', function () {
     if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
-    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() + 7);
+    var step = (progressionScale === 'day') ? 1 : 7;
+    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() + step);
     renderWeekView();
   });
 
@@ -881,32 +962,48 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       '</div>';
   }
 
+  var DAY_NAMES_MON_FIRST = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  function dayNameFor(d) {
+    return DAY_NAMES_MON_FIRST[(d.getDay() + 6) % 7];
+  }
+
   function renderWeekView() {
     if (!recordsLoaded) {
       weekGrid.innerHTML = '<p class="fr-text--sm">Chargement des données…</p>';
       return;
     }
 
+    ensureProgressionScale();
     if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
-    var monday = getMonday(weekReferenceDate);
-    var sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+
+    // Vue Semaine : du lundi au dimanche de la semaine de référence.
+    // Vue Jour : uniquement le jour de référence.
+    var isDayScale = (progressionScale === 'day');
+    var rangeStart = isDayScale ? weekReferenceDate : getMonday(weekReferenceDate);
+    var dayCount = isDayScale ? 1 : 7;
+    var rangeEnd = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + dayCount - 1);
     var mode = getSelectedMode();
-    var dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
     var today = new Date();
 
-    weekLabel.textContent = 'Semaine du ' + fmtDayTitle(monday) + ' au ' + fmtDayTitle(sunday);
+    weekLabel.textContent = isDayScale
+      ? (dayNameFor(rangeStart) + ' ' + fmtDayTitle(rangeStart))
+      : ('Semaine du ' + fmtDayTitle(rangeStart) + ' au ' + fmtDayTitle(rangeEnd));
 
     // Occurrences de chaque jour, Permanences exclues (codes CDT, AE, SOP,
     // SAN) : cette vue ne montre que la progression pédagogique.
     var days = [];
-    for (var i = 0; i < 7; i++) {
-      var d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    for (var i = 0; i < dayCount; i++) {
+      var d = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + i);
       var sections = splitBySection(getOccurrencesForDay(d, mode));
       var occ = sections.progression;
       if (activeFilter && activeFilter.type === 'cadre') {
         occ = occ.filter(function (o) { return matchesCadre(o.encadrement, activeFilter.name); });
       }
-      var sopCadre = findPermanenceCadre(sections.permanences, 'SOP');
+      // Le SOP (officier de permanence) concerne toute la promotion, pas
+      // un peloton ou un cadre en particulier : on ne l'affiche que sur la
+      // vue non filtrée, pour ne pas laisser croire qu'il est spécifique
+      // au filtre actif.
+      var sopCadre = activeFilter ? null : findPermanenceCadre(sections.permanences, 'SOP');
       days.push({ date: d, occ: occ, isToday: sameDay(d, today), sopCadre: sopCadre });
     }
 
@@ -979,7 +1076,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         ? '<div class="week-timegrid__daylabel-sop"><strong>SOP&nbsp;:</strong> <span class="week-timegrid__daylabel-sop-name">' + escapeHtml(day.sopCadre) + '</span></div>'
         : '';
       labelsHtml += '<div class="week-timegrid__daylabel' + (day.isToday ? ' week-timegrid__daylabel--today' : '') + '" style="height:' + day.totalHeight + 'px">' +
-        '<div class="week-timegrid__daylabel-date">' + dayNames[i] + '&nbsp;' + escapeHtml(fmtDayTitle(day.date)) + '</div>' +
+        '<div class="week-timegrid__daylabel-date">' + dayNameFor(day.date) + '&nbsp;' + escapeHtml(fmtDayTitle(day.date)) + '</div>' +
         sopLineHtml +
         '</div>';
 
