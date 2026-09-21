@@ -66,6 +66,13 @@
     white-space: normal;
   }
 
+  .top-controls-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
   #viewSegmented {
     max-width: 22rem;
     box-shadow: none;
@@ -75,6 +82,7 @@
     margin: 0;
     padding: 0;
   }
+  #generateProgressionPdfBtn { flex: 0 0 auto; }
 
   .week-nav {
     display: flex;
@@ -102,7 +110,9 @@
     font-weight: 700;
     font-size: 0.8em;
     padding: 2px 8px;
-    border-bottom: 1px solid var(--border-default-grey);
+    /* Trait nettement plus marqué que les séparateurs internes (lignes
+       de peloton) : c'est la frontière entre deux jours. */
+    border-bottom: 2px solid #8a8a8a;
   }
   .week-timegrid__daylabel--today { color: var(--bleu-france); }
 
@@ -115,6 +125,7 @@
   .week-timegrid__pelotonday {
     display: flex;
     flex-direction: column;
+    border-bottom: 2px solid #8a8a8a;
   }
   .week-timegrid__pelotonday--today { background: #f5f5fe; }
   .week-timegrid__pelotonrow {
@@ -146,11 +157,17 @@
     color: var(--text-mention-grey);
     white-space: nowrap;
   }
-  .week-day-block { position: relative; box-sizing: border-box; }
+  .week-day-block { position: relative; box-sizing: border-box; border-bottom: 2px solid #8a8a8a; }
   .week-timegrid__lane {
     position: relative;
     box-sizing: border-box;
     border-bottom: 1px solid var(--border-default-grey);
+    /* Une ligne sans occurrence propre est transparente mais reste un
+       bloc "vide" par-dessus les barres fusionnées (tout le monde /
+       multi-pelotons) éventuellement dessinées derrière elle : sans ça,
+       elle capterait le survol de la souris à leur place et empêcherait
+       leur infobulle de s'afficher. */
+    pointer-events: none;
   }
   .week-timegrid__lane--today { background: #f5f5fe; }
   .week-timegrid__gridline {
@@ -171,7 +188,11 @@
     white-space: nowrap;
   }
 
-  .week-event-wrap { position: absolute; }
+  /* Réactive les interactions (survol/focus) pour chaque occurrence,
+     y compris à l'intérieur d'une ligne "vide" (pointer-events: none
+     ci-dessus) : c'est ce qui permet à l'infobulle d'apparaître aussi
+     pour les évènements collectifs, dessinés derrière ces lignes. */
+  .week-event-wrap { position: absolute; pointer-events: auto; }
   .week-event {
     display: flex;
     align-items: center;
@@ -179,8 +200,11 @@
     box-sizing: border-box;
     width: 100%;
     height: 100%;
-    background: #e8edfc;
-    border-left: 3px solid var(--bleu-france);
+    /* Couleur (fond + bordure gauche) appliquée en style inline, héritée
+       du Type d'évènement (voir weekEventWrapHtml) — les valeurs ci-
+       dessous ne servent qu'à un éventuel évènement sans Type. */
+    background: #eee;
+    border-left: 3px solid #5a5a5a;
     border-radius: 2px;
     padding: 0 4px;
     font-size: 0.72em;
@@ -189,30 +213,22 @@
     white-space: nowrap;
     cursor: default;
   }
+  /* Le survol/focus assombrit légèrement la couleur en place (filter),
+     ce qui fonctionne quelle que soit la couleur héritée du Type, sans
+     avoir à la connaître à l'avance en CSS. */
   .week-event:hover, .week-event:focus {
-    background: #d6dffa;
-    outline: 2px solid var(--bleu-france);
+    filter: brightness(0.92);
+    outline: 2px solid rgba(0, 0, 0, 0.45);
     outline-offset: -1px;
     z-index: 2;
     position: relative;
   }
-  .week-event--restricted { border-left-color: #CE0500; background: #fdecea; }
-  .week-event--restricted:hover, .week-event--restricted:focus {
-    background: #fbdbd7;
-    outline-color: #CE0500;
-  }
-  /* Occurrence "tout le monde" (aucun peloton renseigné) : barre fusionnée
-     en travers de toutes les lignes du jour, texte centré. */
+  /* Occurrence "tout le monde" ou multi-pelotons : barre fusionnée en
+     travers de plusieurs lignes du jour, texte centré. */
   .week-event--all {
     justify-content: center;
     text-align: center;
     white-space: normal;
-    background: #fef3e2;
-    border-left-color: #B45309;
-  }
-  .week-event--all:hover, .week-event--all:focus {
-    background: #fbe6c2;
-    outline-color: #B45309;
   }
   .week-event__badges { display: inline-flex; gap: 2px; flex: 0 0 auto; }
   .week-event__title { overflow: hidden; text-overflow: ellipsis; }
@@ -235,7 +251,7 @@
           </div>
           <div class="fr-header__service">
             <p class="fr-header__service-title">Division réserves jeunesse</p>
-            <p class="fr-header__service-tagline">Générateur de FSJ</p>
+            <p class="fr-header__service-tagline">Suivi de la progression</p>
           </div>
         </div>
       </div>
@@ -245,18 +261,24 @@
 
 <div class="widget-wrap">
 
-  <div class="fr-segmented fr-segmented--sm fr-mb-3w" id="viewSegmented">
-    <fieldset class="fr-segmented__elements">
-      <legend class="fr-segmented__legend fr-sr-only">Affichage</legend>
-      <div class="fr-segmented__element">
-        <input value="progression" type="radio" id="segmentProgression" name="viewSegment">
-        <label class="fr-label" for="segmentProgression">Progression</label>
-      </div>
-      <div class="fr-segmented__element">
-        <input value="generer" type="radio" id="segmentGenerer" name="viewSegment" checked>
-        <label class="fr-label" for="segmentGenerer">Générer FSJ</label>
-      </div>
-    </fieldset>
+  <div class="top-controls-row fr-mb-3w">
+    <div class="fr-segmented fr-segmented--sm" id="viewSegmented">
+      <fieldset class="fr-segmented__elements">
+        <legend class="fr-segmented__legend fr-sr-only">Affichage</legend>
+        <div class="fr-segmented__element">
+          <input value="progression" type="radio" id="segmentProgression" name="viewSegment">
+          <label class="fr-label" for="segmentProgression">Progression</label>
+        </div>
+        <div class="fr-segmented__element">
+          <input value="generer" type="radio" id="segmentGenerer" name="viewSegment" checked>
+          <label class="fr-label" for="segmentGenerer">Générer FSJ</label>
+        </div>
+      </fieldset>
+    </div>
+
+    <button class="fr-btn fr-btn--secondary fr-btn--sm" id="generateProgressionPdfBtn" type="button" disabled>
+      Générer le PDF Progression
+    </button>
   </div>
 
   <div id="panelGenerer">
@@ -372,6 +394,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var weekLabel = document.getElementById('weekLabel');
   var weekGrid = document.getElementById('weekGrid');
   var weekReferenceDate = null; // un jour quelconque de la semaine affichée
+  var progressionPdfBtn = document.getElementById('generateProgressionPdfBtn');
 
   // ---- Initialisation du widget Grist ------------------------------------
 
@@ -389,7 +412,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       { name: 'Lieu', title: 'Lieu', type: 'Any', optional: true },
       { name: 'Encadrement', title: 'Encadrement', type: 'Any', optional: true },
       { name: 'Consignes', title: 'Consignes', type: 'Any', optional: true },
-      { name: 'Apprenants', title: 'Apprenants', type: 'Any', optional: true }
+      { name: 'Apprenants', title: 'Apprenants', type: 'Any', optional: true },
+      { name: 'Type', title: "Type d'évènement", type: 'Any', optional: true }
     ]
   });
 
@@ -401,6 +425,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     recordsLoaded = true;
     generateBtn.disabled = false;
     generateWhatsappBtn.disabled = false;
+    progressionPdfBtn.disabled = false;
     renderPreview();
     if (!panelProgression.hidden) renderWeekView();
   });
@@ -424,6 +449,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     showStatus('success', 'PDF généré : ' + built.filename);
   });
   generateWhatsappBtn.addEventListener('click', generateAndShareWhatsApp);
+  progressionPdfBtn.addEventListener('click', function () {
+    var built = buildProgressionPdfDocument();
+    if (!built) return;
+    built.doc.save(built.filename);
+    showStatus('success', 'PDF généré : ' + built.filename);
+  });
   fsjRadios.forEach(function (radio) {
     radio.addEventListener('change', function () {
       renderPreview();
@@ -523,10 +554,63 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }).join('') + '</span>';
   }
 
+  // ---- Couleur des occurrences, héritée du Type d'évènement -------------
+
+  // Palette de teintes distinctes (fond clair / bordure saturée), affectée
+  // à chaque valeur de la colonne "Type" par hachage déterministe : deux
+  // occurrences du même type ont toujours la même couleur (dans la vue
+  // web comme dans le PDF), sans configuration à faire côté utilisateur.
+  var TYPE_PALETTE = [
+    [0, 0, 145],     // bleu France
+    [0, 110, 71],    // vert
+    [180, 83, 9],    // orange / terre battue
+    [130, 20, 130],  // violet
+    [0, 105, 140],   // bleu cyan
+    [155, 40, 40],   // brique
+    [110, 100, 0],   // olive
+    [20, 90, 160],   // bleu clair
+    [140, 90, 20],   // brun
+    [90, 40, 140],   // indigo
+    [0, 130, 110],   // vert d'eau
+    [150, 60, 90]    // framboise
+  ];
+  var TYPE_COLOR_NONE = [90, 90, 90]; // gris neutre si aucun Type renseigné
+
+  function normalizeTypeKey(value) {
+    return String(value || '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .trim()
+      .toUpperCase();
+  }
+
+  function hashString(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) {
+      h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    }
+    return h;
+  }
+
+  // Couleur "pleine" (bordure) associée à un Type ; [90,90,90] si absent.
+  function colorForType(typeValue) {
+    var key = normalizeTypeKey(typeValue);
+    if (!key) return TYPE_COLOR_NONE;
+    return TYPE_PALETTE[hashString(key) % TYPE_PALETTE.length];
+  }
+
+  // Éclaircit une couleur vers le blanc (amount = 0 -> inchangée, 1 -> blanc).
+  function lightenColor(rgb, amount) {
+    return rgb.map(function (c) { return Math.round(c + (255 - c) * amount); });
+  }
+
+  function rgbCss(rgb) {
+    return 'rgb(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ')';
+  }
+
   // Construit le contenu visible d'une barre et le contenu de son
   // infobulle DSFR : (badges) Apprenants / (gras) Occurrence, puis Lieu /
   // Cadres, puis Consignes en plus petit — chaque bloc séparé par une
-  // ligne vide.
+  // ligne vide. La couleur de la barre est héritée du Type d'évènement.
   function weekEventInfo(o) {
     var label = o.intitule || o.occurrence || '';
     var group1 = (o.apprenants.length ? inlineBadgesHtml(o.apprenants, 'week-tooltip__badges') + '<br>' : '') + '<strong>' + escapeHtml(label) + '</strong>';
@@ -536,20 +620,24 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var groups = [group1];
     if (group2Lines.length) groups.push(group2Lines.join('<br>'));
     if (o.consignes) groups.push('<span class="week-tooltip__consignes">' + escapeHtml(o.consignes) + '</span>');
+    var borderColor = colorForType(o.type);
     return {
-      restricted: isExcludedCode(o.code),
       visibleContent: escapeHtml(label),
-      tooltipContent: groups.join('<br><br>')
+      tooltipContent: groups.join('<br><br>'),
+      borderColor: borderColor,
+      fillColor: lightenColor(borderColor, 0.86)
     };
   }
 
   // Rendu générique d'une barre positionnée en absolu (left/top/width/
-  // height déjà calculés par l'appelant).
+  // height déjà calculés par l'appelant), colorée selon le Type de
+  // l'occurrence.
   function weekEventWrapHtml(o, left, width, top, height, extraClass) {
     var info = weekEventInfo(o);
     var tooltipId = 'weekTooltip' + (weekTooltipSeq++);
+    var colorStyle = 'background-color:' + rgbCss(info.fillColor) + '; border-left-color:' + rgbCss(info.borderColor) + ';';
     return '<div class="week-event-wrap" style="left:' + left + 'px; width:' + width + 'px; top:' + top + 'px; height:' + height + 'px;">' +
-      '<div class="week-event' + (info.restricted ? ' week-event--restricted' : '') + (extraClass ? ' ' + extraClass : '') + '" tabindex="0" aria-describedby="' + tooltipId + '">' +
+      '<div class="week-event' + (extraClass ? ' ' + extraClass : '') + '" style="' + colorStyle + '" tabindex="0" aria-describedby="' + tooltipId + '">' +
       info.visibleContent +
       '</div>' +
       '<span class="fr-tooltip fr-placement" id="' + tooltipId + '" role="tooltip">' + info.tooltipContent + '</span>' +
@@ -604,32 +692,36 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var totalWidth = (gridEnd - gridStart) * PX_PER_MIN;
 
     // Répartit les occurrences de chaque jour sur les lignes "peloton"
-    // (P1, P2, P3, P4, ACC.). Une occurrence dont aucun jeton "Apprenants"
-    // ne désigne un peloton connu concerne tout le monde : elle est mise
-    // à part et sera affichée en travers de toutes les lignes du jour,
-    // comme une cellule fusionnée.
+    // (P1, P2, P3, P4, ACC.), via la fonction partagée avec l'export PDF
+    // de la progression (computeDayPelotonLayout) ; ne reste ici qu'à
+    // convertir cette répartition en hauteurs de ligne concrètes (en
+    // pixels, pour l'affichage web).
     days.forEach(function (day) {
-      var rowCodes = rowCodesForDay(day.date);
-      var byCode = {};
-      rowCodes.forEach(function (rc) { byCode[rc] = []; });
-      var spanning = [];
+      var layout = computeDayPelotonLayout(day.date, day.occ);
 
-      day.occ.forEach(function (o) {
-        var matched = matchedRowCodes(o.apprenants, rowCodes);
-        if (matched.length) {
-          matched.forEach(function (rc) { byCode[rc].push(o); });
-        } else {
-          spanning.push(o);
-        }
+      day.rows = layout.rows.map(function (row) {
+        return { code: row.code, events: row.events, rowHeight: row.maxCols * SUBROW_H + ROW_PAD };
       });
-
-      day.rows = rowCodes.map(function (rc) {
-        var events = layoutDayEvents(byCode[rc]);
-        var maxCols = events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
-        return { code: rc, events: events, rowHeight: maxCols * SUBROW_H + ROW_PAD };
-      });
-      day.spanningEvents = layoutDayEvents(spanning);
       day.totalHeight = day.rows.reduce(function (sum, row) { return sum + row.rowHeight; }, 0);
+
+      // Position verticale (haut, hauteur) de chaque bloc fusionné, déduite
+      // des hauteurs de ligne déjà connues.
+      var rowTop = {};
+      var offset = 0;
+      day.rows.forEach(function (row) {
+        rowTop[row.code] = offset;
+        offset += row.rowHeight;
+      });
+
+      day.mergedGroups = layout.mergedGroups.map(function (g) {
+        var top = rowTop[g.rowCodes[0]];
+        var height = g.rowCodes.reduce(function (sum, rc) {
+          var row = day.rows.filter(function (r) { return r.code === rc; })[0];
+          return sum + (row ? row.rowHeight : 0);
+        }, 0);
+        return { top: top, height: height, events: g.events, isAll: g.isAll };
+      });
+
       day.isEmpty = (day.occ.length === 0);
     });
 
@@ -679,27 +771,35 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           '</div>';
       }).join('');
 
-      // Occurrences "tout le monde" : une barre en travers de toutes les
-      // lignes du jour (cellule fusionnée) ; si plusieurs se chevauchent
-      // dans le temps, elles se partagent la hauteur du jour côte à côte.
-      var spanningCols = day.spanningEvents.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
-      var spanningHtml = day.spanningEvents.map(function (ev) {
-        var left = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
-        var width = Math.max(6, (ev.end - ev.start) * PX_PER_MIN);
-        var slice = day.totalHeight / spanningCols;
-        var top = ev.col * slice + 1;
-        var height = Math.max(6, slice - 2);
-        return weekEventWrapHtml(ev.o, left, width, top, height, 'week-event--all');
-      }).join('');
+      // Occurrences collectives : une seule barre fusionnée sur la
+      // hauteur des lignes concernées (toutes les lignes pour "tout le
+      // monde", ou seulement les pelotons désignés pour une occurrence
+      // multi-pelotons). Si plusieurs occurrences d'un même bloc se
+      // chevauchent dans le temps, elles se partagent sa hauteur côte à
+      // côte.
+      function renderMergedGroup(group) {
+        var cols = group.events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
+        return group.events.map(function (ev) {
+          var left = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
+          var width = Math.max(6, (ev.end - ev.start) * PX_PER_MIN);
+          var slice = group.height / cols;
+          var top = group.top + ev.col * slice + 1;
+          var height = Math.max(6, slice - 2);
+          return weekEventWrapHtml(ev.o, left, width, top, height, 'week-event--all');
+        }).join('');
+      }
+      // Ordre de peinture, du plus général au plus spécifique, pour que
+      // les occurrences les plus précises restent visibles par-dessus en
+      // cas de chevauchement dans le temps : "tout le monde" (fond),
+      // puis les blocs multi-pelotons, puis les lignes propres à un seul
+      // peloton (lanesHtml, rendu en dernier ci-dessous).
+      var allGroupsHtml = day.mergedGroups.filter(function (g) { return g.isAll; }).map(renderMergedGroup).join('');
+      var partialGroupsHtml = day.mergedGroups.filter(function (g) { return !g.isAll; }).map(renderMergedGroup).join('');
 
       var emptyHtml = day.isEmpty ? '<p class="week-day__empty">Aucune occurrence</p>' : '';
 
-      // Les barres "tout le monde" sont peintes en premier (fond fusionné
-      // sur toute la hauteur du jour) ; les lignes de peloton viennent
-      // ensuite, pour que leurs propres occurrences restent visibles
-      // au-dessus si elles chevauchent une occurrence commune dans le temps.
       scrollHtml += '<div class="week-day-block" style="width:' + totalWidth + 'px; height:' + day.totalHeight + 'px">' +
-        spanningHtml + lanesHtml + emptyHtml +
+        allGroupsHtml + partialGroupsHtml + lanesHtml + emptyHtml +
         '</div>';
     });
 
@@ -750,6 +850,19 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       if (idx !== -1 && idx < best) best = idx;
     });
     return best;
+  }
+
+  // Retrouve, parmi une liste de permanences, celle correspondant à un
+  // code donné (ex. "SOP"), et le nom du cadre qui l'assure (colonne
+  // Encadrement, ou à défaut Apprenants — selon celle utilisée par le
+  // tableau Grist pour porter cette information).
+  function findPermanenceCadre(permanences, codeName) {
+    var entry = permanences.filter(function (o) {
+      return codesOf(o.code).some(function (c) { return normalizeCode(c) === codeName; });
+    })[0];
+    if (!entry) return null;
+    var cadre = entry.encadrement || (entry.apprenants.length ? entry.apprenants.join(', ') : '');
+    return cadre || null;
   }
 
   // Normalise la colonne "Apprenants" (ChoiceList, RefList déjà résolue, ou
@@ -818,6 +931,78 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return rowCodes.filter(function (rc) {
       return apprenants.some(function (a) { return tokenMatchesRow(a, rc); });
     });
+  }
+
+  // Calcule, pour un jour donné, la répartition de ses occurrences de
+  // progression sur les lignes "peloton" (P1, P2, P3, P4, ACC.) : quelles
+  // occurrences sont propres à une seule ligne, et quels blocs fusionnés
+  // (occurrences collectives ou multi-pelotons contigus) couvrent
+  // plusieurs lignes à la fois. Indépendant de toute unité d'affichage
+  // (pixels, millimètres...) : c'est à l'appelant (vue web, export PDF)
+  // de transformer rowCodes.length et les .cols de chaque évènement en
+  // hauteurs concrètes. Partagé entre la vue web (renderWeekView) et
+  // l'export PDF de la progression (renderProgressionPdfContent).
+  function computeDayPelotonLayout(date, occ) {
+    var rowCodes = rowCodesForDay(date);
+    var singleByCode = {};
+    rowCodes.forEach(function (rc) { singleByCode[rc] = []; });
+
+    // Regroupe les jetons peloton contigus (selon l'ordre des lignes)
+    // d'une même occurrence multi-pelotons, pour ne créer qu'un seul bloc
+    // fusionné par plage contiguë (P2+P3 -> un seul bloc P2-P3).
+    function contiguousRuns(matchedCodes) {
+      var idxs = matchedCodes
+        .map(function (c) { return rowCodes.indexOf(c); })
+        .sort(function (a, b) { return a - b; });
+      var runs = [];
+      var current = [];
+      idxs.forEach(function (idx) {
+        if (current.length && idx === current[current.length - 1] + 1) {
+          current.push(idx);
+        } else {
+          if (current.length) runs.push(current);
+          current = [idx];
+        }
+      });
+      if (current.length) runs.push(current);
+      return runs.map(function (run) { return run.map(function (idx) { return rowCodes[idx]; }); });
+    }
+
+    var groupsByKey = {};
+    var groupOrder = [];
+    function addToGroup(key, groupRowCodes, o) {
+      if (!groupsByKey[key]) { groupsByKey[key] = { rowCodes: groupRowCodes, occ: [] }; groupOrder.push(key); }
+      groupsByKey[key].occ.push(o);
+    }
+
+    occ.forEach(function (o) {
+      var matched = matchedRowCodes(o.apprenants, rowCodes);
+      if (matched.length === 0) {
+        // Aucun peloton renseigné : concerne tout le monde.
+        addToGroup('ALL', rowCodes.slice(), o);
+      } else if (matched.length === 1) {
+        singleByCode[matched[0]].push(o);
+      } else {
+        contiguousRuns(matched).forEach(function (run) {
+          addToGroup(run.join(','), run, o);
+        });
+      }
+    });
+
+    var rows = rowCodes.map(function (rc) {
+      var events = layoutDayEvents(singleByCode[rc]);
+      var maxCols = events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
+      return { code: rc, events: events, maxCols: maxCols };
+    });
+
+    var mergedGroups = groupOrder.map(function (key) {
+      var g = groupsByKey[key];
+      var events = layoutDayEvents(g.occ);
+      var maxCols = events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
+      return { rowCodes: g.rowCodes, events: events, maxCols: maxCols, isAll: key === 'ALL' };
+    });
+
+    return { date: date, rowCodes: rowCodes, occ: occ, rows: rows, mergedGroups: mergedGroups };
   }
 
   // ---- Parsing des dates Grist ---------------------------------------------
@@ -903,7 +1088,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           lieu: textOf(r.Lieu),
           encadrement: textOf(r.Encadrement),
           consignes: textOf(r.Consignes),
-          apprenants: normalizeApprenants(r.Apprenants)
+          apprenants: normalizeApprenants(r.Apprenants),
+          type: textOf(r.Type)
         };
       })
       .filter(function (r) { return r.debut && sameDay(r.debut, day); })
@@ -1156,6 +1342,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var editionLine = 'Version en vigueur le ' + fmtDayTitle(editionMoment) + ' à ' + fmtHM(editionMoment) + ', sous réserve de modifications par l\'AE.';
     doc.text(editionLine, pageWidth / 2, y, { align: 'center' });
 
+    // SOP du jour (sous-officier/cadre de permanence), sous la date.
+    var sopCadre = findPermanenceCadre(sections.permanences, 'SOP');
+    if (sopCadre) {
+      y += lineHeight * 0.9;
+      doc.setFont(baseFont, 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(0, 0, 0);
+      doc.text('SOP : ' + sopCadre, pageWidth / 2, y, { align: 'center' });
+    }
+
     y += lineHeight * 0.9;
     doc.setDrawColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
     doc.setLineWidth(0.5);
@@ -1337,6 +1533,341 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         y += ROW_PAD * 2;
       });
     }
+  }
+
+  // ---- Export PDF de la Progression (planning complet, une page) --------
+
+  // Période du stage couverte par cet export, figée ici : à adapter pour
+  // une future session en changeant ces deux dates (année, mois 0-indexé,
+  // jour).
+  var PROGRESSION_PDF_START = new Date(2026, 9, 17);  // 17/10/2026
+  var PROGRESSION_PDF_END = new Date(2026, 10, 1);    // 01/11/2026
+
+  function eachDayBetween(start, end) {
+    var days = [];
+    var d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    var last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    while (d <= last) {
+      days.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+      d.setDate(d.getDate() + 1);
+    }
+    return days;
+  }
+
+  function clamp(value, lo, hi) {
+    return Math.max(lo, Math.min(hi, value));
+  }
+
+  // Énumère, sur l'ensemble des jours exportés, les valeurs de Type
+  // réellement rencontrées (dédupliquées, insensible à la casse/accents),
+  // triées alphabétiquement, avec la couleur qui leur est associée —
+  // pour construire la légende du PDF de Progression. "Sans type" est
+  // ajouté en dernier si au moins une occurrence n'a pas de Type renseigné.
+  function buildTypeLegend(days) {
+    var seen = {};
+    var entries = [];
+    var hasNone = false;
+    days.forEach(function (day) {
+      day.occ.forEach(function (o) {
+        var key = normalizeTypeKey(o.type);
+        if (!key) { hasNone = true; return; }
+        if (!seen[key]) {
+          seen[key] = true;
+          entries.push({ label: String(o.type).trim(), color: colorForType(o.type) });
+        }
+      });
+    });
+    entries.sort(function (a, b) { return a.label.localeCompare(b.label, 'fr'); });
+    if (hasNone) entries.push({ label: 'Sans type', color: TYPE_COLOR_NONE });
+    return entries;
+  }
+
+  // Construit le document PDF de la Progression (sans le télécharger).
+  // Retourne { doc, filename } ou null si rien à exporter (un message est
+  // alors déjà affiché via showStatus).
+  function buildProgressionPdfDocument() {
+    if (!recordsLoaded) return null;
+
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if (!jsPDFCtor) {
+      showStatus('error', 'La bibliothèque de génération PDF (jsPDF) n\'a pas pu être chargée.');
+      return null;
+    }
+
+    var mode = getSelectedMode();
+    var dates = eachDayBetween(PROGRESSION_PDF_START, PROGRESSION_PDF_END);
+    var days = dates.map(function (d) {
+      var occ = splitBySection(getOccurrencesForDay(d, mode)).progression;
+      return { date: d, occ: occ, layout: computeDayPelotonLayout(d, occ) };
+    });
+
+    var totalOcc = days.reduce(function (sum, day) { return sum + day.occ.length; }, 0);
+    if (totalOcc === 0) {
+      showStatus('warning', 'Aucune occurrence de progression à exporter entre le ' + fmtDayTitle(PROGRESSION_PDF_START) + ' et le ' + fmtDayTitle(PROGRESSION_PDF_END) + '.');
+      return null;
+    }
+
+    var doc = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+    renderProgressionPdfContent(doc, days);
+
+    var filename = 'Progression_' + fmtDayTitle(PROGRESSION_PDF_START).replace(/\//g, '-') + '_au_' + fmtDayTitle(PROGRESSION_PDF_END).replace(/\//g, '-') + '.pdf';
+    return { doc: doc, filename: filename };
+  }
+
+  // Dessine le planning complet (tous les jours de `days`, chacun déjà
+  // réparti par peloton via computeDayPelotonLayout) sur une seule page,
+  // au format paysage. À la différence de la FSJ journalière (dont la
+  // hauteur dépend du texte, donc variable et ajustée par essais
+  // successifs), chaque ligne de peloton a ici une hauteur FIXE — le
+  // texte trop long est tronqué plutôt que de faire déborder la page —
+  // ce qui permet de calculer d'avance, sans essai, la hauteur de ligne
+  // exacte qui fait tenir tout le stage sur une seule page.
+  function renderProgressionPdfContent(doc, days) {
+    var marianneOk = registerMarianneFont(doc);
+    var baseFont = marianneOk ? 'Marianne' : 'helvetica';
+    var bleuFrance = [0, 0, 145];
+    var MM_PER_PT = 0.352778;
+
+    var pageWidth = doc.internal.pageSize.getWidth();
+    var pageHeight = doc.internal.pageSize.getHeight();
+    var marginLeft = 10;
+    var marginRight = 8;
+    var marginBottom = 7;
+
+    // ---- En-tête : titre, puis légende des couleurs par Type d'évènement
+    // (une occurrence hérite de la couleur de son Type ; la légende énumère
+    // tous les Types réellement présents sur la période exportée, quel
+    // qu'en soit le nombre — elle s'étale sur autant de lignes que
+    // nécessaire, ce qui réduit d'autant la hauteur disponible pour la
+    // grille, calculée plus bas).
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
+    var title = 'Progression du ' + fmtDayTitle(PROGRESSION_PDF_START) + ' au ' + fmtDayTitle(PROGRESSION_PDF_END);
+    doc.text(title, pageWidth / 2, 9, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+
+    var legendEntries = buildTypeLegend(days);
+    var legendStartY = 13;
+    var legendLineH = 3.4;
+    var legendLines = [];
+    if (legendEntries.length) {
+      doc.setFont(baseFont, 'normal');
+      doc.setFontSize(6.3);
+      var swatchSize = 2.4;
+      var swatchGap = 1;
+      var entryGap = 4;
+      var legendMaxWidth = pageWidth - marginLeft - marginRight;
+      var currentLine = [];
+      var currentWidth = 0;
+      legendEntries.forEach(function (entry) {
+        var entryWidth = swatchSize + swatchGap + doc.getTextWidth(entry.label);
+        if (currentLine.length && currentWidth + entryGap + entryWidth > legendMaxWidth) {
+          legendLines.push(currentLine);
+          currentLine = [];
+          currentWidth = 0;
+        }
+        if (currentLine.length) currentWidth += entryGap;
+        currentLine.push(entry);
+        currentWidth += entryWidth;
+      });
+      if (currentLine.length) legendLines.push(currentLine);
+
+      legendLines.forEach(function (line, li) {
+        var lineWidth = line.reduce(function (sum, e, i) {
+          return sum + swatchSize + swatchGap + doc.getTextWidth(e.label) + (i > 0 ? entryGap : 0);
+        }, 0);
+        var ly = legendStartY + li * legendLineH;
+        var x = (pageWidth - lineWidth) / 2;
+        line.forEach(function (entry, i) {
+          if (i > 0) x += entryGap;
+          doc.setFillColor(entry.color[0], entry.color[1], entry.color[2]);
+          doc.rect(x, ly - swatchSize + 0.5, swatchSize, swatchSize, 'F');
+          doc.setTextColor(60, 60, 60);
+          doc.text(entry.label, x + swatchSize + swatchGap, ly);
+          x += swatchSize + swatchGap + doc.getTextWidth(entry.label);
+        });
+      });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    var contentTop = legendLines.length ? (legendStartY + legendLines.length * legendLineH + 1.8) : 14;
+    var AXIS_H = 5;
+    var DAY_LABEL_W = 20;
+    var PELOTON_W = 8;
+    var gridLeft = marginLeft + DAY_LABEL_W + PELOTON_W;
+    var gridRight = pageWidth - marginRight;
+    var gridTotalWidth = gridRight - gridLeft;
+
+    // ---- Amplitude horaire commune, sur l'ensemble de la période ----
+    var minStart = null, maxEnd = null;
+    days.forEach(function (day) {
+      day.occ.forEach(function (o) {
+        var s = o.debut.getHours() * 60 + o.debut.getMinutes();
+        var e = o.fin.getHours() * 60 + o.fin.getMinutes();
+        if (e <= s) e = s + 15;
+        if (minStart === null || s < minStart) minStart = s;
+        if (maxEnd === null || e > maxEnd) maxEnd = e;
+      });
+    });
+    if (minStart === null) { minStart = 7 * 60; maxEnd = 19 * 60; }
+    var gridStart = Math.floor(minStart / 60) * 60;
+    var gridEnd = Math.ceil(maxEnd / 60) * 60;
+    if (gridEnd <= gridStart) gridEnd = gridStart + 60;
+    function minutesToX(min) {
+      return gridLeft + (min - gridStart) / (gridEnd - gridStart) * gridTotalWidth;
+    }
+
+    // ---- Hauteur de ligne : calculée d'avance pour tenir sur une page ----
+    var totalRows = days.reduce(function (sum, day) { return sum + day.layout.rowCodes.length; }, 0);
+    var usableHeight = pageHeight - contentTop - AXIS_H - marginBottom;
+    var ROW_H = Math.max(1.6, usableHeight / totalRows);
+    var FONT_EVENT = clamp((ROW_H * 0.72) / MM_PER_PT, 3, 5.5);
+    var FONT_BADGE = clamp((ROW_H * 0.6) / MM_PER_PT, 2.8, 5);
+    var FONT_DAYLABEL = clamp((ROW_H * 0.68) / MM_PER_PT, 3.2, 6.5);
+
+    // Anchre verticalement une ligne de texte proche du bas d'une case de
+    // hauteur `h` (convention baseline "alphabetic" par défaut de jsPDF) :
+    // approche purement géométrique (indépendante de la taille de police
+    // exacte en points), robuste même pour des cases très basses.
+    function textY(top, h) {
+      return top + h - clamp(h * 0.26, 0.25, 0.9);
+    }
+
+    // ---- Axe des heures ----
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(110, 110, 110);
+    for (var h = gridStart; h <= gridEnd; h += 60) {
+      var x = minutesToX(h);
+      var hh = String(Math.floor(h / 60) % 24).padStart(2, '0');
+      doc.text(hh + 'h', x + 0.5, contentTop + AXIS_H - 1.3);
+      doc.setDrawColor(210, 210, 210);
+      doc.setLineWidth(0.15);
+      doc.line(x, contentTop + AXIS_H - 0.5, x, pageHeight - marginBottom);
+    }
+    doc.setTextColor(0, 0, 0);
+
+    function truncateToWidth(text, maxWidth) {
+      if (doc.getTextWidth(text) <= maxWidth) return text;
+      var ellipsis = '…';
+      var t = text;
+      while (t.length > 1 && doc.getTextWidth(t + ellipsis) > maxWidth) {
+        t = t.slice(0, -1);
+      }
+      return t + ellipsis;
+    }
+
+    // Dessine une occurrence, colorée selon son Type (même palette que la
+    // vue web) : fond clair + filet gauche dans la teinte pleine.
+    function drawEventBox(o, x, w, y, h) {
+      if (w <= 0.4 || h <= 0.4) return;
+      var border = colorForType(o.type);
+      var fill = lightenColor(border, 0.86);
+
+      doc.setFillColor(fill[0], fill[1], fill[2]);
+      doc.rect(x, y, w, h, 'F');
+      doc.setDrawColor(border[0], border[1], border[2]);
+      doc.setLineWidth(0.5);
+      doc.line(x, y, x, y + h); // filet gauche marqué, comme .week-event
+      doc.setDrawColor(215, 215, 215);
+      doc.setLineWidth(0.1);
+      doc.rect(x, y, w, h, 'S'); // fin contour pour distinguer les cases voisines
+
+      var label = o.intitule || o.occurrence || '';
+      var textMaxWidth = w - 1.1;
+      if (textMaxWidth > 1.5 && label) {
+        doc.setFont(baseFont, 'normal');
+        doc.setFontSize(FONT_EVENT);
+        doc.setTextColor(20, 20, 20);
+        doc.text(truncateToWidth(label, textMaxWidth), x + 0.7, textY(y, h));
+        doc.setTextColor(0, 0, 0);
+      }
+    }
+
+    // ---- Un jour après l'autre ----
+    var dayNamesShort = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    var y = contentTop + AXIS_H;
+
+    days.forEach(function (day, dayIdx) {
+      var rowCodes = day.layout.rowCodes;
+      var dayTop = y;
+      var dayHeight = rowCodes.length * ROW_H;
+
+      // Fond alterné (zébrage) sur toute la largeur de la grille, un jour
+      // sur deux : renforce la séparation visuelle entre les jours, en
+      // plus du trait de séparation dessiné plus bas.
+      if (dayIdx % 2 === 1) {
+        doc.setFillColor(240, 240, 242);
+        doc.rect(marginLeft, dayTop, gridRight - marginLeft, dayHeight, 'F');
+      }
+
+      // Lignes de peloton : séparateur + badge + occurrences propres à
+      // cette seule ligne.
+      rowCodes.forEach(function (rc, ri) {
+        var rowTop = dayTop + ri * ROW_H;
+        var row = day.layout.rows[ri];
+
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.1);
+        doc.line(marginLeft, rowTop, gridRight, rowTop);
+
+        doc.setFont(baseFont, 'bold');
+        doc.setFontSize(FONT_BADGE);
+        doc.setTextColor(70, 70, 70);
+        doc.text(rowLabel(rc), marginLeft + DAY_LABEL_W + PELOTON_W / 2, textY(rowTop, ROW_H), { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+
+        var cols = row.maxCols;
+        row.events.forEach(function (ev) {
+          var slice = ROW_H / cols;
+          var boxY = rowTop + ev.col * slice + 0.25;
+          var boxH = slice - 0.5;
+          var boxX = minutesToX(ev.start);
+          var boxW = minutesToX(ev.end) - boxX;
+          drawEventBox(ev.o, boxX, boxW, boxY, boxH);
+        });
+      });
+
+      // Blocs fusionnés (occurrences collectives ou multi-pelotons) : par-
+      // dessus les lignes de peloton, sur la hauteur qui leur correspond.
+      day.layout.mergedGroups.forEach(function (g) {
+        var firstIdx = rowCodes.indexOf(g.rowCodes[0]);
+        var top = dayTop + firstIdx * ROW_H;
+        var height = g.rowCodes.length * ROW_H;
+        var cols = g.maxCols;
+        g.events.forEach(function (ev) {
+          var slice = height / cols;
+          var boxY = top + ev.col * slice + 0.25;
+          var boxH = slice - 0.5;
+          var boxX = minutesToX(ev.start);
+          var boxW = minutesToX(ev.end) - boxX;
+          drawEventBox(ev.o, boxX, boxW, boxY, boxH);
+        });
+      });
+
+      // Séparateur bas de journée, nettement plus marqué que les
+      // séparateurs de lignes de peloton (couleur plus sombre, trait plus
+      // épais) : c'est la limite entre deux jours qui doit dominer, pas
+      // les lignes internes à un même jour.
+      doc.setDrawColor(70, 70, 70);
+      doc.setLineWidth(0.6);
+      doc.line(marginLeft, dayTop + dayHeight, gridRight, dayTop + dayHeight);
+
+      doc.setFont(baseFont, 'bold');
+      doc.setFontSize(FONT_DAYLABEL);
+      doc.setTextColor(0, 0, 0);
+      var dow = day.date.getDay(); // 0 = dimanche
+      var dowIdx = (dow === 0) ? 6 : dow - 1;
+      doc.text(dayNamesShort[dowIdx] + ' ' + fmtDayTitle(day.date), marginLeft, textY(dayTop, dayHeight));
+
+      y = dayTop + dayHeight;
+    });
+
+    // Cadre extérieur de la grille.
+    doc.setDrawColor(120, 120, 120);
+    doc.setLineWidth(0.3);
+    doc.rect(marginLeft, contentTop, gridRight - marginLeft, y - contentTop, 'S');
   }
 
   // Génère le PDF (blob, sans le télécharger) puis tente un partage natif
