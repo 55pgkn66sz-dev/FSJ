@@ -73,16 +73,59 @@
     flex-wrap: wrap;
     gap: 1rem;
   }
-  #viewSegmented {
-    max-width: 22rem;
-    box-shadow: none;
-  }
-  #viewSegmented fieldset {
-    border: 0;
-    margin: 0;
-    padding: 0;
-  }
   #generateProgressionPdfBtn { flex: 0 0 auto; }
+
+  /* Menus déroulants (choix de la vue, filtre de la Progression) :
+     bouton + liste positionnée en absolu juste dessous, fermée par défaut. */
+  .dropdown-menu { position: relative; display: inline-block; }
+  .dropdown-menu__list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    margin: 0.25rem 0 0;
+    padding: 0.25rem 0;
+    min-width: 14rem;
+    max-height: 20rem;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--border-default-grey);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    list-style: none;
+  }
+  .dropdown-menu__list li { margin: 0; }
+  .dropdown-menu__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 1rem;
+    border: none;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+  }
+  .dropdown-menu__item:hover, .dropdown-menu__item:focus {
+    background: #f0f0f5;
+  }
+  .dropdown-menu__item[aria-current="true"] {
+    font-weight: 700;
+    color: var(--bleu-france);
+  }
+  .dropdown-menu__section {
+    margin: 0;
+    padding: 0.4rem 1rem 0.15rem;
+    font-size: 0.72em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--text-mention-grey);
+  }
+  .dropdown-menu__divider {
+    border: none;
+    border-top: 1px solid var(--border-default-grey);
+    margin: 0.25rem 0;
+  }
 
   .week-nav {
     display: flex;
@@ -91,6 +134,11 @@
     gap: 0.75rem;
   }
   .week-label { margin: 0; }
+  .week-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
 
   /* Planning hebdomadaire : heures à l'horizontale, jours à la verticale.
      Chaque jour se subdivise en lignes fixes par peloton (P1, P2, P3, P4,
@@ -265,18 +313,18 @@
 <div class="widget-wrap">
 
   <div class="top-controls-row fr-mb-3w">
-    <div class="fr-segmented fr-segmented--sm" id="viewSegmented">
-      <fieldset class="fr-segmented__elements">
-        <legend class="fr-segmented__legend fr-sr-only">Affichage</legend>
-        <div class="fr-segmented__element">
-          <input value="progression" type="radio" id="segmentProgression" name="viewSegment">
-          <label class="fr-label" for="segmentProgression">Progression</label>
-        </div>
-        <div class="fr-segmented__element">
-          <input value="generer" type="radio" id="segmentGenerer" name="viewSegment" checked>
-          <label class="fr-label" for="segmentGenerer">Générer FSJ</label>
-        </div>
-      </fieldset>
+    <div class="dropdown-menu" id="viewMenu">
+      <button class="fr-btn fr-btn--secondary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="viewMenuBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="viewMenuList">
+        Générer FSJ
+      </button>
+      <ul class="dropdown-menu__list" id="viewMenuList" role="menu" aria-label="Affichage" hidden>
+        <li role="none">
+          <button class="dropdown-menu__item" role="menuitem" type="button" data-view="progression">Progression</button>
+        </li>
+        <li role="none">
+          <button class="dropdown-menu__item" role="menuitem" type="button" data-view="generer" aria-current="true">Générer FSJ</button>
+        </li>
+      </ul>
     </div>
 
     <button class="fr-btn fr-btn--secondary fr-btn--sm" id="generateProgressionPdfBtn" type="button" disabled>
@@ -349,6 +397,15 @@
       </button>
     </div>
 
+    <div class="week-filter-row fr-mb-2w">
+      <div class="dropdown-menu" id="progressionFilterMenu">
+        <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="progressionFilterBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="progressionFilterList">
+          Filtrer
+        </button>
+        <ul class="dropdown-menu__list" id="progressionFilterList" role="menu" aria-label="Filtrer la progression" hidden></ul>
+      </div>
+    </div>
+
     <div id="weekGrid" class="week-timegrid"></div>
 
   </div>
@@ -388,8 +445,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var previewZone = document.getElementById('previewZone');
   var fsjRadios = document.querySelectorAll('input[name="fsjType"]');
 
-  var segmentGenerer = document.getElementById('segmentGenerer');
-  var segmentProgression = document.getElementById('segmentProgression');
+  var viewMenuBtn = document.getElementById('viewMenuBtn');
+  var viewMenuList = document.getElementById('viewMenuList');
   var panelGenerer = document.getElementById('panelGenerer');
   var panelProgression = document.getElementById('panelProgression');
   var weekPrevBtn = document.getElementById('weekPrevBtn');
@@ -398,6 +455,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var weekGrid = document.getElementById('weekGrid');
   var weekReferenceDate = null; // un jour quelconque de la semaine affichée
   var progressionPdfBtn = document.getElementById('generateProgressionPdfBtn');
+  var progressionFilterBtn = document.getElementById('progressionFilterBtn');
+  var progressionFilterList = document.getElementById('progressionFilterList');
 
   // ---- Initialisation du widget Grist ------------------------------------
 
@@ -465,20 +524,180 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     });
   });
 
-  // ---- Contrôle segmenté "Générer FSJ" / "Progression" -------------------
+  // ---- Menus déroulants (remplacent l'ancien contrôle segmenté) ----------
 
-  function updateActivePanel() {
-    var showProgression = segmentProgression.checked;
-    panelGenerer.hidden = showProgression;
-    panelProgression.hidden = !showProgression;
-    if (showProgression) {
+  // Comportement générique d'un menu déroulant "bouton + liste" : ouverture
+  // au clic, fermeture au clic extérieur, à l'Échap, ou après sélection
+  // d'un élément. `onBeforeOpen`, si fourni, reconstruit le contenu de la
+  // liste (pour qu'il reflète l'état courant) juste avant qu'elle s'ouvre.
+  function setupDropdown(btn, list, onBeforeOpen) {
+    function close() {
+      list.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+    function open() {
+      if (onBeforeOpen) onBeforeOpen();
+      list.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+    }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (list.hidden) open(); else close();
+    });
+    document.addEventListener('click', function (e) {
+      if (!list.hidden && e.target !== btn && !list.contains(e.target)) close();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !list.hidden) { close(); btn.focus(); }
+    });
+    return { open: open, close: close };
+  }
+
+  // ---- Menu "Affichage" : Progression / Générer FSJ ----------------------
+
+  var viewLabels = { generer: 'Générer FSJ', progression: 'Progression' };
+  var viewMenuDropdown = setupDropdown(viewMenuBtn, viewMenuList);
+
+  function setView(view) {
+    viewMenuBtn.textContent = viewLabels[view];
+    viewMenuList.querySelectorAll('.dropdown-menu__item').forEach(function (el) {
+      var isCurrent = el.getAttribute('data-view') === view;
+      if (isCurrent) el.setAttribute('aria-current', 'true');
+      else el.removeAttribute('aria-current');
+    });
+    panelGenerer.hidden = (view !== 'generer');
+    panelProgression.hidden = (view !== 'progression');
+    if (view === 'progression') {
       if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
       renderWeekView();
     }
   }
 
-  segmentGenerer.addEventListener('change', updateActivePanel);
-  segmentProgression.addEventListener('change', updateActivePanel);
+  viewMenuList.querySelectorAll('.dropdown-menu__item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      setView(el.getAttribute('data-view'));
+      viewMenuDropdown.close();
+    });
+  });
+
+  // ---- Filtre de la vue Progression : par peloton ou par cadre ----------
+
+  var activeFilter = null; // null | { type: 'peloton', code } | { type: 'cadre', name }
+
+  function normalizeNameKey(value) {
+    return String(value || '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .trim().toUpperCase();
+  }
+
+  function splitCadreNames(text) {
+    return String(text || '').split(/[,;•\/\n]+/)
+      .map(function (v) { return v.trim(); })
+      .filter(function (v) { return v.length > 0; });
+  }
+
+  // Une occurrence est-elle encadrée par ce cadre ? (comparaison exacte,
+  // insensible à la casse/accents, sur chacun des noms de la colonne
+  // Encadrement — qui peut en contenir plusieurs, séparés par une virgule).
+  function matchesCadre(encadrementText, cadreName) {
+    var target = normalizeNameKey(cadreName);
+    return splitCadreNames(encadrementText).some(function (n) { return normalizeNameKey(n) === target; });
+  }
+
+  // Tous les noms de cadres rencontrés dans les données chargées (toutes
+  // dates confondues), dédupliqués et triés, pour peupler le menu de
+  // filtre.
+  function getAllCadreNames() {
+    var seen = {};
+    var names = [];
+    allRecords.forEach(function (r) {
+      splitCadreNames(textOf(r.Encadrement)).forEach(function (n) {
+        var key = normalizeNameKey(n);
+        if (!seen[key]) { seen[key] = true; names.push(n); }
+      });
+    });
+    names.sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+    return names;
+  }
+
+  function progressionFilterLabel() {
+    if (!activeFilter) return 'Filtrer';
+    if (activeFilter.type === 'peloton') return 'Filtre : ' + rowLabel(activeFilter.code);
+    return 'Filtre : ' + activeFilter.name;
+  }
+
+  function setProgressionFilter(filter) {
+    activeFilter = filter;
+    progressionFilterBtn.textContent = progressionFilterLabel();
+    if (!panelProgression.hidden) renderWeekView();
+  }
+
+  // Reconstruit le contenu du menu de filtre (options de peloton, liste
+  // des cadres rencontrés dans les données, et l'option de
+  // réinitialisation si un filtre est actif) : appelé juste avant chaque
+  // ouverture, pour refléter l'état courant.
+  function buildProgressionFilterMenu() {
+    progressionFilterList.innerHTML = '';
+
+    function addItem(text, onClick, isCurrent) {
+      var li = document.createElement('li');
+      li.setAttribute('role', 'none');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dropdown-menu__item';
+      btn.setAttribute('role', 'menuitem');
+      btn.textContent = text;
+      if (isCurrent) btn.setAttribute('aria-current', 'true');
+      btn.addEventListener('click', function () {
+        onClick();
+        progressionFilterDropdown.close();
+      });
+      li.appendChild(btn);
+      progressionFilterList.appendChild(li);
+    }
+    function addSection(label) {
+      var li = document.createElement('li');
+      li.setAttribute('role', 'none');
+      var p = document.createElement('p');
+      p.className = 'dropdown-menu__section';
+      p.textContent = label;
+      li.appendChild(p);
+      progressionFilterList.appendChild(li);
+    }
+    function addDivider() {
+      var li = document.createElement('li');
+      li.setAttribute('role', 'none');
+      var hr = document.createElement('hr');
+      hr.className = 'dropdown-menu__divider';
+      li.appendChild(hr);
+      progressionFilterList.appendChild(li);
+    }
+
+    if (activeFilter) {
+      addItem('Réinitialiser le filtre', function () { setProgressionFilter(null); }, false);
+      addDivider();
+    }
+
+    addSection('Peloton');
+    PELOTON_CODES.concat([ACC_CODE]).forEach(function (code) {
+      var isCurrent = !!(activeFilter && activeFilter.type === 'peloton' && activeFilter.code === code);
+      addItem(rowLabel(code), function () { setProgressionFilter({ type: 'peloton', code: code }); }, isCurrent);
+    });
+
+    addDivider();
+    addSection('Cadre');
+    var cadres = getAllCadreNames();
+    if (!cadres.length) {
+      addSection('(aucun cadre renseigné)');
+    } else {
+      cadres.forEach(function (name) {
+        var isCurrent = !!(activeFilter && activeFilter.type === 'cadre' && activeFilter.name === name);
+        addItem(name, function () { setProgressionFilter({ type: 'cadre', name: name }); }, isCurrent);
+      });
+    }
+  }
+
+  var progressionFilterDropdown = setupDropdown(progressionFilterBtn, progressionFilterList, buildProgressionFilterMenu);
 
   // ---- Onglet "Progression" : vue calendrier hebdomadaire -----------------
 
@@ -668,8 +887,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     for (var i = 0; i < 7; i++) {
       var d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
       var sections = splitBySection(getOccurrencesForDay(d, mode));
+      var occ = sections.progression;
+      if (activeFilter && activeFilter.type === 'cadre') {
+        occ = occ.filter(function (o) { return matchesCadre(o.encadrement, activeFilter.name); });
+      }
       var sopCadre = findPermanenceCadre(sections.permanences, 'SOP');
-      days.push({ date: d, occ: sections.progression, isToday: sameDay(d, today), sopCadre: sopCadre });
+      days.push({ date: d, occ: occ, isToday: sameDay(d, today), sopCadre: sopCadre });
     }
 
     // Amplitude horaire commune à toute la semaine (arrondie à l'heure) :
@@ -702,6 +925,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // pixels, pour l'affichage web).
     days.forEach(function (day) {
       var layout = computeDayPelotonLayout(day.date, day.occ);
+      if (activeFilter && activeFilter.type === 'peloton') {
+        layout = restrictLayoutToPeloton(layout, activeFilter.code);
+      }
 
       day.rows = layout.rows.map(function (row) {
         return { code: row.code, events: row.events, rowHeight: row.maxCols * SUBROW_H + ROW_PAD };
@@ -1013,6 +1239,31 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return { date: date, rowCodes: rowCodes, occ: occ, rows: rows, mergedGroups: mergedGroups };
   }
 
+  // Réduit une répartition déjà calculée (toutes les lignes de peloton) à
+  // une seule ligne — celle du peloton filtré — en réunissant les
+  // occurrences qui lui étaient propres et celles des blocs fusionnés qui
+  // la concernaient, puis en recalculant leurs éventuels chevauchements
+  // sur cette unique ligne. Utilisé par le filtre "Peloton" de la vue
+  // Progression (web uniquement ; le PDF reste complet).
+  function restrictLayoutToPeloton(layout, code) {
+    var ownRow = layout.rows.filter(function (r) { return r.code === code; })[0];
+    var combinedOcc = ownRow ? ownRow.events.map(function (ev) { return ev.o; }) : [];
+    layout.mergedGroups.forEach(function (g) {
+      if (g.rowCodes.indexOf(code) !== -1) {
+        combinedOcc = combinedOcc.concat(g.events.map(function (ev) { return ev.o; }));
+      }
+    });
+    var events = layoutDayEvents(combinedOcc);
+    var maxCols = events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
+    return {
+      date: layout.date,
+      rowCodes: [code],
+      occ: combinedOcc,
+      rows: [{ code: code, events: events, maxCols: maxCols }],
+      mergedGroups: []
+    };
+  }
+
   // ---- Parsing des dates Grist ---------------------------------------------
 
   // Les colonnes Date/DateTime de Grist sont renvoyées via l'API comme un
@@ -1168,7 +1419,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     if (sections.permanences.length) {
       html += '<p class="section-title">Permanences</p><ul class="perm-list">';
       html += sections.permanences.map(function (o) {
-        return '<li>' + escapeHtml(o.occurrence) + badgesHtml(o.apprenants) + '</li>';
+        return '<li>' + badgesHtml(o.apprenants) + escapeHtml(o.occurrence) + '</li>';
       }).join('');
       html += '</ul>';
     }
@@ -1182,9 +1433,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         if (o.consignes) lines += '<p class="prog-line prog-line--consignes">' + escapeHtml(o.consignes) + '</p>';
         var cardClass = 'prog-card' + (isExcludedCode(o.code) ? ' prog-card--encadrement-only' : '');
         return '<div class="' + cardClass + '">' +
+          badgesHtml(o.apprenants) +
           '<p class="prog-title">' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + ' : ' + escapeHtml(o.intitule) + '</p>' +
           lines +
-          badgesHtml(o.apprenants) +
           '</div>';
       }).join('');
     }
@@ -1300,6 +1551,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var GAP_META = 0.55 * scale;
     var GAP_CONSIGNES = 0.45 * scale;
     var GAP_BADGE = 0.7 * scale;
+    // Dégagement spécifique entre les badges (désormais affichés en premier)
+    // et le titre qui les suit : plus large que GAP_BADGE, qui ne couvrait
+    // que le passage d'une ligne de texte (petite descendante) à une case
+    // de badge — ici c'est l'inverse, il faut la place pour la hampe
+    // montante du texte du titre au-dessus de sa ligne de base.
+    var GAP_BADGE_TITLE = 2.3 * scale;
     var ROW_PAD = 1.1 * scale; // marge haut/bas du fond pastel autour de chaque bloc
 
     // La version "encadrement" affiche un bandeau d'information importante
@@ -1428,12 +1685,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       sections.permanences.forEach(function (o) {
         ensureRoom(lineHeight);
         doc.setFontSize(TITLE_FONT);
-        printWrapped(o.occurrence, marginLeft, pageWidth - marginLeft - marginRight, false);
-        y += lineHeight * 0.85;
         if (o.apprenants.length) {
           drawBadges(o.apprenants);
-          y += GAP_BADGE;
+          y += GAP_BADGE_TITLE;
         }
+        printWrapped(o.occurrence, marginLeft, pageWidth - marginLeft - marginRight, false);
+        y += lineHeight * 0.85;
       });
 
       y += lineHeight * 0.5;
@@ -1500,7 +1757,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         var blockHeight = titleLines.length * lineHeight;
         if (metaLines.length) blockHeight += metaLines.length * META_LH + GAP_META;
         if (consignesLines.length) blockHeight += consignesLines.length * CONSIGNES_LH + GAP_CONSIGNES;
-        if (badgeRows) blockHeight += (badgeRows - 1) * (BADGE_H + BADGE_ROW_GAP) + BADGE_H + GAP_BADGE;
+        if (badgeRows) blockHeight += (badgeRows - 1) * (BADGE_H + BADGE_ROW_GAP) + BADGE_H + GAP_BADGE_TITLE;
 
         ensureRoom(blockHeight + ROW_PAD * 2);
 
@@ -1510,6 +1767,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           doc.rect(marginLeft - 3, rowStartY - ROW_PAD, contentWidth + 6, blockHeight + ROW_PAD * 2, 'F');
         }
 
+        if (o.apprenants.length) {
+          drawBadges(o.apprenants);
+          y += GAP_BADGE_TITLE;
+        }
         drawLines(titleLines, TITLE_FONT, true, [0, 0, 0], lineHeight);
         if (metaLines.length) {
           y += GAP_META;
@@ -1518,10 +1779,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         if (consignesLines.length) {
           y += GAP_CONSIGNES;
           drawLines(consignesLines, CONSIGNES_FONT, false, [0, 0, 0], CONSIGNES_LH);
-        }
-        if (o.apprenants.length) {
-          y += GAP_BADGE;
-          drawBadges(o.apprenants);
         }
 
         // `y` est maintenant exactement à rowStartY + blockHeight (fin du
@@ -1653,13 +1910,104 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return gridLeft + (min - gridStart) / (gridEnd - gridStart) * gridTotalWidth;
     }
 
-    // ---- Hauteur de ligne : calculée d'avance pour tenir sur une page ----
-    var totalRows = days.reduce(function (sum, day) { return sum + day.layout.rowCodes.length; }, 0);
+    // ---- Hauteur de ligne : les intitulés s'affichent désormais en
+    // entier, avec retour à la ligne selon la largeur de leur case,
+    // plutôt que tronqués. La hauteur de chaque ligne de peloton (et des
+    // blocs fusionnés) s'adapte donc au texte qu'elle contient. Pour
+    // malgré tout garantir que tout le stage tienne sur une seule page,
+    // on essaie plusieurs tailles de police (de la plus grande à la plus
+    // petite) et on retient la plus grande qui suffit, puis on mets le
+    // résultat à l'échelle pour occuper toute la hauteur disponible.
     var usableHeight = pageHeight - contentTop - AXIS_H - marginBottom;
-    var ROW_H = Math.max(1.6, usableHeight / totalRows);
-    var FONT_EVENT = clamp((ROW_H * 0.72) / MM_PER_PT, 3, 5.5);
-    var FONT_BADGE = clamp((ROW_H * 0.6) / MM_PER_PT, 2.8, 5);
-    var FONT_DAYLABEL = clamp((ROW_H * 0.68) / MM_PER_PT, 3.2, 6.5);
+    var FONT_EVENT_CANDIDATES = [5.5, 5, 4.6, 4.2, 3.8, 3.4, 3, 2.7];
+    var LINE_GAP = 1.12; // interligne (facteur appliqué à la taille de police)
+    var BOX_V_PAD = 0.5; // marge haute + basse (mm) réservée dans chaque case
+
+    // Largeur de case (mm) de chaque occurrence : uniquement fonction du
+    // créneau horaire (début/fin), donc indépendante de la police
+    // retenue — calculée une seule fois, avant les essais de taille.
+    days.forEach(function (day) {
+      day.layout.rows.forEach(function (row) {
+        row.events.forEach(function (ev) { ev.boxWidth = minutesToX(ev.end) - minutesToX(ev.start); });
+      });
+      day.layout.mergedGroups.forEach(function (g) {
+        g.events.forEach(function (ev) { ev.boxWidth = minutesToX(ev.end) - minutesToX(ev.start); });
+      });
+    });
+
+    // Pour une taille de police donnée, calcule le nombre de lignes que
+    // prend chaque occurrence (texte complet, retour à la ligne selon la
+    // largeur de sa case), la hauteur nécessaire de chaque ligne de
+    // peloton (et des blocs fusionnés, qui peuvent en retour agrandir les
+    // lignes qu'ils recouvrent), et retourne la hauteur totale requise.
+    // `cache` : si vrai, mémorise ces lignes et hauteurs pour le dessin.
+    function computeRowHeights(fontPt, cache) {
+      doc.setFont(baseFont, 'normal');
+      doc.setFontSize(fontPt);
+      var lineH = fontPt * MM_PER_PT * LINE_GAP;
+      var minSlice = lineH + BOX_V_PAD;
+
+      function neededSlice(ev) {
+        var w = ev.boxWidth - 1.1;
+        var label = ev.o.intitule || ev.o.occurrence || '';
+        var lines = (w > 1.5 && label) ? doc.splitTextToSize(label, w) : [''];
+        if (cache) ev.wrapLines = lines;
+        return Math.max(minSlice, lines.length * lineH + BOX_V_PAD);
+      }
+
+      var total = 0;
+      days.forEach(function (day) {
+        var rowHeights = {};
+        day.layout.rows.forEach(function (row) {
+          var maxSlice = minSlice;
+          row.events.forEach(function (ev) { maxSlice = Math.max(maxSlice, neededSlice(ev)); });
+          rowHeights[row.code] = row.maxCols * maxSlice;
+        });
+        day.layout.mergedGroups.forEach(function (g) {
+          var maxSlice = minSlice;
+          g.events.forEach(function (ev) { maxSlice = Math.max(maxSlice, neededSlice(ev)); });
+          var neededGroupHeight = g.maxCols * maxSlice;
+          var spannedSum = g.rowCodes.reduce(function (s, rc) { return s + rowHeights[rc]; }, 0);
+          if (neededGroupHeight > spannedSum) {
+            var share = (neededGroupHeight - spannedSum) / g.rowCodes.length;
+            g.rowCodes.forEach(function (rc) { rowHeights[rc] += share; });
+          }
+        });
+        if (cache) day.rowHeights = rowHeights;
+        var dayHeight = day.layout.rowCodes.reduce(function (s, rc) { return s + rowHeights[rc]; }, 0);
+        if (cache) day.dayHeight = dayHeight;
+        total += dayHeight;
+      });
+      return total;
+    }
+
+    // Essaie chaque taille de police, de la plus grande à la plus
+    // petite, et retient la plus grande qui suffit à tenir sur une page.
+    var FONT_EVENT = FONT_EVENT_CANDIDATES[FONT_EVENT_CANDIDATES.length - 1];
+    for (var fi = 0; fi < FONT_EVENT_CANDIDATES.length; fi++) {
+      if (computeRowHeights(FONT_EVENT_CANDIDATES[fi], false) <= usableHeight) {
+        FONT_EVENT = FONT_EVENT_CANDIDATES[fi];
+        break;
+      }
+    }
+    var FONT_BADGE = clamp(FONT_EVENT * 0.85, 2.6, 5);
+    var FONT_DAYLABEL = clamp(FONT_EVENT * 0.95, 3, 6.5);
+
+    // Calcul final à la police retenue (avec mise en cache des lignes de
+    // texte et des hauteurs), puis mise à l'échelle pour occuper toute la
+    // hauteur disponible (comme lorsque chaque ligne avait une hauteur
+    // fixe identique) — cette échelle ne fait qu'agrandir les cases, elle
+    // ne remet donc jamais en cause le texte déjà calculé.
+    var neededHeight = computeRowHeights(FONT_EVENT, true);
+    var scale = neededHeight > 0 ? Math.min(usableHeight / neededHeight, 3) : 1;
+    days.forEach(function (day) {
+      var scaledDayHeight = 0;
+      day.layout.rowCodes.forEach(function (rc) {
+        day.rowHeights[rc] *= scale;
+        scaledDayHeight += day.rowHeights[rc];
+      });
+      day.dayHeight = scaledDayHeight;
+    });
 
     // Anchre verticalement une ligne de texte proche du bas d'une case de
     // hauteur `h` (convention baseline "alphabetic" par défaut de jsPDF) :
@@ -1693,10 +2041,25 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return t + ellipsis;
     }
 
+    // Dessine, à partir du haut d'une case, des lignes de texte déjà
+    // calculées (wrapLines), centrées verticalement dans la case.
+    function drawWrappedLines(lines, x, top, h) {
+      var lineH = FONT_EVENT * MM_PER_PT * LINE_GAP;
+      var textH = lines.length * lineH;
+      var padTop = Math.max(0.3, (h - textH) / 2);
+      lines.forEach(function (line, i) {
+        var baseline = top + padTop + (i + 1) * lineH - clamp(lineH * 0.28, 0.25, 0.9);
+        doc.text(line, x, baseline);
+      });
+    }
+
     // Dessine une occurrence, colorée selon son Type (même palette que la
-    // vue web) : fond clair + filet gauche dans la teinte pleine.
-    function drawEventBox(o, x, w, y, h) {
+    // vue web) : fond clair + filet gauche dans la teinte pleine ; le
+    // texte s'affiche en entier, sur autant de lignes que nécessaire (les
+    // hauteurs de case ont été calculées pour cela).
+    function drawEventBox(ev, x, w, y, h) {
       if (w <= 0.4 || h <= 0.4) return;
+      var o = ev.o;
       var border = colorForType(o.type);
       var fill = lightenColor(border, 0.86);
 
@@ -1709,13 +2072,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       doc.setLineWidth(0.1);
       doc.rect(x, y, w, h, 'S'); // fin contour pour distinguer les cases voisines
 
-      var label = o.intitule || o.occurrence || '';
       var textMaxWidth = w - 1.1;
-      if (textMaxWidth > 1.5 && label) {
+      var lines = (ev.wrapLines || []).filter(function (l) { return l; });
+      if (textMaxWidth > 1.5 && lines.length) {
         doc.setFont(baseFont, 'normal');
         doc.setFontSize(FONT_EVENT);
         doc.setTextColor(20, 20, 20);
-        doc.text(truncateToWidth(label, textMaxWidth), x + 0.7, textY(y, h));
+        drawWrappedLines(lines.map(function (l) { return truncateToWidth(l, textMaxWidth); }), x + 0.7, y, h);
         doc.setTextColor(0, 0, 0);
       }
     }
@@ -1727,7 +2090,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     days.forEach(function (day, dayIdx) {
       var rowCodes = day.layout.rowCodes;
       var dayTop = y;
-      var dayHeight = rowCodes.length * ROW_H;
+      var dayHeight = day.dayHeight;
 
       // Fond alterné (zébrage) sur toute la largeur de la grille, un jour
       // sur deux : renforce la séparation visuelle entre les jours, en
@@ -1737,10 +2100,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         doc.rect(marginLeft, dayTop, gridRight - marginLeft, dayHeight, 'F');
       }
 
+      // Position de chaque ligne de peloton, déduite des hauteurs déjà
+      // calculées (variables selon le texte qu'elles contiennent).
+      var rowTops = {};
+      var rowOffset = dayTop;
+      rowCodes.forEach(function (rc) {
+        rowTops[rc] = rowOffset;
+        rowOffset += day.rowHeights[rc];
+      });
+
       // Lignes de peloton : séparateur + badge + occurrences propres à
       // cette seule ligne.
       rowCodes.forEach(function (rc, ri) {
-        var rowTop = dayTop + ri * ROW_H;
+        var rowTop = rowTops[rc];
+        var rowH = day.rowHeights[rc];
         var row = day.layout.rows[ri];
 
         doc.setDrawColor(230, 230, 230);
@@ -1750,34 +2123,33 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         doc.setFont(baseFont, 'bold');
         doc.setFontSize(FONT_BADGE);
         doc.setTextColor(70, 70, 70);
-        doc.text(rowLabel(rc), marginLeft + DAY_LABEL_W + PELOTON_W / 2, textY(rowTop, ROW_H), { align: 'center' });
+        doc.text(rowLabel(rc), marginLeft + DAY_LABEL_W + PELOTON_W / 2, textY(rowTop, rowH), { align: 'center' });
         doc.setTextColor(0, 0, 0);
 
         var cols = row.maxCols;
         row.events.forEach(function (ev) {
-          var slice = ROW_H / cols;
+          var slice = rowH / cols;
           var boxY = rowTop + ev.col * slice + 0.25;
           var boxH = slice - 0.5;
           var boxX = minutesToX(ev.start);
-          var boxW = minutesToX(ev.end) - boxX;
-          drawEventBox(ev.o, boxX, boxW, boxY, boxH);
+          var boxW = ev.boxWidth;
+          drawEventBox(ev, boxX, boxW, boxY, boxH);
         });
       });
 
       // Blocs fusionnés (occurrences collectives ou multi-pelotons) : par-
       // dessus les lignes de peloton, sur la hauteur qui leur correspond.
       day.layout.mergedGroups.forEach(function (g) {
-        var firstIdx = rowCodes.indexOf(g.rowCodes[0]);
-        var top = dayTop + firstIdx * ROW_H;
-        var height = g.rowCodes.length * ROW_H;
+        var top = rowTops[g.rowCodes[0]];
+        var height = g.rowCodes.reduce(function (s, rc) { return s + day.rowHeights[rc]; }, 0);
         var cols = g.maxCols;
         g.events.forEach(function (ev) {
           var slice = height / cols;
           var boxY = top + ev.col * slice + 0.25;
           var boxH = slice - 0.5;
           var boxX = minutesToX(ev.start);
-          var boxW = minutesToX(ev.end) - boxX;
-          drawEventBox(ev.o, boxX, boxW, boxY, boxH);
+          var boxW = ev.boxWidth;
+          drawEventBox(ev, boxX, boxW, boxY, boxH);
         });
       });
 
