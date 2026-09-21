@@ -65,6 +65,53 @@
   #fsjFieldset .fr-radio-group label .fr-hint-text {
     white-space: normal;
   }
+
+  #viewSegmented { max-width: 30rem; }
+
+  .week-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .week-label { margin: 0; }
+  .week-grid-scroll { overflow-x: auto; }
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(150px, 1fr));
+    gap: 0.5rem;
+    min-width: 980px;
+  }
+  .week-day {
+    border: 1px solid var(--border-default-grey);
+    border-radius: 4px;
+    padding: 0.5rem;
+  }
+  .week-day--today {
+    border-color: var(--bleu-france);
+    border-width: 2px;
+  }
+  .week-day__header {
+    font-weight: 700;
+    font-size: 0.85em;
+    margin: 0 0 0.4rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--border-default-grey);
+  }
+  .week-day__empty {
+    font-size: 0.8em;
+    color: var(--text-mention-grey);
+    font-style: italic;
+    margin: 0;
+  }
+  .week-occ {
+    border-left: 2px solid var(--border-default-grey);
+    padding: 0.1rem 0 0.1rem 0.4rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.78em;
+  }
+  .week-occ--restricted { border-left-color: #CE0500; }
+  .week-occ__time { font-weight: 700; display: block; }
 </style>
 </head>
 <body>
@@ -91,54 +138,90 @@
 
 <div class="widget-wrap">
 
-  <div class="fr-input-group">
-    <label class="fr-label" for="dayPicker">
-      Feuille de service à générer
-      <span class="fr-hint-text">La date choisie apparaîtra dans le titre du document.</span>
-    </label>
-    <input class="fr-input" type="date" id="dayPicker" name="dayPicker">
+  <div class="fr-segmented fr-segmented--sm fr-mb-3w" id="viewSegmented">
+    <fieldset class="fr-segmented__elements">
+      <legend class="fr-segmented__legend">Affichage</legend>
+      <div class="fr-segmented__element">
+        <input value="generer" type="radio" id="segmentGenerer" name="viewSegment" checked>
+        <label class="fr-label" for="segmentGenerer">Générer FSJ</label>
+      </div>
+      <div class="fr-segmented__element">
+        <input value="progression" type="radio" id="segmentProgression" name="viewSegment">
+        <label class="fr-label" for="segmentProgression">Progression</label>
+      </div>
+    </fieldset>
   </div>
 
-  <fieldset class="fr-fieldset fr-mt-2w" id="fsjFieldset" aria-labelledby="fsjFieldset-legend">
-    <legend class="fr-fieldset__legend fr-text--regular" id="fsjFieldset-legend">
-      Version à générer
-    </legend>
-    <div class="fr-fieldset__element">
-      <div class="fr-radio-group">
-        <input type="radio" id="fsjCadres" name="fsjType" value="cadres" checked>
-        <label class="fr-label" for="fsjCadres">
-          Feuille de service encadrement
-          <span class="fr-hint-text">Cette version ne doit en aucun cas être diffusée aux stagiaires.</span>
-        </label>
-      </div>
+  <div id="panelGenerer">
+
+    <div class="fr-input-group">
+      <label class="fr-label" for="dayPicker">
+        Feuille de service à générer
+        <span class="fr-hint-text">La date choisie apparaîtra dans le titre du document.</span>
+      </label>
+      <input class="fr-input" type="date" id="dayPicker" name="dayPicker">
     </div>
-    <div class="fr-fieldset__element">
-      <div class="fr-radio-group">
-        <input type="radio" id="fsjStagiaires" name="fsjType" value="stagiaires">
-        <label class="fr-label" for="fsjStagiaires">
-          Feuille de service stagiaires
-          <span class="fr-hint-text">Cette version ne contient que les occurrences nécessaires à l'élève de jour.</span>
-        </label>
+
+    <fieldset class="fr-fieldset fr-mt-2w" id="fsjFieldset" aria-labelledby="fsjFieldset-legend">
+      <legend class="fr-fieldset__legend fr-text--regular" id="fsjFieldset-legend">
+        Version à générer
+      </legend>
+      <div class="fr-fieldset__element">
+        <div class="fr-radio-group">
+          <input type="radio" id="fsjCadres" name="fsjType" value="cadres" checked>
+          <label class="fr-label" for="fsjCadres">
+            Feuille de service encadrement
+            <span class="fr-hint-text">Cette version ne doit en aucun cas être diffusée aux stagiaires.</span>
+          </label>
+        </div>
       </div>
+      <div class="fr-fieldset__element">
+        <div class="fr-radio-group">
+          <input type="radio" id="fsjStagiaires" name="fsjType" value="stagiaires">
+          <label class="fr-label" for="fsjStagiaires">
+            Feuille de service stagiaires
+            <span class="fr-hint-text">Cette version ne contient que les occurrences nécessaires à l'élève de jour.</span>
+          </label>
+        </div>
+      </div>
+    </fieldset>
+
+    <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-3w">
+      <li>
+        <button class="fr-btn" id="generateBtn" type="button" disabled>
+          Générer le PDF
+        </button>
+      </li>
+      <li>
+        <button class="fr-btn fr-btn--secondary" id="generateWhatsappBtn" type="button" disabled>
+          Générer le PDF et l'envoyer via WhatsApp
+        </button>
+      </li>
+    </ul>
+
+    <div id="statusZone" class="fr-mt-3w" aria-live="polite"></div>
+
+    <div id="previewZone" class="fr-mt-4w"></div>
+
+  </div>
+
+  <div id="panelProgression" hidden>
+
+    <div class="week-nav fr-mb-2w">
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-left-s-line fr-btn--icon-left" id="weekPrevBtn" type="button">
+        Semaine précédente
+      </button>
+      <p class="week-label fr-text--bold" id="weekLabel"></p>
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-right-s-line fr-btn--icon-right" id="weekNextBtn" type="button">
+        Semaine suivante
+      </button>
     </div>
-  </fieldset>
 
-  <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-3w">
-    <li>
-      <button class="fr-btn" id="generateBtn" type="button" disabled>
-        Générer le PDF
-      </button>
-    </li>
-    <li>
-      <button class="fr-btn fr-btn--secondary" id="generateWhatsappBtn" type="button" disabled>
-        Générer le PDF et l'envoyer via WhatsApp
-      </button>
-    </li>
-  </ul>
+    <div class="week-grid-scroll">
+      <div id="weekGrid" class="week-grid"></div>
+    </div>
 
-  <div id="statusZone" class="fr-mt-3w" aria-live="polite"></div>
-
-  <div id="previewZone" class="fr-mt-4w"></div>
+  </div>
 
 </div>
 
@@ -175,6 +258,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var previewZone = document.getElementById('previewZone');
   var fsjRadios = document.querySelectorAll('input[name="fsjType"]');
 
+  var segmentGenerer = document.getElementById('segmentGenerer');
+  var segmentProgression = document.getElementById('segmentProgression');
+  var panelGenerer = document.getElementById('panelGenerer');
+  var panelProgression = document.getElementById('panelProgression');
+  var weekPrevBtn = document.getElementById('weekPrevBtn');
+  var weekNextBtn = document.getElementById('weekNextBtn');
+  var weekLabel = document.getElementById('weekLabel');
+  var weekGrid = document.getElementById('weekGrid');
+  var weekReferenceDate = null; // un jour quelconque de la semaine affichée
+
   // ---- Initialisation du widget Grist ------------------------------------
 
   // Déclare les colonnes attendues : l'utilisateur les associe à ses propres
@@ -204,6 +297,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     generateBtn.disabled = false;
     generateWhatsappBtn.disabled = false;
     renderPreview();
+    if (!panelProgression.hidden) renderWeekView();
   });
 
   // ---- Date du jour par défaut --------------------------------------------
@@ -213,7 +307,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     dayPicker.value = toInputDateValue(today);
   })();
 
-  dayPicker.addEventListener('change', renderPreview);
+  dayPicker.addEventListener('change', function () {
+    renderPreview();
+    weekReferenceDate = getSelectedDate();
+    if (!panelProgression.hidden) renderWeekView();
+  });
   generateBtn.addEventListener('click', function () {
     var built = buildPdfDocument();
     if (!built) return;
@@ -222,8 +320,90 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   });
   generateWhatsappBtn.addEventListener('click', generateAndShareWhatsApp);
   fsjRadios.forEach(function (radio) {
-    radio.addEventListener('change', renderPreview);
+    radio.addEventListener('change', function () {
+      renderPreview();
+      if (!panelProgression.hidden) renderWeekView();
+    });
   });
+
+  // ---- Contrôle segmenté "Générer FSJ" / "Progression" -------------------
+
+  function updateActivePanel() {
+    var showProgression = segmentProgression.checked;
+    panelGenerer.hidden = showProgression;
+    panelProgression.hidden = !showProgression;
+    if (showProgression) {
+      if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
+      renderWeekView();
+    }
+  }
+
+  segmentGenerer.addEventListener('change', updateActivePanel);
+  segmentProgression.addEventListener('change', updateActivePanel);
+
+  // ---- Onglet "Progression" : vue calendrier hebdomadaire -----------------
+
+  function getMonday(d) {
+    var date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var day = date.getDay(); // 0 = dimanche
+    var diff = (day === 0 ? -6 : 1) - day;
+    date.setDate(date.getDate() + diff);
+    return date;
+  }
+
+  weekPrevBtn.addEventListener('click', function () {
+    if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
+    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() - 7);
+    renderWeekView();
+  });
+  weekNextBtn.addEventListener('click', function () {
+    if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
+    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() + 7);
+    renderWeekView();
+  });
+
+  function renderWeekView() {
+    if (!recordsLoaded) {
+      weekGrid.innerHTML = '<p class="fr-text--sm">Chargement des données…</p>';
+      return;
+    }
+
+    if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
+    var monday = getMonday(weekReferenceDate);
+    var sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+    var mode = getSelectedMode();
+    var dayNames = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    var today = new Date();
+
+    weekLabel.textContent = 'Semaine du ' + fmtDayTitle(monday) + ' au ' + fmtDayTitle(sunday);
+
+    var html = '';
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+      var occ = getOccurrencesForDay(d, mode);
+      var isToday = sameDay(d, today);
+
+      html += '<div class="week-day' + (isToday ? ' week-day--today' : '') + '">';
+      html += '<p class="week-day__header">' + dayNames[i] + ' ' + escapeHtml(fmtDayTitle(d)) + '</p>';
+
+      if (!occ.length) {
+        html += '<p class="week-day__empty">Aucune occurrence</p>';
+      } else {
+        html += occ.map(function (o) {
+          var label = o.intitule || o.occurrence || '';
+          var cls = 'week-occ' + (isExcludedCode(o.code) ? ' week-occ--restricted' : '');
+          return '<div class="' + cls + '">' +
+            '<span class="week-occ__time">' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + '</span>' +
+            escapeHtml(label) +
+            '</div>';
+        }).join('');
+      }
+
+      html += '</div>';
+    }
+
+    weekGrid.innerHTML = html;
+  }
 
   function getSelectedMode() {
     var checked = document.querySelector('input[name="fsjType"]:checked');
@@ -523,7 +703,32 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return null;
     }
 
-    var doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
+    // Une journée chargée (~18-20 occurrences) doit tenir sur une seule
+    // page. Plutôt que de figer des tailles au jugé (fragile dès que le
+    // contenu réel diffère un peu de l'échantillon testé), on essaie
+    // plusieurs niveaux de compacité et on garde le premier qui tient sur
+    // une page ; si même le plus compact déborde (journée exceptionnellement
+    // chargée), on garde ce dernier essai (la pagination reste correcte,
+    // juste sur 2 pages).
+    var SCALES = [1, 0.94, 0.88, 0.82, 0.76, 0.7];
+    var doc, pages;
+    for (var si = 0; si < SCALES.length; si++) {
+      doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
+      renderFsjContent(doc, day, mode, sections, SCALES[si]);
+      pages = doc.internal.getNumberOfPages();
+      if (pages <= 1) break;
+    }
+
+    var filename = 'Feuille_de_service_' + fmtDayTitle(day).replace(/\//g, '-') + '.pdf';
+    return { doc: doc, filename: filename, day: day, mode: mode };
+  }
+
+  // Dessine le contenu complet de la feuille de service sur `doc`, à un
+  // niveau de compacité `scale` (1 = tailles nominales, < 1 = resserré).
+  // Toutes les tailles de police, interlignes et espacements sont
+  // proportionnels à `scale` ; les marges de page et la largeur utile
+  // restent fixes.
+  function renderFsjContent(doc, day, mode, sections, scale) {
     var marianneOk = registerMarianneFont(doc);
     var baseFont = marianneOk ? 'Marianne' : 'helvetica';
 
@@ -532,26 +737,27 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var marginBottom = 9;
     var pageWidth = doc.internal.pageSize.getWidth();
     var pageHeight = doc.internal.pageSize.getHeight();
-    var lineHeight = 4.8;
+    var lineHeight = 4.8 * scale;
 
-    // Tailles et espacements resserrés pour que la feuille de service tienne
-    // sur une seule page, même avec un programme chargé (~18-20 occurrences).
-    var TITLE_FONT = 9.3;
-    var META_FONT = 7.2;
-    var CONSIGNES_FONT = 6.2;
-    var META_LH = 3.6;
-    var CONSIGNES_LH = 3.0;
-    var BADGE_H = 3.6;
-    var BADGE_FONT = 6.2;
-    var BADGE_ROW_GAP = 0.8;
-    var GAP_META = 0.55;
-    var GAP_CONSIGNES = 0.45;
-    var GAP_BADGE = 0.7;
-    var ROW_PAD = 1.1; // marge haut/bas du fond pastel autour de chaque bloc
+    // Tailles et espacements de base (scale = 1), resserrés pour que la
+    // feuille de service tienne sur une seule page dans le cas courant.
+    var TITLE_FONT = 9.3 * scale;
+    var META_FONT = 7.2 * scale;
+    var CONSIGNES_FONT = 6.2 * scale;
+    var META_LH = 3.6 * scale;
+    var CONSIGNES_LH = 3.0 * scale;
+    var BADGE_H = 3.6 * scale;
+    var BADGE_FONT = 6.2 * scale;
+    var BADGE_ROW_GAP = 0.8 * scale;
+    var GAP_META = 0.55 * scale;
+    var GAP_CONSIGNES = 0.45 * scale;
+    var GAP_BADGE = 0.7 * scale;
+    var ROW_PAD = 1.1 * scale; // marge haut/bas du fond pastel autour de chaque bloc
 
     // La version "encadrement" affiche un bandeau d'information importante
     // en haut de chaque page (façon DSFR fr-notice) : on réserve la place
-    // correspondante en haut de page.
+    // correspondante en haut de page (taille fixe, non affectée par scale :
+    // le bandeau doit rester parfaitement lisible).
     var bannerHeight = 14;
     var bannerText = 'Cette version ne doit en aucun cas être diffusée aux stagiaires.';
     var hasBanner = (mode === 'cadres');
@@ -777,9 +983,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         y += ROW_PAD * 2;
       });
     }
-
-    var filename = 'Feuille_de_service_' + fmtDayTitle(day).replace(/\//g, '-') + '.pdf';
-    return { doc: doc, filename: filename, day: day, mode: mode };
   }
 
   // Génère le PDF (blob, sans le télécharger) puis tente un partage natif
