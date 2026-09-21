@@ -59,6 +59,24 @@
   .prog-card .prog-line--consignes { font-size: 0.75em; }
   .badges { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
+  /* Pied de page du widget : crédit + lien externe (DSFR) vers le
+     formulaire de contact de l'équipe projet. */
+  .widget-footer {
+    margin-top: 2rem;
+    border-top: 1px solid var(--border-default-grey);
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .widget-footer__credit {
+    margin: 0;
+    font-size: 0.8em;
+    color: var(--text-mention-grey);
+  }
+
   #fsjFieldset .fr-radio-group label {
     white-space: nowrap;
   }
@@ -66,13 +84,6 @@
     white-space: normal;
   }
 
-  .top-controls-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
   #generateProgressionPdfBtn { flex: 0 0 auto; }
 
   /* Menu de navigation principale, dans le header (choix de la vue) :
@@ -142,6 +153,8 @@
   .week-filter-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 0.5rem;
   }
 
@@ -319,10 +332,10 @@
       <nav class="fr-nav" id="header-navigation" role="navigation" aria-label="Menu principal">
         <ul class="fr-nav__list">
           <li class="fr-nav__item">
-            <button class="fr-nav__link" id="navProgression" type="button">Progression</button>
+            <button class="fr-nav__link" id="navProgression" type="button" aria-current="page">Progression</button>
           </li>
           <li class="fr-nav__item">
-            <button class="fr-nav__link" id="navGenerer" type="button" aria-current="page">Générer FSJ</button>
+            <button class="fr-nav__link" id="navGenerer" type="button">Générer FSJ</button>
           </li>
         </ul>
       </nav>
@@ -332,13 +345,7 @@
 
 <div class="widget-wrap">
 
-  <div class="top-controls-row fr-mb-3w">
-    <button class="fr-btn fr-btn--secondary fr-btn--sm" id="generateProgressionPdfBtn" type="button" disabled>
-      Progression en PDF
-    </button>
-  </div>
-
-  <div id="panelGenerer">
+  <div id="panelGenerer" hidden>
 
     <div class="fr-input-group">
       <label class="fr-label" for="dayPicker">
@@ -391,7 +398,7 @@
 
   </div>
 
-  <div id="panelProgression" hidden>
+  <div id="panelProgression">
 
     <div class="week-nav fr-mb-2w">
       <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-left-s-line fr-btn--icon-left" id="weekPrevBtn" type="button">
@@ -410,6 +417,9 @@
         </button>
         <ul class="dropdown-menu__list" id="progressionFilterList" role="menu" aria-label="Filtrer la progression" hidden></ul>
       </div>
+      <button class="fr-btn fr-btn--secondary fr-btn--sm" id="generateProgressionPdfBtn" type="button" disabled>
+        Progression en PDF
+      </button>
     </div>
 
     <div id="weekGrid" class="week-timegrid"></div>
@@ -417,6 +427,11 @@
   </div>
 
 </div>
+
+<footer class="widget-footer" role="contentinfo">
+  <p class="widget-footer__credit">Conçu avec ❤️ par l'ADJ LECLERCQ Gauthier - 2026</p>
+  <a class="fr-link fr-icon-external-link-line fr-link--icon-right" href="https://grist.numerique.gouv.fr/o/sgr-drj-rgif/forms/ft2KFq6RVvuCGAQadxN8G1/97" target="_blank" rel="noopener external" title="Contacter l'équipe projet - ouvre une nouvelle fenêtre">Contacter l'équipe projet</a>
+</footer>
 
 <!-- DSFR : comportements JS (non indispensable ici, mais recommandé par le DSFR) -->
 <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.15.3/dist/dsfr/dsfr.module.min.js"></script>
@@ -1550,14 +1565,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var BADGE_ROW_GAP = 0.8 * scale;
     var GAP_META = 0.55 * scale;
     var GAP_CONSIGNES = 0.45 * scale;
-    var GAP_BADGE = 0.7 * scale;
-    // Dégagement spécifique entre les badges (désormais affichés en premier)
-    // et le titre qui les suit : plus large que GAP_BADGE, qui ne couvrait
-    // que le passage d'une ligne de texte (petite descendante) à une case
-    // de badge — ici c'est l'inverse, il faut la place pour la hampe
-    // montante du texte du titre au-dessus de sa ligne de base.
-    var GAP_BADGE_TITLE = 2.3 * scale;
-    var ROW_PAD = 2 * scale; // marge haut/bas de chaque bloc (occurrence) ; dégage le trait séparateur
+    var GAP_BADGE = 0.7 * scale; // dégagement entre une ligne de texte (occurrence) et les badges qui la suivent
+    var ROW_PAD = 2 * scale; // marge haut/bas de chaque bloc (occurrence)
+    // Indentation des lignes de détail (lieu, cadres, consignes) sous le
+    // titre de l'occurrence, pour bien les distinguer visuellement comme
+    // des informations secondaires rattachées à ce titre.
+    var DETAIL_INDENT = 4 * scale;
 
     // La version "encadrement" affiche un bandeau d'information importante
     // en haut de chaque page (façon DSFR fr-notice) : on réserve la place
@@ -1608,9 +1621,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     doc.text(editionLine, pageWidth / 2, y, { align: 'center' });
 
     y += lineHeight * 0.9;
-    doc.setDrawColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
-    doc.setLineWidth(0.5);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
     y += lineHeight * 1.0;
 
     doc.setTextColor(0, 0, 0);
@@ -1683,11 +1693,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       sections.permanences.forEach(function (o) {
         ensureRoom(lineHeight);
         doc.setFontSize(TITLE_FONT);
-        if (o.apprenants.length) {
-          drawBadges(o.apprenants);
-          y += GAP_BADGE_TITLE;
-        }
         printWrapped(o.occurrence, marginLeft, pageWidth - marginLeft - marginRight, false);
+        if (o.apprenants.length) {
+          y += GAP_BADGE;
+          drawBadges(o.apprenants);
+        }
         y += lineHeight * 0.85;
       });
 
@@ -1723,7 +1733,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         return w;
       }
 
-      // Dessine les badges à gauche du titre, sur la même ligne que sa
+      // Dessine les badges à droite du titre, sur la même ligne que sa
       // première ligne de texte (alignement approximatif sur la ligne de
       // base `baselineY`, avec un léger dégagement pour la descendante).
       function drawBadgesInline(names, x0, baselineY) {
@@ -1766,17 +1776,17 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         var metaText = [o.encadrement, o.lieu].filter(Boolean).join(', ');
         var consignesText = o.consignes || '';
 
-        // Les badges se placent à gauche de la première ligne du titre :
+        // Les badges se placent à droite de la première ligne du titre :
         // celle-ci (et, par souci d'alignement, les lignes suivantes en
-        // cas de retour à la ligne) dispose donc d'une largeur réduite de
-        // la place qu'ils occupent.
+        // cas de retour à la ligne) dispose donc d'une largeur réduite pour
+        // leur laisser la place en bout de première ligne.
         var badgesWidth = measureBadgesWidth(o.apprenants);
-        var titleIndent = badgesWidth ? badgesWidth + BADGE_GAP_INLINE : 0;
-        var titleMaxWidth = Math.max(20, contentWidth - titleIndent);
+        var titleMaxWidth = badgesWidth ? Math.max(20, contentWidth - (badgesWidth + BADGE_GAP_INLINE)) : contentWidth;
 
         var titleLines = measureWrapped(titleText, TITLE_FONT, true, titleMaxWidth);
-        var metaLines = metaText ? measureWrapped(metaText, META_FONT, false) : [];
-        var consignesLines = consignesText ? measureWrapped(consignesText, CONSIGNES_FONT, false) : [];
+        var detailMaxWidth = Math.max(20, contentWidth - DETAIL_INDENT);
+        var metaLines = metaText ? measureWrapped(metaText, META_FONT, false, detailMaxWidth) : [];
+        var consignesLines = consignesText ? measureWrapped(consignesText, CONSIGNES_FONT, false, detailMaxWidth) : [];
 
         var blockHeight = titleLines.length * lineHeight;
         if (metaLines.length) blockHeight += metaLines.length * META_LH + GAP_META;
@@ -1786,30 +1796,29 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
         var rowStartY = y;
 
-        // Titre (badges alignés sur sa première ligne de base, avant même
-        // de dessiner le texte, puisque sa position ne dépend que de `y`
-        // au moment d'entrer dans le bloc).
-        if (badgesWidth) drawBadgesInline(o.apprenants, marginLeft, y);
-        drawLines(titleLines, TITLE_FONT, true, [0, 0, 0], lineHeight, titleIndent);
+        // Titre d'abord (aucun indent, pleine largeur réduite le cas échéant
+        // pour les badges) ; les badges viennent ensuite, alignés sur la
+        // ligne de base de la PREMIÈRE ligne du titre, juste après elle.
+        drawLines(titleLines, TITLE_FONT, true, [0, 0, 0], lineHeight, 0);
+        if (badgesWidth) {
+          doc.setFont(baseFont, 'bold');
+          doc.setFontSize(TITLE_FONT);
+          var firstLineWidth = doc.getTextWidth(titleLines[0] || '');
+          drawBadgesInline(o.apprenants, marginLeft + firstLineWidth + BADGE_GAP_INLINE, rowStartY);
+        }
         if (metaLines.length) {
           y += GAP_META;
-          drawLines(metaLines, META_FONT, false, metaColor, META_LH);
+          drawLines(metaLines, META_FONT, false, metaColor, META_LH, DETAIL_INDENT);
         }
         if (consignesLines.length) {
           y += GAP_CONSIGNES;
-          drawLines(consignesLines, CONSIGNES_FONT, false, [0, 0, 0], CONSIGNES_LH);
+          drawLines(consignesLines, CONSIGNES_FONT, false, [0, 0, 0], CONSIGNES_LH, DETAIL_INDENT);
         }
 
         // `y` est maintenant exactement à rowStartY + blockHeight (fin du
         // contenu). ROW_PAD de part et d'autre forme l'espacement inter-
-        // occurrences ; un trait très fin, centré dans cet espacement,
-        // sépare chaque occurrence de la suivante (sauf la dernière).
+        // occurrences (pas de trait séparateur).
         y += ROW_PAD;
-        if (index < sections.progression.length - 1) {
-          doc.setDrawColor(220, 220, 220);
-          doc.setLineWidth(0.1);
-          doc.line(marginLeft, y, pageWidth - marginRight, y);
-        }
         y += ROW_PAD;
       });
     }
