@@ -1137,6 +1137,19 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire'];
 
+  // Valeur exacte du type d'absence (colonne "Type d'absence") qui
+  // conditionne la disponibilité du PDF, et son libellé abrégé pour
+  // l'affichage en liste (colonne étroite).
+  var ABSENCE_TYPE_AUTORISATION = 'Autorisation d\'absence temporaire';
+  var ABSENCE_TYPE_AUTORISATION_ABBR = 'Auto d\'abs.';
+
+  function formatAbsenceTypeLabel(motif) {
+    if (!!motif && normalizeNameKey(motif) === normalizeNameKey(ABSENCE_TYPE_AUTORISATION)) {
+      return ABSENCE_TYPE_AUTORISATION_ABBR;
+    }
+    return motif;
+  }
+
   function defaultAbsencesConfig() {
     return {
       table: '',
@@ -1558,17 +1571,17 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var fmtAbsDate = function (d) { return isRepos ? fmtDayTitle(d) : (fmtDayTitle(d) + ' ' + fmtHM(d)); };
 
       // Le PDF n'est proposé que pour les demandes validées ET de type
-      // "Autorisation d'absence" (si le type n'est pas configuré, seule la
-      // validation conditionne sa disponibilité). Deux infobulles DSFR
-      // distinctes selon la raison du blocage.
-      var isAutorisationType = !cfg.col.motif || (!!r.motif && normalizeNameKey(r.motif) === normalizeNameKey('Autorisation d\'absence'));
+      // "Autorisation d'absence temporaire" (si le type n'est pas
+      // configuré, seule la validation conditionne sa disponibilité).
+      // Deux infobulles DSFR distinctes selon la raison du blocage.
+      var isAutorisationType = !cfg.col.motif || (!!r.motif && normalizeNameKey(r.motif) === normalizeNameKey(ABSENCE_TYPE_AUTORISATION));
       var pdfAvailable = st.isValidee && isAutorisationType;
       var pdfTooltipId = null;
       var pdfTooltipText = '';
       if (!pdfAvailable) {
         pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++);
         pdfTooltipText = !isAutorisationType
-          ? 'Le PDF n\'est disponible que pour les demandes de type « Autorisation d\'absence ».'
+          ? 'Le PDF n\'est disponible que pour les demandes de type « ' + ABSENCE_TYPE_AUTORISATION + ' ».'
           : 'Le PDF est disponible une fois la demande validée.';
       }
 
@@ -1583,7 +1596,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           (pdfAvailable ? '' : ('<span class="fr-tooltip fr-placement" id="' + pdfTooltipId + '" role="tooltip">' + escapeHtml(pdfTooltipText) + '</span>')) +
         '</div></td>' +
         '<td>' + escapeHtml(r.demandeur) + '</td>' +
-        (cfg.col.motif ? '<td>' + escapeHtml(r.motif) + '</td>' : '') +
+        (cfg.col.motif ? '<td>' + escapeHtml(formatAbsenceTypeLabel(r.motif)) + '</td>' : '') +
         '<td>' + (debut ? escapeHtml(fmtAbsDate(debut)) : '—') + '</td>' +
         '<td>' + (fin ? escapeHtml(fmtAbsDate(fin)) : '—') + '</td>' +
         (cfg.col.destination ? '<td>' + escapeHtml(r.destination) + '</td>' : '') +
