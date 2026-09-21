@@ -348,6 +348,63 @@
 
   .week-tooltip__badges { display: inline-flex; flex-wrap: wrap; gap: 2px; margin-bottom: 2px; }
   .week-tooltip__consignes { font-size: 0.85em; opacity: 0.85; }
+
+  /* #panelConfig (période + activation de l'export PDF de la Progression,
+     configuration de la gestion des absences) est une page à part
+     entière, au même titre que #panelGenerer et #panelProgression : pas
+     de style particulier nécessaire, elle suit le même flux normal que
+     les deux autres. Elle n'apparaît dans aucun menu visible ; voir le JS
+     pour son déclencheur caché (bloc marque du header, 5 clics
+     rapprochés).
+     #panelAbsences, elle, est une page normale, visible dans le menu. */
+
+  .config-section-title {
+    margin: 1.5rem 0 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-default-grey);
+  }
+  .config-section-title:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .config-grid-2col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0 1.5rem;
+  }
+  .config-grid-3col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0 1.5rem;
+  }
+
+  /* ---- Page "Gestion des absences" --------------------------------- */
+  .req-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .req-count { margin: 0 0 0 auto; color: var(--text-mention-grey); font-size: 0.9em; }
+  .req-table-wrap { overflow-x: auto; }
+  .req-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+  .req-table th, .req-table td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-default-grey);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .req-table th { font-weight: 700; }
+  .req-actions { display: inline-flex; gap: 2px; }
+  .req-actions .fr-btn[aria-pressed="true"] { background-color: var(--bleu-france); color: #fff; }
+  .abs-decision {
+    display: inline-block;
+    padding: 0.1rem 0.6rem;
+    border-radius: 1rem;
+    font-size: 0.85em;
+    font-weight: 500;
+  }
+  .abs-decision--attente { background: #eee; color: #3a3a3a; }
+  .abs-decision--validee { background: #b8fec9; color: #18753c; }
+  .abs-decision--refusee { background: #ffe9e9; color: #ce0500; }
 </style>
 </head>
 <body>
@@ -356,7 +413,7 @@
   <div class="fr-header__body">
     <div class="fr-container">
       <div class="fr-header__body-row">
-        <div class="fr-header__brand fr-enlarge-link">
+        <div class="fr-header__brand fr-enlarge-link" id="headerBrand">
           <div class="fr-header__brand-top">
             <div class="fr-header__logo">
               <p class="fr-logo">Ministère<br>de l'Intérieur</p>
@@ -379,6 +436,9 @@
           </li>
           <li class="fr-nav__item">
             <button class="fr-nav__link" id="navGenerer" type="button">Feuille de service journalier</button>
+          </li>
+          <li class="fr-nav__item">
+            <button class="fr-nav__link" id="navAbsences" type="button">Gestion des absences</button>
           </li>
         </ul>
       </nav>
@@ -466,9 +526,216 @@
       <button class="fr-btn fr-btn--secondary fr-btn--sm fr-icon-download-line fr-btn--icon-left" id="generateProgressionPdfBtn" type="button" disabled>
         Progression en PDF
       </button>
+      <span class="fr-tooltip fr-placement" id="progressionPdfTooltip" role="tooltip">La progression est en cours de création</span>
     </div>
 
+    <p class="fr-hint-text" id="progressionPdfBlockedHint" hidden>
+      La génération de la Progression en PDF est actuellement désactivée (configuration).
+    </p>
+
     <div id="weekGrid" class="week-timegrid"></div>
+
+  </div>
+
+  <div id="panelAbsences" hidden>
+
+    <h2 class="fr-h6">Demandes d'absence</h2>
+
+    <div class="req-toolbar fr-mb-2w">
+      <div class="dropdown-menu" id="absDecisionFilterMenu">
+        <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="absDecisionFilterBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="absDecisionFilterList">
+          Décision
+        </button>
+        <ul class="dropdown-menu__list" id="absDecisionFilterList" role="menu" aria-label="Filtrer les absences par décision" hidden></ul>
+      </div>
+      <div class="dropdown-menu" id="absDemandeurFilterMenu">
+        <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="absDemandeurFilterBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="absDemandeurFilterList">
+          Demandeur
+        </button>
+        <ul class="dropdown-menu__list" id="absDemandeurFilterList" role="menu" aria-label="Filtrer les absences par demandeur" hidden></ul>
+      </div>
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-refresh-line fr-btn--icon-left" id="absRefreshBtn" type="button">
+        Actualiser
+      </button>
+      <p class="req-count" id="absCount"></p>
+    </div>
+
+    <div id="absStatusZone" aria-live="polite"></div>
+
+    <div id="absZone"></div>
+
+  </div>
+
+  <div id="panelConfig" hidden>
+
+    <h2 class="fr-h6">Paramètres du widget</h2>
+    <div class="fr-alert fr-alert--info fr-alert--sm fr-mb-3w">
+      <p>Ces réglages sont enregistrés dans ce document Grist : ils s'appliquent donc pour tous les utilisateurs du widget, sans jamais toucher au code.</p>
+    </div>
+
+    <form id="configForm">
+
+      <div class="scale-toggle fr-mb-3w" id="configSectionToggle" role="group" aria-label="Réglages par page">
+        <button class="fr-btn fr-btn--sm" id="configSectionBtn_donnees" type="button" aria-pressed="false" data-section="donnees">
+          Données
+        </button>
+        <button class="fr-btn fr-btn--sm" id="configSectionBtn_progression" type="button" aria-pressed="false" data-section="progression">
+          Progression (PDF)
+        </button>
+        <button class="fr-btn fr-btn--sm" id="configSectionBtn_absences" type="button" aria-pressed="false" data-section="absences">
+          Absences
+        </button>
+      </div>
+
+      <div id="configSectionDonnees">
+        <h3 class="fr-text--lead config-section-title">Données (Génération &amp; Progression)</h3>
+        <p class="fr-hint-text fr-mb-2w">
+          Associez chaque rôle utilisé par le widget à l'une des colonnes de la table à laquelle il est relié dans Grist. Heure de début, Heure de fin, Occurrence et Intitulé sont obligatoires ; ce réglage remplace l'association de colonnes du panneau natif de Grist.
+        </p>
+
+        <div class="config-grid-2col">
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Debut">Colonne — Heure de début</label>
+            <select class="fr-select" id="genCol_Debut" name="genCol_Debut"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Fin">Colonne — Heure de fin</label>
+            <select class="fr-select" id="genCol_Fin" name="genCol_Fin"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Occurrence">Colonne — Occurrence (permanences)</label>
+            <select class="fr-select" id="genCol_Occurrence" name="genCol_Occurrence"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Intitule">Colonne — Intitulé (progression)</label>
+            <select class="fr-select" id="genCol_Intitule" name="genCol_Intitule"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Code">Colonne — Code <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="genCol_Code" name="genCol_Code"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Lieu">Colonne — Lieu <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="genCol_Lieu" name="genCol_Lieu"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Encadrement">Colonne — Encadrement <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="genCol_Encadrement" name="genCol_Encadrement"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Consignes">Colonne — Consignes <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="genCol_Consignes" name="genCol_Consignes"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Apprenants">Colonne — Apprenants <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="genCol_Apprenants" name="genCol_Apprenants"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="genCol_Type">Colonne — Type <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="genCol_Type" name="genCol_Type"></select>
+          </div>
+        </div>
+      </div>
+
+      <div id="configSectionProgression" hidden>
+        <h3 class="fr-text--lead config-section-title">Progression (export PDF)</h3>
+
+        <div class="config-grid-2col">
+          <div class="fr-input-group">
+            <label class="fr-label" for="configStartDate">Date de début du stage</label>
+            <input class="fr-input" type="date" id="configStartDate" name="configStartDate">
+          </div>
+          <div class="fr-input-group">
+            <label class="fr-label" for="configEndDate">Date de fin du stage</label>
+            <input class="fr-input" type="date" id="configEndDate" name="configEndDate">
+          </div>
+        </div>
+
+        <div class="fr-checkbox-group fr-mt-2w">
+          <input type="checkbox" id="configPdfEnabled" name="configPdfEnabled" checked>
+          <label class="fr-label" for="configPdfEnabled">
+            Autoriser la génération de la Progression en PDF
+            <span class="fr-hint-text">Décochez pour bloquer temporairement le bouton « Progression en PDF » (le reste du widget continue de fonctionner normalement).</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="configSectionAbsences" hidden>
+        <h3 class="fr-text--lead config-section-title">Gestion des absences</h3>
+        <p class="fr-hint-text fr-mb-2w">
+          Choisissez la table Grist source des demandes d'absence, puis associez chaque rôle à l'une de ses colonnes. Seuls Demandeur, Début, Fin et Décision sont obligatoires.
+        </p>
+
+        <div class="fr-select-group">
+          <label class="fr-label" for="absTable">Table source</label>
+          <select class="fr-select" id="absTable" name="absTable">
+            <option value="">Choisir une table…</option>
+          </select>
+        </div>
+
+        <div class="config-grid-2col">
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_demandeur">Colonne — Demandeur</label>
+            <select class="fr-select" id="absCol_demandeur" name="absCol_demandeur"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_decision">Colonne — Décision</label>
+            <select class="fr-select" id="absCol_decision" name="absCol_decision"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_dateDebut">Colonne — Date de début</label>
+            <select class="fr-select" id="absCol_dateDebut" name="absCol_dateDebut"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_dateFin">Colonne — Date de fin</label>
+            <select class="fr-select" id="absCol_dateFin" name="absCol_dateFin"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_motif">Colonne — Motif <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="absCol_motif" name="absCol_motif"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_destination">Colonne — Destination <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="absCol_destination" name="absCol_destination"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_commentaire">Colonne — Commentaire <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="absCol_commentaire" name="absCol_commentaire"></select>
+          </div>
+        </div>
+
+        <p class="fr-hint-text fr-mt-2w fr-mb-1w">Libellés utilisés dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
+        <div class="config-grid-3col">
+          <div class="fr-input-group">
+            <label class="fr-label" for="absVal_attente">En attente</label>
+            <input class="fr-input" type="text" id="absVal_attente" name="absVal_attente" placeholder="En attente">
+          </div>
+          <div class="fr-input-group">
+            <label class="fr-label" for="absVal_validee">Validée</label>
+            <input class="fr-input" type="text" id="absVal_validee" name="absVal_validee" placeholder="Validée">
+          </div>
+          <div class="fr-input-group">
+            <label class="fr-label" for="absVal_refusee">Refusée</label>
+            <input class="fr-input" type="text" id="absVal_refusee" name="absVal_refusee" placeholder="Refusée">
+          </div>
+        </div>
+
+        <div class="fr-input-group fr-mt-2w">
+          <label class="fr-label" for="absSignataire">
+            Signataire de l'autorisation d'absence
+            <span class="fr-hint-text">Nom (et éventuellement qualité/grade) imprimé sur le PDF « Autorisation d'absence », une fois une demande validée.</span>
+          </label>
+          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : Cdt DUPONT, chef de la division">
+        </div>
+      </div>
+
+      <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-4w">
+        <li><button class="fr-btn" id="configSaveBtn" type="button">Enregistrer les paramètres</button></li>
+        <li><button class="fr-btn fr-btn--secondary" id="configCancelBtn" type="button">Fermer sans enregistrer</button></li>
+      </ul>
+    </form>
+
+    <div id="configStatusZone" class="fr-mt-3w" aria-live="polite"></div>
 
   </div>
 
@@ -513,6 +780,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var navProgression = document.getElementById('navProgression');
   var navGenerer = document.getElementById('navGenerer');
+  var navAbsences = document.getElementById('navAbsences');
   var panelGenerer = document.getElementById('panelGenerer');
   var panelProgression = document.getElementById('panelProgression');
   var weekPrevBtn = document.getElementById('weekPrevBtn');
@@ -525,6 +793,59 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var progressionFilterList = document.getElementById('progressionFilterList');
   var scaleWeekBtn = document.getElementById('scaleWeekBtn');
   var scaleDayBtn = document.getElementById('scaleDayBtn');
+  var progressionPdfBlockedHint = document.getElementById('progressionPdfBlockedHint');
+  var progressionPdfTooltip = document.getElementById('progressionPdfTooltip');
+
+  var headerBrand = document.getElementById('headerBrand');
+  var panelConfig = document.getElementById('panelConfig');
+  var configStartDate = document.getElementById('configStartDate');
+  var configEndDate = document.getElementById('configEndDate');
+  var configPdfEnabled = document.getElementById('configPdfEnabled');
+  var configStatusZone = document.getElementById('configStatusZone');
+  var configCancelBtn = document.getElementById('configCancelBtn');
+  var configSaveBtn = document.getElementById('configSaveBtn');
+
+  // Contrôle segmenté du backoffice (Données / Progression / Absences)
+  var configSectionPanels = {
+    donnees: document.getElementById('configSectionDonnees'),
+    progression: document.getElementById('configSectionProgression'),
+    absences: document.getElementById('configSectionAbsences')
+  };
+  var configSectionButtons = {
+    donnees: document.getElementById('configSectionBtn_donnees'),
+    progression: document.getElementById('configSectionBtn_progression'),
+    absences: document.getElementById('configSectionBtn_absences')
+  };
+  var genColSelects = {};
+  ['Debut', 'Fin', 'Occurrence', 'Intitule', 'Code', 'Lieu', 'Encadrement', 'Consignes', 'Apprenants', 'Type'].forEach(function (key) {
+    genColSelects[key] = document.getElementById('genCol_' + key);
+  });
+
+  // ---- Gestion des absences : page + backoffice de configuration --------
+  var panelAbsences = document.getElementById('panelAbsences');
+  var absDecisionFilterBtn = document.getElementById('absDecisionFilterBtn');
+  var absDecisionFilterList = document.getElementById('absDecisionFilterList');
+  var absDemandeurFilterBtn = document.getElementById('absDemandeurFilterBtn');
+  var absDemandeurFilterList = document.getElementById('absDemandeurFilterList');
+  var absRefreshBtn = document.getElementById('absRefreshBtn');
+  var absCount = document.getElementById('absCount');
+  var absStatusZone = document.getElementById('absStatusZone');
+  var absZone = document.getElementById('absZone');
+
+  var absTableSelect = document.getElementById('absTable');
+  var absColSelects = {
+    demandeur: document.getElementById('absCol_demandeur'),
+    dateDebut: document.getElementById('absCol_dateDebut'),
+    dateFin: document.getElementById('absCol_dateFin'),
+    motif: document.getElementById('absCol_motif'),
+    destination: document.getElementById('absCol_destination'),
+    decision: document.getElementById('absCol_decision'),
+    commentaire: document.getElementById('absCol_commentaire')
+  };
+  var absValAttente = document.getElementById('absVal_attente');
+  var absValValidee = document.getElementById('absVal_validee');
+  var absValRefusee = document.getElementById('absVal_refusee');
+  var absSignataire = document.getElementById('absSignataire');
 
   // ---- Échelle de la vue Progression : Semaine ou Jour -------------------
   //
@@ -569,36 +890,759 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // ---- Initialisation du widget Grist ------------------------------------
 
-  // Déclare les colonnes attendues : l'utilisateur les associe à ses propres
-  // colonnes depuis le panneau de configuration du widget dans Grist.
-  // "Code", "Encadrement" et "Apprenants" sont optionnelles.
+  // Aucune colonne déclarée ici : contrairement à l'ancienne version, qui
+  // utilisait `columns` pour faire apparaître l'association de colonnes
+  // dans le panneau natif de Grist (volet de droite), ce mapping est
+  // désormais entièrement pris en charge par le backoffice du widget
+  // (panneau "Données", voir GEN_ROLES/genColumnsConfig plus bas), sur le
+  // même principe que la table des absences. `grist.onRecords` reçoit donc
+  // les lignes de la table liée avec leurs noms de colonnes réels.
+  //
+  // Accès "full" (et non "read table") : la configuration cachée
+  // (mapping de colonnes, période et activation de l'export PDF de la
+  // Progression, réglages des absences) est enregistrée dans le document
+  // via grist.setOption, ce qui modifie le document et nécessite donc
+  // l'accès complet — un simple accès en lecture à la table ne suffit pas
+  // à persister ces réglages, et c'est aussi ce niveau d'accès qui
+  // conditionne l'apparition du bouton « Ouvrir la configuration » côté
+  // Grist.
   grist.ready({
-    requiredAccess: 'read table',
-    columns: [
-      { name: 'Debut', title: 'Heure de début', type: 'Any', optional: false },
-      { name: 'Fin', title: 'Heure de fin', type: 'Any', optional: false },
-      { name: 'Occurrence', title: 'Occurrence (permanences)', type: 'Any', optional: false },
-      { name: 'Code', title: 'Code', type: 'Any', optional: true },
-      { name: 'Intitule', title: 'Intitulé (progression)', type: 'Any', optional: false },
-      { name: 'Lieu', title: 'Lieu', type: 'Any', optional: true },
-      { name: 'Encadrement', title: 'Encadrement', type: 'Any', optional: true },
-      { name: 'Consignes', title: 'Consignes', type: 'Any', optional: true },
-      { name: 'Apprenants', title: 'Apprenants', type: 'Any', optional: true },
-      { name: 'Type', title: 'Type', type: 'Any', optional: true }
-    ]
+    requiredAccess: 'full',
+    // Ajoute un accès "Ouvrir la configuration" dans le menu du widget
+    // côté Grist (icône dédiée dans le panneau créateur) : ce n'est pas
+    // le déclencheur principal côté utilisateur (voir plus bas), mais un
+    // point d'entrée natif Grist supplémentaire pour les éditeurs du
+    // document.
+    onEditOptions: openConfigPanel
   });
+
+  // Dernières lignes brutes reçues de la table liée (avant application du
+  // mapping de colonnes "Données") : conservées pour pouvoir ré-appliquer
+  // immédiatement un nouveau mapping enregistré depuis le backoffice, sans
+  // attendre un nouvel événement onRecords.
+  var lastRawGenRecords = [];
 
   grist.onRecords(function (records, mappings) {
     var mapped = (grist.mapColumnNames && mappings)
       ? grist.mapColumnNames(records, mappings)
       : records;
-    allRecords = (mapped || []).filter(Boolean);
+    var raw = (mapped || []).filter(Boolean);
+    lastRawGenRecords = raw;
+    if (raw.length) {
+      genAvailableColumns = Object.keys(raw[0]).filter(function (c) { return c !== 'id' && c !== 'manualSort'; });
+    }
+    allRecords = applyGenColumnsMapping(raw);
     recordsLoaded = true;
     generateBtn.disabled = false;
-    progressionPdfBtn.disabled = false;
+    applyProgressionPdfEnabledState();
     renderPreview();
     if (!panelProgression.hidden) renderWeekView();
   });
+
+  // ---- Données : mapping de colonnes pour "Génération" (FSJ) et
+  // "Progression" (backoffice) --------------------------------------------
+  //
+  // Remplace l'association de colonnes qui apparaissait auparavant dans le
+  // panneau natif de Grist (volet de droite) : chaque rôle interne utilisé
+  // par le widget (Debut, Fin, ...) est associé ici à l'une des colonnes
+  // réelles de la table liée, enregistré comme option du widget
+  // (genColumnsConfig) et appliqué manuellement dans grist.onRecords
+  // ci-dessus, sur le même principe que la table des absences.
+
+  var GEN_ROLES = [
+    { key: 'Debut', label: 'Heure de début', required: true },
+    { key: 'Fin', label: 'Heure de fin', required: true },
+    { key: 'Occurrence', label: 'Occurrence (permanences)', required: true },
+    { key: 'Intitule', label: 'Intitulé (progression)', required: true },
+    { key: 'Code', label: 'Code', required: false },
+    { key: 'Lieu', label: 'Lieu', required: false },
+    { key: 'Encadrement', label: 'Encadrement', required: false },
+    { key: 'Consignes', label: 'Consignes', required: false },
+    { key: 'Apprenants', label: 'Apprenants', required: false },
+    { key: 'Type', label: 'Type', required: false }
+  ];
+
+  function defaultGenColumnsConfig() {
+    var cfg = {};
+    GEN_ROLES.forEach(function (r) { cfg[r.key] = ''; });
+    return cfg;
+  }
+
+  function normalizeGenColumnsConfig(raw) {
+    var cfg = defaultGenColumnsConfig();
+    if (raw && typeof raw === 'object') {
+      GEN_ROLES.forEach(function (r) {
+        if (typeof raw[r.key] === 'string') cfg[r.key] = raw[r.key];
+      });
+    }
+    return cfg;
+  }
+
+  var genColumnsConfig = defaultGenColumnsConfig();
+  var genAvailableColumns = []; // colonnes réelles vues dans les derniers enregistrements reçus
+
+  function isGenColumnsConfigComplete(cfg) {
+    return GEN_ROLES.every(function (r) { return !r.required || !!cfg[r.key]; });
+  }
+
+  // Applique le mapping rôle → colonne à des lignes brutes (telles que
+  // reçues de grist.onRecords) pour reconstruire des objets avec les noms
+  // de champs internes attendus par le reste du widget (Debut, Fin, ...).
+  function applyGenColumnsMapping(rawRecords) {
+    return (rawRecords || []).map(function (r) {
+      var out = { id: r.id };
+      GEN_ROLES.forEach(function (role) {
+        var col = genColumnsConfig[role.key];
+        out[role.key] = col ? r[col] : undefined;
+      });
+      return out;
+    });
+  }
+
+  // ---- Configuration cachée : période + activation de l'export PDF de
+  // la Progression -----------------------------------------------------
+  //
+  // PROGRESSION_PDF_START / PROGRESSION_PDF_END (valeurs par défaut plus
+  // bas) et progressionPdfEnabled sont enregistrées comme options du
+  // widget Grist : propres à ce document, partagées par tous ses
+  // utilisateurs, sans jamais toucher au code. Ce panneau n'apparaît dans
+  // aucun menu visible du widget ; on l'ouvre soit via « Ouvrir la
+  // configuration » côté Grist (onEditOptions ci-dessus, réservé aux
+  // éditeurs du document), soit — seul point d'entrée côté interface du
+  // widget lui-même — en cliquant 5 fois de suite, rapidement, sur le
+  // bloc marque du header (logo + intitulé du service).
+
+  var progressionPdfEnabled = true; // par défaut, activé (comportement inchangé tant que l'option n'a jamais été enregistrée)
+
+  function parseYmd(value) {
+    if (!value) return null;
+    var parts = String(value).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
+  function applyProgressionPdfEnabledState() {
+    var blocked = !progressionPdfEnabled;
+    var disabled = blocked || !recordsLoaded;
+    progressionPdfBtn.disabled = disabled;
+    progressionPdfBlockedHint.hidden = !blocked;
+    // Infobulle DSFR (fr-tooltip) plutôt que l'attribut natif "title" :
+    // affichée au survol/focus du bouton uniquement lorsqu'il n'est pas
+    // cliquable, via aria-describedby (comportement pris en charge par le
+    // JS du DSFR déjà chargé, sur le même principe que les info-bulles de
+    // la vue Progression).
+    if (disabled) {
+      progressionPdfBtn.setAttribute('aria-describedby', 'progressionPdfTooltip');
+    } else {
+      progressionPdfBtn.removeAttribute('aria-describedby');
+    }
+  }
+
+  // ---- Gestion des absences : configuration (backoffice) ----------------
+  //
+  // Contrairement à Progression/FSJ (colonnes fixes déclarées via
+  // grist.ready({columns}) et associées une fois pour toutes dans le
+  // panneau natif de Grist), la table des absences est choisie librement
+  // ici : n'importe quelle table du document, avec un mapping rôle →
+  // colonne saisi dans le backoffice (panelConfig) et enregistré comme
+  // option du widget (clé "absencesConfig"), au même principe que le
+  // widget Réservations.
+
+  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire'];
+
+  function defaultAbsencesConfig() {
+    return {
+      table: '',
+      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '' },
+      valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' },
+      signataire: ''
+    };
+  }
+
+  // Reconstruit une config sûre à partir de ce qui a pu être enregistré
+  // (défensif : une option Grist peut être absente, incomplète, ou d'un
+  // format ancien).
+  function normalizeAbsencesConfig(raw) {
+    var cfg = defaultAbsencesConfig();
+    if (raw && typeof raw === 'object') {
+      if (typeof raw.table === 'string') cfg.table = raw.table;
+      if (raw.col && typeof raw.col === 'object') {
+        ABS_ROLES.forEach(function (role) {
+          if (typeof raw.col[role] === 'string') cfg.col[role] = raw.col[role];
+        });
+      }
+      if (raw.valeurs && typeof raw.valeurs === 'object') {
+        if (raw.valeurs.attente) cfg.valeurs.attente = String(raw.valeurs.attente);
+        if (raw.valeurs.validee) cfg.valeurs.validee = String(raw.valeurs.validee);
+        if (raw.valeurs.refusee) cfg.valeurs.refusee = String(raw.valeurs.refusee);
+      }
+      if (typeof raw.signataire === 'string') cfg.signataire = raw.signataire;
+    }
+    return cfg;
+  }
+
+  var absencesConfig = defaultAbsencesConfig();
+  var absAllTableIds = [];
+
+  function isAbsencesConfigComplete(cfg) {
+    return !!(cfg.table && cfg.col.demandeur && cfg.col.dateDebut && cfg.col.dateFin && cfg.col.decision);
+  }
+
+  function fillSelectWithOptions(select, values, selectedValue, placeholder) {
+    select.innerHTML = '';
+    var placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = placeholder;
+    select.appendChild(placeholderOpt);
+    values.forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+    select.value = values.indexOf(selectedValue) !== -1 ? selectedValue : '';
+  }
+
+  // Liste les tables du document (nécessite l'accès "full") pour peupler
+  // le sélecteur de table source, puis déclenche le listing des colonnes
+  // si une table est déjà choisie.
+  function refreshAbsencesTableList() {
+    if (!(grist.docApi && grist.docApi.listTables)) return;
+    grist.docApi.listTables().then(function (tables) {
+      absAllTableIds = tables || [];
+      fillSelectWithOptions(absTableSelect, absAllTableIds, absencesConfig.table, 'Choisir une table…');
+      if (absTableSelect.value) refreshAbsencesColumnLists(absTableSelect.value);
+      else ABS_ROLES.forEach(function (role) { fillSelectWithOptions(absColSelects[role], [], '', 'Choisir une colonne…'); });
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lister les tables du document : ' + (e && e.message ? e.message : e));
+    });
+  }
+
+  // Liste les colonnes d'une table (via une lecture de son contenu : la
+  // Plugin API Grist n'expose pas de "lister les colonnes" indépendant)
+  // pour peupler les 7 sélecteurs de rôle.
+  function refreshAbsencesColumnLists(tableId) {
+    if (!tableId) return;
+    grist.docApi.fetchTable(tableId).then(function (data) {
+      var cols = Object.keys(data || {}).filter(function (c) { return c !== 'id' && c !== 'manualSort'; });
+      ABS_ROLES.forEach(function (role) {
+        fillSelectWithOptions(absColSelects[role], cols, absencesConfig.col[role], 'Choisir une colonne…');
+      });
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + (e && e.message ? e.message : e));
+    });
+  }
+
+  absTableSelect.addEventListener('change', function () { refreshAbsencesColumnLists(absTableSelect.value); });
+
+  // Peuple les 10 sélecteurs de colonnes "Données" avec les colonnes vues
+  // dans les derniers enregistrements chargés, en présélectionnant le
+  // mapping déjà enregistré.
+  function fillGenColumnsSettingsForm() {
+    GEN_ROLES.forEach(function (role) {
+      var placeholder = role.required ? 'Choisir une colonne…' : '— Aucune —';
+      fillSelectWithOptions(genColSelects[role.key], genAvailableColumns, genColumnsConfig[role.key], placeholder);
+    });
+  }
+
+  function genColumnsConfigFromForm() {
+    var cfg = defaultGenColumnsConfig();
+    GEN_ROLES.forEach(function (role) { cfg[role.key] = genColSelects[role.key].value; });
+    return cfg;
+  }
+
+  // Contrôle segmenté du backoffice : une section visible à la fois.
+  var configActiveSection = 'donnees';
+
+  function setConfigSection(section) {
+    if (!configSectionPanels[section]) return;
+    configActiveSection = section;
+    Object.keys(configSectionPanels).forEach(function (key) {
+      configSectionPanels[key].hidden = (key !== section);
+      configSectionButtons[key].setAttribute('aria-pressed', key === section ? 'true' : 'false');
+    });
+  }
+
+  Object.keys(configSectionButtons).forEach(function (key) {
+    configSectionButtons[key].addEventListener('click', function () { setConfigSection(key); });
+  });
+
+  function fillAbsencesSettingsForm() {
+    absValAttente.value = absencesConfig.valeurs.attente;
+    absValValidee.value = absencesConfig.valeurs.validee;
+    absValRefusee.value = absencesConfig.valeurs.refusee;
+    absSignataire.value = absencesConfig.signataire;
+    refreshAbsencesTableList(); // pré-sélectionne aussi la table et les colonnes déjà enregistrées
+  }
+
+  function absencesConfigFromForm() {
+    var cfg = defaultAbsencesConfig();
+    cfg.table = absTableSelect.value;
+    ABS_ROLES.forEach(function (role) { cfg.col[role] = absColSelects[role].value; });
+    cfg.valeurs.attente = absValAttente.value.trim() || 'En attente';
+    cfg.valeurs.validee = absValValidee.value.trim() || 'Validée';
+    cfg.valeurs.refusee = absValRefusee.value.trim() || 'Refusée';
+    cfg.signataire = absSignataire.value.trim();
+    return cfg;
+  }
+
+  var viewBeforeConfig = null;
+
+  function showConfigStatus(type, message) {
+    renderAlert(configStatusZone, type, message);
+  }
+
+  // Remplace panelGenerer/panelProgression par panelConfig, comme une
+  // page à part entière (et non une fenêtre flottante) ; closeConfigPanel
+  // restaure la vue quittée pour ouvrir les paramètres.
+  function openConfigPanel() {
+    viewBeforeConfig = currentView;
+    panelGenerer.hidden = true;
+    panelProgression.hidden = true;
+    panelAbsences.hidden = true;
+    panelConfig.hidden = false;
+    configStatusZone.innerHTML = '';
+    setConfigSection(configActiveSection);
+    fillGenColumnsSettingsForm();
+    configStartDate.value = toInputDateValue(PROGRESSION_PDF_START);
+    configEndDate.value = toInputDateValue(PROGRESSION_PDF_END);
+    configPdfEnabled.checked = progressionPdfEnabled;
+    fillAbsencesSettingsForm();
+  }
+
+  function closeConfigPanel() {
+    panelConfig.hidden = true;
+    setView(viewBeforeConfig || 'progression');
+  }
+
+  function saveConfigPanel() {
+    var start = parseYmd(configStartDate.value);
+    var end = parseYmd(configEndDate.value);
+    if (!start || !end) {
+      showConfigStatus('error', 'Merci de renseigner les deux dates.');
+      return;
+    }
+    if (end < start) {
+      showConfigStatus('error', 'La date de fin doit être postérieure ou égale à la date de début.');
+      return;
+    }
+    var enabled = configPdfEnabled.checked;
+    var newAbsCfg = absencesConfigFromForm();
+    var newGenCfg = genColumnsConfigFromForm();
+
+    PROGRESSION_PDF_START = start;
+    PROGRESSION_PDF_END = end;
+    progressionPdfEnabled = enabled;
+    applyProgressionPdfEnabledState();
+    absencesConfig = newAbsCfg;
+    genColumnsConfig = newGenCfg;
+    // Ré-applique immédiatement le nouveau mapping de colonnes aux
+    // dernières lignes reçues, sans attendre un nouvel événement
+    // onRecords, pour un retour visuel instantané (Génération/Progression).
+    allRecords = applyGenColumnsMapping(lastRawGenRecords);
+    renderPreview();
+    if (!panelProgression.hidden) renderWeekView();
+
+    Promise.all([
+      grist.setOption('progressionPdfStart', toInputDateValue(start)),
+      grist.setOption('progressionPdfEnd', toInputDateValue(end)),
+      grist.setOption('progressionPdfEnabled', enabled),
+      grist.setOption('absencesConfig', newAbsCfg),
+      grist.setOption('genColumnsConfig', newGenCfg)
+    ]).then(function () {
+      showConfigStatus('success', 'Paramètres enregistrés : données ' + (isGenColumnsConfigComplete(newGenCfg) ? 'configurées' : 'à compléter') + ', période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', absences ' + (isAbsencesConfigComplete(newAbsCfg) ? 'configurées' : 'à finaliser') + '.');
+    }).catch(function (e) {
+      showConfigStatus('error', 'Enregistrement impossible : ' + (e && e.message ? e.message : e));
+    });
+  }
+
+  configSaveBtn.addEventListener('click', saveConfigPanel);
+  configCancelBtn.addEventListener('click', closeConfigPanel);
+
+  // Déclencheur unique et caché des paramètres : 5 clics rapprochés
+  // (moins de 1,5 seconde) sur le bloc marque du header (logo + intitulé
+  // du service). Rien dans l'interface ne signale cette zone comme
+  // cliquable ; c'est voulu.
+  (function setupHeaderBrandTrigger() {
+    var clicks = 0;
+    var resetTimer = null;
+    headerBrand.addEventListener('click', function () {
+      clicks += 1;
+      if (resetTimer) clearTimeout(resetTimer);
+      resetTimer = setTimeout(function () { clicks = 0; }, 1500);
+      if (clicks >= 5) {
+        clicks = 0;
+        clearTimeout(resetTimer);
+        openConfigPanel();
+      }
+    });
+  })();
+
+  // Charge la configuration enregistrée dans le document (options du
+  // widget), si elle existe ; sinon les valeurs par défaut restent en
+  // vigueur. Se déclenche aussi si un autre utilisateur modifie la
+  // configuration pendant que ce widget est ouvert.
+  grist.onOptions(function (options) {
+    var opts = options || {};
+    var s = parseYmd(opts.progressionPdfStart);
+    if (s) PROGRESSION_PDF_START = s;
+    var en = parseYmd(opts.progressionPdfEnd);
+    if (en) PROGRESSION_PDF_END = en;
+    progressionPdfEnabled = (opts.progressionPdfEnabled !== false);
+    applyProgressionPdfEnabledState();
+
+    genColumnsConfig = normalizeGenColumnsConfig(opts.genColumnsConfig);
+    // Ré-applique le mapping de colonnes si des lignes ont déjà été
+    // reçues (l'ordre d'arrivée de onOptions et onRecords n'est pas
+    // garanti), pour un affichage correct dès le premier chargement.
+    allRecords = applyGenColumnsMapping(lastRawGenRecords);
+    renderPreview();
+    if (!panelProgression.hidden) renderWeekView();
+
+    absencesConfig = normalizeAbsencesConfig(opts.absencesConfig);
+    if (!panelAbsences.hidden) renderAbsencesPage();
+  });
+
+  // ---- Gestion des absences : page (liste, décisions, PDF) --------------
+
+  var absData = []; // dernières lignes chargées depuis la table source (avec id Grist)
+  var absActiveFilter = { decision: null, demandeur: null };
+
+  function showAbsStatus(type, message) {
+    renderAlert(absStatusZone, type, message);
+  }
+
+  // Convertit le résultat "en colonnes" de fetchTable en tableau de lignes.
+  function columnarToRows(table) {
+    var ids = (table && table.id) || [];
+    return ids.map(function (id, i) {
+      var row = { id: id };
+      Object.keys(table).forEach(function (k) { if (k !== 'id') row[k] = table[k][i]; });
+      return row;
+    });
+  }
+
+  // Recharge les données depuis la table source et redessine la liste.
+  function renderAbsencesPage() {
+    var cfg = absencesConfig;
+    absStatusZone.innerHTML = '';
+    if (!isAbsencesConfigComplete(cfg)) {
+      absCount.textContent = '';
+      absZone.innerHTML = '<div class="fr-alert fr-alert--warning fr-alert--sm"><p>Aucune table n\'est configurée pour les absences. Cliquez 5 fois rapidement sur le bloc marque du header pour ouvrir les paramètres et en choisir une.</p></div>';
+      return;
+    }
+    grist.docApi.fetchTable(cfg.table).then(function (table) {
+      absData = columnarToRows(table).map(function (r) {
+        return {
+          id: r.id,
+          demandeur: textOf(r[cfg.col.demandeur]),
+          dateDebut: r[cfg.col.dateDebut],
+          dateFin: r[cfg.col.dateFin],
+          motif: cfg.col.motif ? textOf(r[cfg.col.motif]) : '',
+          destination: cfg.col.destination ? textOf(r[cfg.col.destination]) : '',
+          decision: textOf(r[cfg.col.decision]),
+          commentaire: cfg.col.commentaire ? textOf(r[cfg.col.commentaire]) : ''
+        };
+      });
+      renderAbsencesList();
+    }).catch(function (e) {
+      absCount.textContent = '';
+      absZone.innerHTML = '<div class="fr-alert fr-alert--error fr-alert--sm"><p>Impossible de charger les données : ' + escapeHtml(e && e.message ? e.message : String(e)) + '</p></div>';
+    });
+  }
+
+  function absDecisionState(cfg, decisionText) {
+    return {
+      isValidee: !!decisionText && normalizeNameKey(decisionText) === normalizeNameKey(cfg.valeurs.validee),
+      isRefusee: !!decisionText && normalizeNameKey(decisionText) === normalizeNameKey(cfg.valeurs.refusee),
+      isAttente: !decisionText || normalizeNameKey(decisionText) === normalizeNameKey(cfg.valeurs.attente)
+    };
+  }
+
+  function renderAbsencesList() {
+    var cfg = absencesConfig;
+    var rows = absData.slice();
+    if (absActiveFilter.decision) {
+      rows = rows.filter(function (r) { return normalizeNameKey(r.decision || cfg.valeurs.attente) === normalizeNameKey(absActiveFilter.decision); });
+    }
+    if (absActiveFilter.demandeur) {
+      rows = rows.filter(function (r) { return normalizeNameKey(r.demandeur) === normalizeNameKey(absActiveFilter.demandeur); });
+    }
+
+    absCount.textContent = rows.length + (rows.length > 1 ? ' demandes' : ' demande') + (absActiveFilter.decision || absActiveFilter.demandeur ? ' (filtrées)' : '');
+
+    if (!rows.length) {
+      absZone.innerHTML = '<p class="fr-hint-text">Aucune demande d\'absence' + ((absActiveFilter.decision || absActiveFilter.demandeur) ? ' pour ce filtre.' : '.') + '</p>';
+      return;
+    }
+
+    rows.sort(function (a, b) {
+      var da = parseGristDateTime(a.dateDebut);
+      var db = parseGristDateTime(b.dateDebut);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da - db;
+    });
+
+    var html = '<div class="req-table-wrap"><table class="req-table"><thead><tr>' +
+      '<th scope="col">Demandeur</th>' +
+      '<th scope="col">Début</th>' +
+      '<th scope="col">Fin</th>' +
+      (cfg.col.motif ? '<th scope="col">Motif</th>' : '') +
+      (cfg.col.destination ? '<th scope="col">Destination</th>' : '') +
+      '<th scope="col">Décision</th>' +
+      '<th scope="col">Autorisation</th>' +
+      '<th scope="col">Actions</th>' +
+      '</tr></thead><tbody>';
+
+    rows.forEach(function (r) {
+      var debut = parseGristDateTime(r.dateDebut);
+      var fin = parseGristDateTime(r.dateFin);
+      var st = absDecisionState(cfg, r.decision);
+      var badgeClass = st.isValidee ? 'abs-decision--validee' : (st.isRefusee ? 'abs-decision--refusee' : 'abs-decision--attente');
+
+      html += '<tr data-row-id="' + r.id + '">' +
+        '<td>' + escapeHtml(r.demandeur) + '</td>' +
+        '<td>' + (debut ? escapeHtml(fmtDayTitle(debut) + ' ' + fmtHM(debut)) : '—') + '</td>' +
+        '<td>' + (fin ? escapeHtml(fmtDayTitle(fin) + ' ' + fmtHM(fin)) : '—') + '</td>' +
+        (cfg.col.motif ? '<td>' + escapeHtml(r.motif) + '</td>' : '') +
+        (cfg.col.destination ? '<td>' + escapeHtml(r.destination) + '</td>' : '') +
+        '<td><span class="abs-decision ' + badgeClass + '">' + escapeHtml(r.decision || cfg.valeurs.attente) + '</span></td>' +
+        '<td><button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-download-line fr-btn--icon-left" data-pdf-id="' + r.id + '"' +
+          (st.isValidee ? '' : ' disabled title="Disponible une fois la demande validée."') +
+          '>PDF</button></td>' +
+        '<td><div class="req-actions" role="group" aria-label="Décision">' +
+          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-check-line" title="Valider" data-action="validee" aria-pressed="' + (st.isValidee ? 'true' : 'false') + '"' + (st.isValidee ? ' disabled' : '') + '></button>' +
+          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-close-line" title="Refuser" data-action="refusee" aria-pressed="' + (st.isRefusee ? 'true' : 'false') + '"' + (st.isRefusee ? ' disabled' : '') + '></button>' +
+          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-time-line" title="Remettre en attente" data-action="attente" aria-pressed="' + (st.isAttente ? 'true' : 'false') + '"' + (st.isAttente ? ' disabled' : '') + '></button>' +
+        '</div></td>' +
+      '</tr>';
+    });
+    html += '</tbody></table></div>';
+    absZone.innerHTML = html;
+
+    absZone.querySelectorAll('button[data-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tr = btn.closest('tr[data-row-id]');
+        var rowId = Number(tr.getAttribute('data-row-id'));
+        var action = btn.getAttribute('data-action');
+        var target = action === 'validee' ? cfg.valeurs.validee : (action === 'refusee' ? cfg.valeurs.refusee : cfg.valeurs.attente);
+        updateAbsenceDecision(rowId, target);
+      });
+    });
+    absZone.querySelectorAll('button[data-pdf-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var rowId = Number(btn.getAttribute('data-pdf-id'));
+        var row = absData.filter(function (r) { return r.id === rowId; })[0];
+        if (row) generateAbsenceAuthorizationPdf(row);
+      });
+    });
+  }
+
+  function updateAbsenceDecision(rowId, newValue) {
+    var cfg = absencesConfig;
+    var patch = {};
+    patch[cfg.col.decision] = newValue;
+    grist.docApi.applyUserActions([['UpdateRecord', cfg.table, rowId, patch]]).then(function () {
+      absData.forEach(function (r) { if (r.id === rowId) r.decision = newValue; });
+      renderAbsencesList();
+    }).catch(function (e) {
+      showAbsStatus('error', 'Impossible de mettre à jour la décision : ' + (e && e.message ? e.message : e));
+    });
+  }
+
+  // ---- Filtres (Décision / Demandeur) de la liste des absences ----------
+
+  function buildAbsDecisionFilterMenu() {
+    var cfg = absencesConfig;
+    var values = [cfg.valeurs.attente, cfg.valeurs.validee, cfg.valeurs.refusee];
+    absDecisionFilterList.innerHTML = '';
+    if (absActiveFilter.decision) {
+      var resetLi = document.createElement('li');
+      var resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'dropdown-menu__item';
+      resetBtn.textContent = 'Toutes les décisions';
+      resetBtn.addEventListener('click', function () {
+        absActiveFilter.decision = null;
+        absDecisionFilterBtn.textContent = 'Décision';
+        absDecisionFilterDropdown.close();
+        renderAbsencesList();
+      });
+      resetLi.appendChild(resetBtn);
+      absDecisionFilterList.appendChild(resetLi);
+    }
+    values.forEach(function (v) {
+      var li = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dropdown-menu__item';
+      btn.textContent = v;
+      if (absActiveFilter.decision && normalizeNameKey(absActiveFilter.decision) === normalizeNameKey(v)) btn.setAttribute('aria-current', 'true');
+      btn.addEventListener('click', function () {
+        absActiveFilter.decision = v;
+        absDecisionFilterBtn.textContent = 'Décision : ' + v;
+        absDecisionFilterDropdown.close();
+        renderAbsencesList();
+      });
+      li.appendChild(btn);
+      absDecisionFilterList.appendChild(li);
+    });
+  }
+
+  function buildAbsDemandeurFilterMenu() {
+    var seen = {};
+    var names = [];
+    absData.forEach(function (r) {
+      var key = normalizeNameKey(r.demandeur);
+      if (r.demandeur && !seen[key]) { seen[key] = true; names.push(r.demandeur); }
+    });
+    names.sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+
+    absDemandeurFilterList.innerHTML = '';
+    if (absActiveFilter.demandeur) {
+      var resetLi = document.createElement('li');
+      var resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'dropdown-menu__item';
+      resetBtn.textContent = 'Tous les demandeurs';
+      resetBtn.addEventListener('click', function () {
+        absActiveFilter.demandeur = null;
+        absDemandeurFilterBtn.textContent = 'Demandeur';
+        absDemandeurFilterDropdown.close();
+        renderAbsencesList();
+      });
+      resetLi.appendChild(resetBtn);
+      absDemandeurFilterList.appendChild(resetLi);
+    }
+    names.forEach(function (name) {
+      var li = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dropdown-menu__item';
+      btn.textContent = name;
+      if (absActiveFilter.demandeur && normalizeNameKey(absActiveFilter.demandeur) === normalizeNameKey(name)) btn.setAttribute('aria-current', 'true');
+      btn.addEventListener('click', function () {
+        absActiveFilter.demandeur = name;
+        absDemandeurFilterBtn.textContent = 'Demandeur : ' + name;
+        absDemandeurFilterDropdown.close();
+        renderAbsencesList();
+      });
+      li.appendChild(btn);
+      absDemandeurFilterList.appendChild(li);
+    });
+  }
+
+  var absDecisionFilterDropdown = setupDropdown(absDecisionFilterBtn, absDecisionFilterList, buildAbsDecisionFilterMenu);
+  var absDemandeurFilterDropdown = setupDropdown(absDemandeurFilterBtn, absDemandeurFilterList, buildAbsDemandeurFilterMenu);
+
+  absRefreshBtn.addEventListener('click', renderAbsencesPage);
+
+  // ---- Génération du PDF « Autorisation d'absence » ----------------------
+
+  function buildAbsenceAuthorizationPdfDocument(row) {
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
+    if (!jsPDFCtor) {
+      showAbsStatus('error', 'La bibliothèque de génération PDF (jsPDF) n\'a pas pu être chargée.');
+      return null;
+    }
+    var doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
+    renderAbsenceAuthorizationPdfContent(doc, row);
+    var debut = parseGristDateTime(row.dateDebut);
+    var filename = 'Autorisation_absence_' + (row.demandeur || 'demandeur').replace(/[^a-zA-Z0-9]+/g, '-') +
+      (debut ? '_' + fmtDayTitle(debut).replace(/\//g, '-') : '') + '.pdf';
+    return { doc: doc, filename: filename };
+  }
+
+  function renderAbsenceAuthorizationPdfContent(doc, row) {
+    var marianneOk = registerMarianneFont(doc);
+    var baseFont = marianneOk ? 'Marianne' : 'helvetica';
+    var bleuFrance = [0, 0, 145];
+    var pageWidth = doc.internal.pageSize.getWidth();
+    var marginLeft = 20;
+    var marginRight = 20;
+    var y = 24;
+
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
+    doc.text('AUTORISATION D\'ABSENCE', pageWidth / 2, y, { align: 'center' });
+
+    y += 6;
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(130, 130, 130);
+    doc.text('Division réserves jeunesse', pageWidth / 2, y, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+
+    y += 18;
+
+    var debut = parseGristDateTime(row.dateDebut);
+    var fin = parseGristDateTime(row.dateFin);
+    var labelX = marginLeft;
+    var valueX = marginLeft + 42;
+
+    function field(label, value) {
+      doc.setFont(baseFont, 'bold');
+      doc.setFontSize(11);
+      doc.text(label, labelX, y);
+      doc.setFont(baseFont, 'normal');
+      var wrapped = doc.splitTextToSize(String(value || '—'), pageWidth - marginRight - valueX);
+      doc.text(wrapped, valueX, y);
+      y += Math.max(8, wrapped.length * 5.5);
+    }
+
+    field('Bénéficiaire :', row.demandeur);
+    field('Du :', debut ? (fmtDayTitle(debut) + ' à ' + fmtHM(debut)) : '—');
+    field('Au :', fin ? (fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '—');
+    if (row.destination) field('Destination :', row.destination);
+    if (row.motif) field('Motif :', row.motif);
+    field('Décision :', row.decision);
+    if (row.commentaire) field('Commentaire :', row.commentaire);
+
+    y += 8;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(marginLeft, y, pageWidth - marginRight, y);
+    y += 10;
+
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(10.5);
+    var statement = 'Le signataire autorise ' + (row.demandeur || 'l\'intéressé(e)') + ' à s\'absenter' +
+      (row.destination ? (' pour se rendre à ' + row.destination) : '') +
+      (debut && fin ? (' du ' + fmtDayTitle(debut) + ' à ' + fmtHM(debut) + ' au ' + fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '') +
+      (row.motif ? (', pour le motif suivant : ' + row.motif) : '') + '.';
+    var wrappedStatement = doc.splitTextToSize(statement, pageWidth - marginLeft - marginRight);
+    doc.text(wrappedStatement, marginLeft, y);
+    y += wrappedStatement.length * 5.5 + 22;
+
+    var genMoment = new Date();
+    doc.setFontSize(10);
+    doc.text('Fait le ' + fmtDayTitle(genMoment) + '.', marginLeft, y);
+
+    y += 22;
+    var sigWidth = 65;
+    var sigX = pageWidth - marginRight - sigWidth;
+    doc.setFont(baseFont, 'bold');
+    doc.text('Le signataire', sigX, y);
+    y += 16;
+    doc.setDrawColor(150, 150, 150);
+    doc.line(sigX, y, sigX + sigWidth, y);
+    y += 5;
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(10);
+    doc.text(absencesConfig.signataire || '(signataire non configuré)', sigX, y);
+  }
+
+  function generateAbsenceAuthorizationPdf(row) {
+    if (!absencesConfig.signataire) {
+      showAbsStatus('warning', 'Aucun signataire n\'est configuré (paramètres cachés) : le nom apparaîtra vide sur le PDF.');
+    }
+    var built = buildAbsenceAuthorizationPdfDocument(row);
+    if (!built) return;
+    built.doc.save(built.filename);
+    showAbsStatus('success', 'PDF généré : ' + built.filename);
+  }
 
   // ---- Date du jour par défaut --------------------------------------------
 
@@ -666,27 +1710,39 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return { open: open, close: close };
   }
 
-  // ---- Menu de navigation principale (header) : Progression / Feuille de service journalier
+  // ---- Menu de navigation principale (header) : Progression / Feuille de service journalier / Gestion des absences
+
+  var currentView = 'progression'; // reflète l'état initial du HTML (panelProgression visible par défaut)
+
+  var VIEW_NAV = { progression: navProgression, generer: navGenerer, absences: navAbsences };
+  var VIEW_PANEL = { progression: panelProgression, generer: panelGenerer, absences: panelAbsences };
 
   function setView(view) {
-    if (view === 'progression') {
-      navProgression.setAttribute('aria-current', 'page');
-      navGenerer.removeAttribute('aria-current');
-    } else {
-      navGenerer.setAttribute('aria-current', 'page');
-      navProgression.removeAttribute('aria-current');
-    }
-    panelGenerer.hidden = (view !== 'generer');
-    panelProgression.hidden = (view !== 'progression');
+    currentView = view;
+    Object.keys(VIEW_NAV).forEach(function (v) {
+      if (v === view) VIEW_NAV[v].setAttribute('aria-current', 'page');
+      else VIEW_NAV[v].removeAttribute('aria-current');
+    });
+    Object.keys(VIEW_PANEL).forEach(function (v) {
+      VIEW_PANEL[v].hidden = (v !== view);
+    });
+    // Toujours masqué par une navigation normale, y compris si les
+    // paramètres cachés étaient ouverts (voir closeConfigPanel, qui passe
+    // lui-même par setView pour revenir à la vue précédente).
+    panelConfig.hidden = true;
     if (view === 'progression') {
       if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
       ensureProgressionScale();
       renderWeekView();
     }
+    if (view === 'absences') {
+      renderAbsencesPage();
+    }
   }
 
   navProgression.addEventListener('click', function () { setView('progression'); });
   navGenerer.addEventListener('click', function () { setView('generer'); });
+  navAbsences.addEventListener('click', function () { setView('absences'); });
 
   // ---- Filtre de la vue Progression : par peloton ou par cadre ----------
 
@@ -1571,12 +2627,21 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // ---- Génération du PDF -------------------------------------------------
 
-  function showStatus(type, message) {
+  // Petite alerte DSFR affichée dans une zone de statut donnée ; utilisée
+  // par toutes les pages (FSJ, paramètres, absences) pour rester cohérent
+  // et pour que chaque page affiche ses propres messages (et non ceux
+  // d'une autre zone, potentiellement masquée si cette page-là n'est pas
+  // affichée).
+  function renderAlert(zone, type, message) {
     // type: 'success' | 'error' | 'info' | 'warning'
-    statusZone.innerHTML =
+    zone.innerHTML =
       '<div class="fr-alert fr-alert--' + type + ' fr-alert--sm">' +
       '<p>' + escapeHtml(message) + '</p>' +
       '</div>';
+  }
+
+  function showStatus(type, message) {
+    renderAlert(statusZone, type, message);
   }
 
   // Enregistre la police Marianne (si embarquée) auprès de jsPDF.
@@ -1937,9 +3002,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // ---- Export PDF de la Progression (planning complet, une page) --------
 
-  // Période du stage couverte par cet export, figée ici : à adapter pour
-  // une future session en changeant ces deux dates (année, mois 0-indexé,
-  // jour).
+  // Période du stage couverte par cet export. Valeurs par défaut ci-
+  // dessous, utilisées tant qu'aucune configuration n'a été enregistrée
+  // dans ce document ; sinon écrasées au chargement par la configuration
+  // cachée (voir grist.onOptions plus haut), qui est aussi la façon
+  // normale de les changer pour une future session — plus besoin de
+  // modifier le code.
   var PROGRESSION_PDF_START = new Date(2026, 9, 17);  // 17/10/2026
   var PROGRESSION_PDF_END = new Date(2026, 10, 1);    // 01/11/2026
 
@@ -1963,6 +3031,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // alors déjà affiché via showStatus).
   function buildProgressionPdfDocument() {
     if (!recordsLoaded) return null;
+    // Filet de sécurité : même si le bouton est normalement désactivé et
+    // masqué dans ce cas (voir applyProgressionPdfEnabledState), on
+    // s'assure ici aussi que la génération reste bloquée tant que la
+    // configuration cachée ne l'autorise pas.
+    if (!progressionPdfEnabled) {
+      showStatus('warning', 'La génération de la Progression en PDF est désactivée (configuration).');
+      return null;
+    }
 
     var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDFCtor) {
