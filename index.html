@@ -190,11 +190,14 @@
   }
 
   /* Filet de sécurité pour les deux boutons de téléchargement (icône
-     fr-icon-download-line + texte) : garantit que le libellé reste
-     visible et que le bouton ne se réduise pas à un simple carré-icône,
-     quelle que soit la largeur calculée par le CSS du DSFR. */
+     DSFR fr-icon-download-line + fr-btn--icon-left) : le CSS du DSFR
+     prévoit normalement que ce couple de classes affiche l'icône ET le
+     texte (contrairement à une icône seule, qui serait ramenée à un
+     bouton carré) ; ces règles renforcent ce comportement au cas où le
+     contexte étroit d'un widget Grist perturberait le calcul de largeur
+     du DSFR. */
   #generateBtn, #generateProgressionPdfBtn {
-    width: auto;
+    max-width: none;
     white-space: nowrap;
   }
 
