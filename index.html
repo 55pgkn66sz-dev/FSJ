@@ -83,72 +83,89 @@
     gap: 0.75rem;
   }
   .week-label { margin: 0; }
-  .week-grid-scroll { overflow-x: auto; }
 
-  .week-timegrid__header,
-  .week-timegrid__body {
+  /* Planning hebdomadaire : heures à l'horizontale, jours à la verticale.
+     La colonne des noms de jour reste fixe ; seule la zone des heures
+     (axe + lignes) défile horizontalement. */
+  .week-timegrid { display: flex; }
+  .week-timegrid__labels {
+    flex: 0 0 92px;
     display: flex;
+    flex-direction: column;
   }
-  .week-timegrid__body {
-    position: relative;
+  .week-timegrid__label-spacer { flex: 0 0 auto; }
+  .week-timegrid__daylabel {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    font-weight: 700;
+    font-size: 0.8em;
+    padding: 2px 8px;
+    border-bottom: 1px solid var(--border-default-grey);
   }
-  .week-timegrid__axis-spacer,
+  .week-timegrid__daylabel--today { color: var(--bleu-france); }
+
+  .week-timegrid__scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+  }
   .week-timegrid__axis {
-    flex: 0 0 44px;
-  }
-  .week-timegrid__axis {
     position: relative;
+    border-bottom: 2px solid var(--border-default-grey);
   }
   .week-timegrid__hour {
     position: absolute;
-    left: 0;
-    right: 6px;
-    transform: translateY(-50%);
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid var(--border-default-grey);
+    padding-left: 3px;
+    display: flex;
+    align-items: center;
     font-size: 0.7em;
     color: var(--text-mention-grey);
-    text-align: right;
+    white-space: nowrap;
   }
-  .week-timegrid__daycol-header {
-    flex: 1 0 140px;
-    font-weight: 700;
-    font-size: 0.82em;
-    text-align: center;
-    padding: 0.35rem 0.25rem;
-    border-bottom: 2px solid var(--border-default-grey);
-  }
-  .week-timegrid__daycol-header--today { color: var(--bleu-france); }
-  .week-timegrid__daycol {
-    flex: 1 0 140px;
+  .week-timegrid__lane {
     position: relative;
-    border-left: 1px solid var(--border-default-grey);
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--border-default-grey);
   }
-  .week-timegrid__daycol--today { background: #f5f5fe; }
+  .week-timegrid__lane--today { background: #f5f5fe; }
   .week-timegrid__gridline {
     position: absolute;
-    left: 0;
-    right: 0;
-    border-top: 1px solid var(--border-default-grey);
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid var(--border-default-grey);
   }
   .week-day__empty {
-    font-size: 0.8em;
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.75em;
     color: var(--text-mention-grey);
     font-style: italic;
-    margin: 0.5rem;
+    margin: 0;
+    white-space: nowrap;
   }
 
   .week-event-wrap { position: absolute; }
   .week-event {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 3px;
     box-sizing: border-box;
     width: 100%;
     height: 100%;
     background: #e8edfc;
     border-left: 3px solid var(--bleu-france);
     border-radius: 2px;
-    padding: 1px 4px;
+    padding: 0 4px;
     font-size: 0.72em;
     line-height: 1.15;
     overflow: hidden;
+    white-space: nowrap;
     cursor: default;
   }
   .week-event:hover, .week-event:focus {
@@ -163,8 +180,11 @@
     background: #fbdbd7;
     outline-color: #CE0500;
   }
-  .week-event__time { display: block; font-weight: 700; }
-  .week-event__title { display: block; }
+  .week-event__badges { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+  .week-event__title { overflow: hidden; text-overflow: ellipsis; }
+
+  .week-tooltip__badges { display: inline-flex; flex-wrap: wrap; gap: 2px; margin-bottom: 2px; }
+  .week-tooltip__consignes { font-size: 0.85em; opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -270,9 +290,7 @@
       </button>
     </div>
 
-    <div class="week-grid-scroll">
-      <div id="weekGrid" class="week-timegrid"></div>
-    </div>
+    <div id="weekGrid" class="week-timegrid"></div>
 
   </div>
 
@@ -416,9 +434,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   });
 
   // Répartit les occurrences d'une journée qui se chevauchent dans le temps
-  // en colonnes côte à côte (comme un vrai planning). Renvoie chaque
+  // en sous-lignes empilées (comme un vrai planning). Renvoie chaque
   // évènement enrichi de { start, end, col, cols } (minutes depuis minuit,
-  // index de colonne et nombre total de colonnes dans son groupe de
+  // index de sous-ligne et nombre total de sous-lignes dans son groupe de
   // chevauchement).
   function layoutDayEvents(occ) {
     var events = occ.map(function (o) {
@@ -461,6 +479,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var weekTooltipSeq = 0;
 
+  // Badges DSFR "sm" compacts, pour l'affichage inline dans une barre du
+  // planning ou dans l'infobulle (variante de badgesHtml() sans le
+  // conteneur qui force un retour à la ligne).
+  function inlineBadgesHtml(names, cls) {
+    if (!names.length) return '';
+    return '<span class="' + cls + '">' + names.map(function (n) {
+      return '<span class="fr-badge fr-badge--sm">' + escapeHtml(n) + '</span>';
+    }).join('') + '</span>';
+  }
+
   function renderWeekView() {
     if (!recordsLoaded) {
       weekGrid.innerHTML = '<p class="fr-text--sm">Chargement des données…</p>';
@@ -485,7 +513,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       days.push({ date: d, occ: occ, isToday: sameDay(d, today) });
     }
 
-    // Amplitude horaire commune à toute la semaine (arrondie à l'heure).
+    // Amplitude horaire commune à toute la semaine (arrondie à l'heure) :
+    // c'est elle qui définit l'axe horizontal, partagé par tous les jours.
     var minStart = null, maxEnd = null;
     days.forEach(function (day) {
       day.occ.forEach(function (o) {
@@ -501,65 +530,85 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var gridEnd = Math.ceil(maxEnd / 60) * 60;
     if (gridEnd <= gridStart) gridEnd = gridStart + 60;
 
-    var PX_PER_MIN = 1;
-    var MIN_EVENT_H = 16;
-    var totalHeight = (gridEnd - gridStart) * PX_PER_MIN;
+    var PX_PER_MIN = 1.2;
+    var SUBROW_H = 22;   // hauteur d'une sous-ligne (une occurrence)
+    var ROW_PAD = 6;     // marge haut/bas dans la ligne d'un jour
+    var AXIS_H = 24;      // hauteur de la ligne d'en-tête (heures)
+    var totalWidth = (gridEnd - gridStart) * PX_PER_MIN;
+
+    // Calcule la disposition (sous-lignes qui se chevauchent) de chaque
+    // jour à l'avance, pour connaître la hauteur de chaque ligne.
+    days.forEach(function (day) {
+      day.events = layoutDayEvents(day.occ);
+      day.maxCols = day.events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
+      day.rowHeight = day.maxCols * SUBROW_H + ROW_PAD;
+    });
 
     function renderEvent(ev) {
       var o = ev.o;
-      var top = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
-      var height = Math.max(MIN_EVENT_H, (ev.end - ev.start) * PX_PER_MIN);
-      var widthPct = 100 / ev.cols;
-      var leftPct = ev.col * widthPct;
+      var left = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
+      var width = Math.max(6, (ev.end - ev.start) * PX_PER_MIN);
+      var top = ROW_PAD / 2 + ev.col * SUBROW_H;
       var restricted = isExcludedCode(o.code);
       var tooltipId = 'weekTooltip' + (weekTooltipSeq++);
       var label = o.intitule || o.occurrence || '';
 
-      var tooltipParts = [];
-      if (o.lieu) tooltipParts.push('<strong>Lieu :</strong> ' + escapeHtml(o.lieu));
-      if (o.encadrement) tooltipParts.push('<strong>Cadres :</strong> ' + escapeHtml(o.encadrement));
-      if (o.consignes) tooltipParts.push('<strong>Consignes :</strong> ' + escapeHtml(o.consignes));
-      if (!tooltipParts.length) tooltipParts.push(escapeHtml(label));
+      // Contenu visible dans la barre : badges Apprenants - Occurrence.
+      var visibleBadges = inlineBadgesHtml(o.apprenants, 'week-event__badges');
+      var visibleContent = (o.apprenants.length ? visibleBadges + ' - ' : '') + escapeHtml(label);
 
-      return '<div class="week-event-wrap" style="top:' + top + 'px; height:' + height + 'px; left:' + leftPct + '%; width:calc(' + widthPct + '% - 2px);">' +
+      // Infobulle : (badges) Apprenants / (gras) Occurrence, puis Lieu /
+      // Cadres, puis Consignes en plus petit — chaque bloc séparé par une
+      // ligne vide.
+      var group1 = (o.apprenants.length ? inlineBadgesHtml(o.apprenants, 'week-tooltip__badges') + '<br>' : '') + '<strong>' + escapeHtml(label) + '</strong>';
+      var group2Lines = [];
+      if (o.lieu) group2Lines.push(escapeHtml(o.lieu));
+      if (o.encadrement) group2Lines.push(escapeHtml(o.encadrement));
+      var groups = [group1];
+      if (group2Lines.length) groups.push(group2Lines.join('<br>'));
+      if (o.consignes) groups.push('<span class="week-tooltip__consignes">' + escapeHtml(o.consignes) + '</span>');
+      var tooltipContent = groups.join('<br><br>');
+
+      return '<div class="week-event-wrap" style="left:' + left + 'px; width:' + width + 'px; top:' + top + 'px; height:' + (SUBROW_H - 2) + 'px;">' +
         '<div class="week-event' + (restricted ? ' week-event--restricted' : '') + '" tabindex="0" aria-describedby="' + tooltipId + '">' +
-        '<span class="week-event__time">' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + '</span>' +
-        '<span class="week-event__title">' + escapeHtml(label) + '</span>' +
+        visibleContent +
         '</div>' +
-        '<span class="fr-tooltip fr-placement" id="' + tooltipId + '" role="tooltip">' + tooltipParts.join('<br>') + '</span>' +
+        '<span class="fr-tooltip fr-placement" id="' + tooltipId + '" role="tooltip">' + tooltipContent + '</span>' +
         '</div>';
     }
 
+    // Colonne fixe des noms de jour (ne défile pas horizontalement).
+    var labelsHtml = '<div class="week-timegrid__label-spacer" style="height:' + AXIS_H + 'px"></div>';
+    days.forEach(function (day, i) {
+      labelsHtml += '<div class="week-timegrid__daylabel' + (day.isToday ? ' week-timegrid__daylabel--today' : '') + '" style="height:' + day.rowHeight + 'px">' +
+        dayNames[i] + '&nbsp;' + escapeHtml(fmtDayTitle(day.date)) +
+        '</div>';
+    });
+
+    // Axe des heures (défile horizontalement avec les lignes).
     var axisHtml = '';
     for (var h = gridStart; h <= gridEnd; h += 60) {
       var hh = String(Math.floor(h / 60)).padStart(2, '0');
-      axisHtml += '<div class="week-timegrid__hour" style="top:' + ((h - gridStart) * PX_PER_MIN) + 'px">' + hh + ':00</div>';
+      axisHtml += '<div class="week-timegrid__hour" style="left:' + ((h - gridStart) * PX_PER_MIN) + 'px">' + hh + ':00</div>';
     }
+    var scrollHtml = '<div class="week-timegrid__axis" style="width:' + totalWidth + 'px; height:' + AXIS_H + 'px">' + axisHtml + '</div>';
 
-    var headerHtml = '<div class="week-timegrid__axis-spacer"></div>';
-    var bodyHtml = '<div class="week-timegrid__axis" style="height:' + totalHeight + 'px">' + axisHtml + '</div>';
-
-    days.forEach(function (day, i) {
-      headerHtml += '<div class="week-timegrid__daycol-header' + (day.isToday ? ' week-timegrid__daycol-header--today' : '') + '">' +
-        dayNames[i] + '<br>' + escapeHtml(fmtDayTitle(day.date)) + '</div>';
-
+    days.forEach(function (day) {
       var gridlines = '';
       for (var h2 = gridStart; h2 <= gridEnd; h2 += 60) {
-        gridlines += '<div class="week-timegrid__gridline" style="top:' + ((h2 - gridStart) * PX_PER_MIN) + 'px"></div>';
+        gridlines += '<div class="week-timegrid__gridline" style="left:' + ((h2 - gridStart) * PX_PER_MIN) + 'px"></div>';
       }
+      var eventsHtml = day.events.map(renderEvent).join('');
 
-      var events = layoutDayEvents(day.occ);
-      var eventsHtml = events.map(renderEvent).join('');
-
-      bodyHtml += '<div class="week-timegrid__daycol' + (day.isToday ? ' week-timegrid__daycol--today' : '') + '" style="height:' + totalHeight + 'px">' +
+      scrollHtml += '<div class="week-timegrid__lane' + (day.isToday ? ' week-timegrid__lane--today' : '') + '" style="width:' + totalWidth + 'px; height:' + day.rowHeight + 'px">' +
         gridlines + eventsHtml +
-        (events.length ? '' : '<p class="week-day__empty">Aucune occurrence</p>') +
+        (day.events.length ? '' : '<p class="week-day__empty">Aucune occurrence</p>') +
         '</div>';
     });
 
     weekGrid.innerHTML =
-      '<div class="week-timegrid__header">' + headerHtml + '</div>' +
-      '<div class="week-timegrid__body">' + bodyHtml + '</div>';
+      '<div class="week-timegrid__labels">' + labelsHtml + '</div>' +
+      '<div class="week-timegrid__scroll">' + scrollHtml + '</div>';
   }
 
   function getSelectedMode() {
