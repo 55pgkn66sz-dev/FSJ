@@ -66,7 +66,15 @@
     white-space: normal;
   }
 
-  #viewSegmented { max-width: 30rem; }
+  #viewSegmented {
+    max-width: 22rem;
+    box-shadow: none;
+  }
+  #viewSegmented fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+  }
 
   .week-nav {
     display: flex;
@@ -76,42 +84,87 @@
   }
   .week-label { margin: 0; }
   .week-grid-scroll { overflow-x: auto; }
-  .week-grid {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(150px, 1fr));
-    gap: 0.5rem;
-    min-width: 980px;
+
+  .week-timegrid__header,
+  .week-timegrid__body {
+    display: flex;
   }
-  .week-day {
-    border: 1px solid var(--border-default-grey);
-    border-radius: 4px;
-    padding: 0.5rem;
+  .week-timegrid__body {
+    position: relative;
   }
-  .week-day--today {
-    border-color: var(--bleu-france);
-    border-width: 2px;
+  .week-timegrid__axis-spacer,
+  .week-timegrid__axis {
+    flex: 0 0 44px;
   }
-  .week-day__header {
+  .week-timegrid__axis {
+    position: relative;
+  }
+  .week-timegrid__hour {
+    position: absolute;
+    left: 0;
+    right: 6px;
+    transform: translateY(-50%);
+    font-size: 0.7em;
+    color: var(--text-mention-grey);
+    text-align: right;
+  }
+  .week-timegrid__daycol-header {
+    flex: 1 0 140px;
     font-weight: 700;
-    font-size: 0.85em;
-    margin: 0 0 0.4rem;
-    padding-bottom: 0.25rem;
-    border-bottom: 1px solid var(--border-default-grey);
+    font-size: 0.82em;
+    text-align: center;
+    padding: 0.35rem 0.25rem;
+    border-bottom: 2px solid var(--border-default-grey);
+  }
+  .week-timegrid__daycol-header--today { color: var(--bleu-france); }
+  .week-timegrid__daycol {
+    flex: 1 0 140px;
+    position: relative;
+    border-left: 1px solid var(--border-default-grey);
+  }
+  .week-timegrid__daycol--today { background: #f5f5fe; }
+  .week-timegrid__gridline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px solid var(--border-default-grey);
   }
   .week-day__empty {
     font-size: 0.8em;
     color: var(--text-mention-grey);
     font-style: italic;
-    margin: 0;
+    margin: 0.5rem;
   }
-  .week-occ {
-    border-left: 2px solid var(--border-default-grey);
-    padding: 0.1rem 0 0.1rem 0.4rem;
-    margin-bottom: 0.35rem;
-    font-size: 0.78em;
+
+  .week-event-wrap { position: absolute; }
+  .week-event {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    background: #e8edfc;
+    border-left: 3px solid var(--bleu-france);
+    border-radius: 2px;
+    padding: 1px 4px;
+    font-size: 0.72em;
+    line-height: 1.15;
+    overflow: hidden;
+    cursor: default;
   }
-  .week-occ--restricted { border-left-color: #CE0500; }
-  .week-occ__time { font-weight: 700; display: block; }
+  .week-event:hover, .week-event:focus {
+    background: #d6dffa;
+    outline: 2px solid var(--bleu-france);
+    outline-offset: -1px;
+    z-index: 2;
+    position: relative;
+  }
+  .week-event--restricted { border-left-color: #CE0500; background: #fdecea; }
+  .week-event--restricted:hover, .week-event--restricted:focus {
+    background: #fbdbd7;
+    outline-color: #CE0500;
+  }
+  .week-event__time { display: block; font-weight: 700; }
+  .week-event__title { display: block; }
 </style>
 </head>
 <body>
@@ -140,14 +193,14 @@
 
   <div class="fr-segmented fr-segmented--sm fr-mb-3w" id="viewSegmented">
     <fieldset class="fr-segmented__elements">
-      <legend class="fr-segmented__legend">Affichage</legend>
-      <div class="fr-segmented__element">
-        <input value="generer" type="radio" id="segmentGenerer" name="viewSegment" checked>
-        <label class="fr-label" for="segmentGenerer">Générer FSJ</label>
-      </div>
+      <legend class="fr-segmented__legend fr-sr-only">Affichage</legend>
       <div class="fr-segmented__element">
         <input value="progression" type="radio" id="segmentProgression" name="viewSegment">
         <label class="fr-label" for="segmentProgression">Progression</label>
+      </div>
+      <div class="fr-segmented__element">
+        <input value="generer" type="radio" id="segmentGenerer" name="viewSegment" checked>
+        <label class="fr-label" for="segmentGenerer">Générer FSJ</label>
       </div>
     </fieldset>
   </div>
@@ -218,7 +271,7 @@
     </div>
 
     <div class="week-grid-scroll">
-      <div id="weekGrid" class="week-grid"></div>
+      <div id="weekGrid" class="week-timegrid"></div>
     </div>
 
   </div>
@@ -362,6 +415,52 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     renderWeekView();
   });
 
+  // Répartit les occurrences d'une journée qui se chevauchent dans le temps
+  // en colonnes côte à côte (comme un vrai planning). Renvoie chaque
+  // évènement enrichi de { start, end, col, cols } (minutes depuis minuit,
+  // index de colonne et nombre total de colonnes dans son groupe de
+  // chevauchement).
+  function layoutDayEvents(occ) {
+    var events = occ.map(function (o) {
+      var s = o.debut.getHours() * 60 + o.debut.getMinutes();
+      var e = o.fin.getHours() * 60 + o.fin.getMinutes();
+      if (e <= s) e = s + 15; // sécurité si Fin <= Début
+      return { o: o, start: s, end: e };
+    }).sort(function (a, b) { return a.start - b.start || a.end - b.end; });
+
+    var n = events.length;
+    var parent = events.map(function (_, i) { return i; });
+    function find(i) { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
+    function union(a, b) { var ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+    for (var i = 0; i < n; i++) {
+      for (var j = i + 1; j < n; j++) {
+        if (events[j].start < events[i].end) union(i, j);
+      }
+    }
+
+    var groups = {};
+    events.forEach(function (ev, i) {
+      var r = find(i);
+      (groups[r] = groups[r] || []).push(ev);
+    });
+    Object.keys(groups).forEach(function (key) {
+      var cluster = groups[key];
+      var colEnds = [];
+      cluster.forEach(function (ev) {
+        var placed = false;
+        for (var c = 0; c < colEnds.length; c++) {
+          if (colEnds[c] <= ev.start) { ev.col = c; colEnds[c] = ev.end; placed = true; break; }
+        }
+        if (!placed) { ev.col = colEnds.length; colEnds.push(ev.end); }
+      });
+      cluster.forEach(function (ev) { ev.cols = colEnds.length; });
+    });
+
+    return events;
+  }
+
+  var weekTooltipSeq = 0;
+
   function renderWeekView() {
     if (!recordsLoaded) {
       weekGrid.innerHTML = '<p class="fr-text--sm">Chargement des données…</p>';
@@ -377,32 +476,90 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     weekLabel.textContent = 'Semaine du ' + fmtDayTitle(monday) + ' au ' + fmtDayTitle(sunday);
 
-    var html = '';
+    // Occurrences de chaque jour, Permanences exclues (codes CDT, AE, SOP,
+    // SAN) : cette vue ne montre que la progression pédagogique.
+    var days = [];
     for (var i = 0; i < 7; i++) {
       var d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
-      var occ = getOccurrencesForDay(d, mode);
-      var isToday = sameDay(d, today);
-
-      html += '<div class="week-day' + (isToday ? ' week-day--today' : '') + '">';
-      html += '<p class="week-day__header">' + dayNames[i] + ' ' + escapeHtml(fmtDayTitle(d)) + '</p>';
-
-      if (!occ.length) {
-        html += '<p class="week-day__empty">Aucune occurrence</p>';
-      } else {
-        html += occ.map(function (o) {
-          var label = o.intitule || o.occurrence || '';
-          var cls = 'week-occ' + (isExcludedCode(o.code) ? ' week-occ--restricted' : '');
-          return '<div class="' + cls + '">' +
-            '<span class="week-occ__time">' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + '</span>' +
-            escapeHtml(label) +
-            '</div>';
-        }).join('');
-      }
-
-      html += '</div>';
+      var occ = splitBySection(getOccurrencesForDay(d, mode)).progression;
+      days.push({ date: d, occ: occ, isToday: sameDay(d, today) });
     }
 
-    weekGrid.innerHTML = html;
+    // Amplitude horaire commune à toute la semaine (arrondie à l'heure).
+    var minStart = null, maxEnd = null;
+    days.forEach(function (day) {
+      day.occ.forEach(function (o) {
+        var s = o.debut.getHours() * 60 + o.debut.getMinutes();
+        var e = o.fin.getHours() * 60 + o.fin.getMinutes();
+        if (e <= s) e = s + 15;
+        if (minStart === null || s < minStart) minStart = s;
+        if (maxEnd === null || e > maxEnd) maxEnd = e;
+      });
+    });
+    if (minStart === null) { minStart = 7 * 60; maxEnd = 19 * 60; }
+    var gridStart = Math.floor(minStart / 60) * 60;
+    var gridEnd = Math.ceil(maxEnd / 60) * 60;
+    if (gridEnd <= gridStart) gridEnd = gridStart + 60;
+
+    var PX_PER_MIN = 1;
+    var MIN_EVENT_H = 16;
+    var totalHeight = (gridEnd - gridStart) * PX_PER_MIN;
+
+    function renderEvent(ev) {
+      var o = ev.o;
+      var top = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
+      var height = Math.max(MIN_EVENT_H, (ev.end - ev.start) * PX_PER_MIN);
+      var widthPct = 100 / ev.cols;
+      var leftPct = ev.col * widthPct;
+      var restricted = isExcludedCode(o.code);
+      var tooltipId = 'weekTooltip' + (weekTooltipSeq++);
+      var label = o.intitule || o.occurrence || '';
+
+      var tooltipParts = [];
+      if (o.lieu) tooltipParts.push('<strong>Lieu :</strong> ' + escapeHtml(o.lieu));
+      if (o.encadrement) tooltipParts.push('<strong>Cadres :</strong> ' + escapeHtml(o.encadrement));
+      if (o.consignes) tooltipParts.push('<strong>Consignes :</strong> ' + escapeHtml(o.consignes));
+      if (!tooltipParts.length) tooltipParts.push(escapeHtml(label));
+
+      return '<div class="week-event-wrap" style="top:' + top + 'px; height:' + height + 'px; left:' + leftPct + '%; width:calc(' + widthPct + '% - 2px);">' +
+        '<div class="week-event' + (restricted ? ' week-event--restricted' : '') + '" tabindex="0" aria-describedby="' + tooltipId + '">' +
+        '<span class="week-event__time">' + escapeHtml(fmtHM(o.debut)) + ' - ' + escapeHtml(fmtHM(o.fin)) + '</span>' +
+        '<span class="week-event__title">' + escapeHtml(label) + '</span>' +
+        '</div>' +
+        '<span class="fr-tooltip fr-placement" id="' + tooltipId + '" role="tooltip">' + tooltipParts.join('<br>') + '</span>' +
+        '</div>';
+    }
+
+    var axisHtml = '';
+    for (var h = gridStart; h <= gridEnd; h += 60) {
+      var hh = String(Math.floor(h / 60)).padStart(2, '0');
+      axisHtml += '<div class="week-timegrid__hour" style="top:' + ((h - gridStart) * PX_PER_MIN) + 'px">' + hh + ':00</div>';
+    }
+
+    var headerHtml = '<div class="week-timegrid__axis-spacer"></div>';
+    var bodyHtml = '<div class="week-timegrid__axis" style="height:' + totalHeight + 'px">' + axisHtml + '</div>';
+
+    days.forEach(function (day, i) {
+      headerHtml += '<div class="week-timegrid__daycol-header' + (day.isToday ? ' week-timegrid__daycol-header--today' : '') + '">' +
+        dayNames[i] + '<br>' + escapeHtml(fmtDayTitle(day.date)) + '</div>';
+
+      var gridlines = '';
+      for (var h2 = gridStart; h2 <= gridEnd; h2 += 60) {
+        gridlines += '<div class="week-timegrid__gridline" style="top:' + ((h2 - gridStart) * PX_PER_MIN) + 'px"></div>';
+      }
+
+      var events = layoutDayEvents(day.occ);
+      var eventsHtml = events.map(renderEvent).join('');
+
+      bodyHtml += '<div class="week-timegrid__daycol' + (day.isToday ? ' week-timegrid__daycol--today' : '') + '" style="height:' + totalHeight + 'px">' +
+        gridlines + eventsHtml +
+        (events.length ? '' : '<p class="week-day__empty">Aucune occurrence</p>') +
+        '</div>';
+    });
+
+    weekGrid.innerHTML =
+      '<div class="week-timegrid__header">' + headerHtml + '</div>' +
+      '<div class="week-timegrid__body">' + bodyHtml + '</div>';
   }
 
   function getSelectedMode() {
