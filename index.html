@@ -393,14 +393,34 @@
     white-space: nowrap;
   }
   .req-table th { font-weight: 700; }
+  /* Groupe d'icônes carrées bordées façon "Gérer la demande" du widget
+     Réservations : chaque bouton est un petit carré avec bordure ; l'icône
+     active (décision en cours, ou PDF disponible) se distingue par un
+     remplissage plein coloré et une icône blanche (texte sombre sur le
+     jaune, pour le contraste), plutôt que de dupliquer l'information dans
+     une colonne "Décision" à part (supprimée). */
   .req-actions { display: inline-flex; gap: 2px; }
-  /* L'icône de décision active (validée/refusée/en attente) se colore
-     plutôt que de dupliquer l'information dans une colonne "Décision" à
-     part (supprimée) : vert/rouge/jaune, mêmes teintes système que les
-     anciens badges. */
-  .req-actions .fr-btn[data-action="validee"][aria-pressed="true"] { color: #18753c; }
-  .req-actions .fr-btn[data-action="refusee"][aria-pressed="true"] { color: #ce0500; }
-  .req-actions .fr-btn[data-action="attente"][aria-pressed="true"] { color: #716043; }
+  .req-actions .fr-btn {
+    width: 2rem;
+    height: 2rem;
+    min-width: 2rem;
+    padding: 0;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-default-grey);
+    border-radius: 0.25rem;
+    background-color: #fff;
+  }
+  .req-actions .fr-btn[aria-pressed="true"],
+  .req-actions .fr-btn[data-pdf-id]:not([disabled]) {
+    border-color: transparent;
+  }
+  .req-actions .fr-btn[data-action="validee"][aria-pressed="true"] { background-color: #18753c; color: #fff; }
+  .req-actions .fr-btn[data-action="refusee"][aria-pressed="true"] { background-color: #ce0500; color: #fff; }
+  .req-actions .fr-btn[data-action="attente"][aria-pressed="true"] { background-color: #ffc800; color: #3a3a3a; }
+  .req-actions .fr-btn[data-pdf-id]:not([disabled]) { background-color: #000091; color: #fff; }
 
   /* Filtre "Demandeur" : champ de recherche clavier en tête du menu
      déroulant, pour retrouver rapidement un nom dans une longue liste. */
@@ -431,7 +451,7 @@
           </div>
           <div class="fr-header__service">
             <p class="fr-header__service-title">Division réserves jeunesse</p>
-            <p class="fr-header__service-tagline">Gestion du temps et des activités</p>
+            <p class="fr-header__service-tagline">Gestion des temps et des activités</p>
           </div>
         </div>
       </div>
@@ -1590,7 +1610,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var fmtAbsDate = function (d) { return isRepos ? fmtDayTitle(d) : (fmtDayTitle(d) + ' ' + fmtHM(d)); };
 
       // Le PDF n'est proposé que pour les demandes validées ET de type
-      // "Autorisation d'absence temporaire" (si le type n'est pas configuré, seule la
+      // "Autorisation d'absence" (si le type n'est pas configuré, seule la
       // validation conditionne sa disponibilité). Deux infobulles DSFR
       // distinctes selon la raison du blocage.
       var isAutorisationType = !cfg.col.motif || (!!r.motif && normalizeNameKey(r.motif) === normalizeNameKey('Autorisation d\'absence'));
@@ -1600,7 +1620,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       if (!pdfAvailable) {
         pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++);
         pdfTooltipText = !isAutorisationType
-          ? 'Le PDF n\'est disponible que pour les demandes de type « Autorisation d\'absence temporaire ».'
+          ? 'Le PDF n\'est disponible que pour les demandes de type « Autorisation d\'absence ».'
           : 'Le PDF est disponible une fois la demande validée.';
       }
 
