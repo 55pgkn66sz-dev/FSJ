@@ -393,34 +393,19 @@
     white-space: nowrap;
   }
   .req-table th { font-weight: 700; }
-  /* Groupe d'icônes carrées bordées façon "Gérer la demande" du widget
-     Réservations : chaque bouton est un petit carré avec bordure ; l'icône
-     active (décision en cours, ou PDF disponible) se distingue par un
-     remplissage plein coloré et une icône blanche (texte sombre sur le
-     jaune, pour le contraste), plutôt que de dupliquer l'information dans
-     une colonne "Décision" à part (supprimée). */
-  .req-actions { display: inline-flex; gap: 2px; }
-  .req-actions .fr-btn {
-    width: 2rem;
-    height: 2rem;
-    min-width: 2rem;
-    padding: 0;
-    margin: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border-default-grey);
-    border-radius: 0.25rem;
-    background-color: #fff;
-  }
-  .req-actions .fr-btn[aria-pressed="true"],
-  .req-actions .fr-btn[data-pdf-id]:not([disabled]) {
-    border-color: transparent;
-  }
+  /* Groupe d'icônes d'action façon "Gérer la demande" du widget
+     Réservations (repris à l'identique de son CSS .req-actions) : boutons
+     DSFR tertiaires standards (pas de contour permanent) ; seul le
+     bouton reflétant l'état RÉEL actuel (décision en cours) se distingue
+     par un fond plein coloré et une icône blanche (texte sombre sur le
+     jaune, pour le contraste) — plutôt que de dupliquer l'information
+     dans une colonne "Décision" à part (supprimée). */
+  .req-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+  .req-actions .fr-btn { white-space: nowrap; }
+  .req-actions .fr-btn[aria-pressed="true"] { color: #fff; }
   .req-actions .fr-btn[data-action="validee"][aria-pressed="true"] { background-color: #18753c; color: #fff; }
   .req-actions .fr-btn[data-action="refusee"][aria-pressed="true"] { background-color: #ce0500; color: #fff; }
-  .req-actions .fr-btn[data-action="attente"][aria-pressed="true"] { background-color: #ffc800; color: #3a3a3a; }
-  .req-actions .fr-btn[data-pdf-id]:not([disabled]) { background-color: #000091; color: #fff; }
+  .req-actions .fr-btn[data-action="attente"][aria-pressed="true"] { background-color: #ffd200; color: #3a3a3a; }
 
   /* Filtre "Demandeur" : champ de recherche clavier en tête du menu
      déroulant, pour retrouver rapidement un nom dans une longue liste. */
@@ -568,6 +553,9 @@
     <h2 class="fr-h6">Demandes d'absence</h2>
 
     <div class="req-toolbar fr-mb-2w">
+      <button class="fr-btn fr-btn--sm fr-icon-add-line fr-btn--icon-left" id="absNewRequestBtn" type="button">
+        Nouvelle demande
+      </button>
       <div class="dropdown-menu" id="absDecisionFilterMenu">
         <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="absDecisionFilterBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="absDecisionFilterList">
           Décision
@@ -760,7 +748,14 @@
             <label class="fr-label" for="absCol_derniereMiseAJour">Date de la décision <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="absCol_derniereMiseAJour" name="absCol_derniereMiseAJour"></select>
           </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_droits">Droits (à repos) <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="absCol_droits" name="absCol_droits"></select>
+          </div>
         </div>
+        <p class="fr-hint-text fr-mb-2w">
+          « Droits (à repos) » : colonne donnant le nombre de jours de repos accordés au demandeur. Si elle est configurée, valider une demande de type « Repos » est bloqué dès lors que le cumul des « Repos » déjà validés pour ce demandeur (celui-ci compris) dépasserait ce quota.
+        </p>
 
         <p class="fr-hint-text fr-mt-2w fr-mb-1w">Libellés utilisés dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
         <div class="config-grid-3col">
@@ -797,6 +792,74 @@
     <div id="configStatusZone" class="fr-mt-3w" aria-live="polite"></div>
 
   </div>
+
+  <!-- Modale de création/édition d'une demande d'absence : élément natif
+       <dialog>, ouvert/fermé via showModal()/close() (pas le contrôleur JS
+       du DSFR, plus simple à piloter depuis un seul bouton par ligne du
+       tableau). Placée en dehors de tout panneau basculé en hidden, sinon
+       [hidden] (display:none) empêcherait son affichage même ouverte. -->
+  <dialog id="absEditModal" class="fr-modal" aria-labelledby="absEditModalTitle">
+    <div class="fr-container fr-container--fluid fr-container-md">
+      <div class="fr-grid-row fr-grid-row--center">
+        <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
+          <div class="fr-modal__body">
+            <div class="fr-modal__header">
+              <button class="fr-btn--close fr-btn" title="Fermer" id="absEditModalCloseBtn" type="button">Fermer</button>
+            </div>
+            <div class="fr-modal__content">
+              <h1 id="absEditModalTitle" class="fr-modal__title">Demande d'absence</h1>
+              <div id="absEditStatusZone" aria-live="polite"></div>
+              <form id="absEditForm">
+                <div class="fr-input-group">
+                  <label class="fr-label" for="absEditField_demandeur">Demandeur</label>
+                  <input class="fr-input" type="text" id="absEditField_demandeur" name="absEditField_demandeur">
+                </div>
+                <div class="config-grid-2col">
+                  <div class="fr-input-group">
+                    <label class="fr-label" for="absEditField_dateDebut">Début</label>
+                    <input class="fr-input" type="datetime-local" id="absEditField_dateDebut" name="absEditField_dateDebut">
+                  </div>
+                  <div class="fr-input-group">
+                    <label class="fr-label" for="absEditField_dateFin">Fin</label>
+                    <input class="fr-input" type="datetime-local" id="absEditField_dateFin" name="absEditField_dateFin">
+                  </div>
+                </div>
+                <div class="fr-input-group" id="absEditGroup_motif">
+                  <label class="fr-label" for="absEditField_motif">Type d'absence</label>
+                  <input class="fr-input" type="text" id="absEditField_motif" name="absEditField_motif" list="absEditMotifOptions">
+                  <datalist id="absEditMotifOptions"></datalist>
+                </div>
+                <div class="fr-input-group" id="absEditGroup_destination">
+                  <label class="fr-label" for="absEditField_destination">Destination</label>
+                  <input class="fr-input" type="text" id="absEditField_destination" name="absEditField_destination">
+                </div>
+                <div class="fr-input-group" id="absEditGroup_commentaire">
+                  <label class="fr-label" for="absEditField_commentaire">Commentaire</label>
+                  <textarea class="fr-input" id="absEditField_commentaire" name="absEditField_commentaire" rows="3"></textarea>
+                </div>
+                <div class="config-grid-2col">
+                  <div class="fr-input-group" id="absEditGroup_creeLe">
+                    <label class="fr-label" for="absEditField_creeLe">Date de la demande</label>
+                    <input class="fr-input" type="datetime-local" id="absEditField_creeLe" name="absEditField_creeLe">
+                  </div>
+                  <div class="fr-input-group" id="absEditGroup_derniereMiseAJour">
+                    <label class="fr-label" for="absEditField_derniereMiseAJour">Date de la décision</label>
+                    <input class="fr-input" type="datetime-local" id="absEditField_derniereMiseAJour" name="absEditField_derniereMiseAJour">
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div class="fr-modal__footer">
+              <ul class="fr-btns-group fr-btns-group--inline-md">
+                <li><button class="fr-btn" id="absEditSaveBtn" type="button">Enregistrer</button></li>
+                <li><button class="fr-btn fr-btn--secondary" id="absEditCancelBtn" type="button">Annuler</button></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
 
 </div>
 
@@ -904,9 +967,37 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var absDemandeurFilterBtn = document.getElementById('absDemandeurFilterBtn');
   var absDemandeurFilterList = document.getElementById('absDemandeurFilterList');
   var absRefreshBtn = document.getElementById('absRefreshBtn');
+  var absNewRequestBtn = document.getElementById('absNewRequestBtn');
   var absCount = document.getElementById('absCount');
   var absStatusZone = document.getElementById('absStatusZone');
   var absZone = document.getElementById('absZone');
+
+  // ---- Modale de création/édition d'une demande d'absence ----------------
+  var absEditModal = document.getElementById('absEditModal');
+  var absEditModalTitle = document.getElementById('absEditModalTitle');
+  var absEditStatusZone = document.getElementById('absEditStatusZone');
+  var absEditModalCloseBtn = document.getElementById('absEditModalCloseBtn');
+  var absEditSaveBtn = document.getElementById('absEditSaveBtn');
+  var absEditCancelBtn = document.getElementById('absEditCancelBtn');
+  var absEditFields = {
+    demandeur: document.getElementById('absEditField_demandeur'),
+    dateDebut: document.getElementById('absEditField_dateDebut'),
+    dateFin: document.getElementById('absEditField_dateFin'),
+    motif: document.getElementById('absEditField_motif'),
+    destination: document.getElementById('absEditField_destination'),
+    commentaire: document.getElementById('absEditField_commentaire'),
+    creeLe: document.getElementById('absEditField_creeLe'),
+    derniereMiseAJour: document.getElementById('absEditField_derniereMiseAJour')
+  };
+  var absEditGroups = {
+    motif: document.getElementById('absEditGroup_motif'),
+    destination: document.getElementById('absEditGroup_destination'),
+    commentaire: document.getElementById('absEditGroup_commentaire'),
+    creeLe: document.getElementById('absEditGroup_creeLe'),
+    derniereMiseAJour: document.getElementById('absEditGroup_derniereMiseAJour')
+  };
+  var absEditMotifOptions = document.getElementById('absEditMotifOptions');
+  var absEditingRowId = null; // null en création, id de la ligne en édition
 
   var absTableSelect = document.getElementById('absTable');
   var absColSelects = {
@@ -918,7 +1009,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     decision: document.getElementById('absCol_decision'),
     commentaire: document.getElementById('absCol_commentaire'),
     creeLe: document.getElementById('absCol_creeLe'),
-    derniereMiseAJour: document.getElementById('absCol_derniereMiseAJour')
+    derniereMiseAJour: document.getElementById('absCol_derniereMiseAJour'),
+    droits: document.getElementById('absCol_droits')
   };
   var absValAttente = document.getElementById('absVal_attente');
   var absValValidee = document.getElementById('absVal_validee');
@@ -1126,7 +1218,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // option du widget (clé "absencesConfig"), au même principe que le
   // widget Réservations.
 
-  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire', 'creeLe', 'derniereMiseAJour'];
+  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire', 'creeLe', 'derniereMiseAJour', 'droits'];
 
   // Valeur exacte du type d'absence (colonne "Type d'absence") qui
   // conditionne la disponibilité du PDF, et son libellé abrégé pour
@@ -1147,7 +1239,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       // "creeLe"/"derniereMiseAJour" : colonnes optionnelles donnant la date
       // de la demande et la date de la décision, imprimées sur le PDF
       // « Autorisation d'absence » (voir renderAbsenceAuthorizationPdfContent).
-      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', creeLe: '', derniereMiseAJour: '' },
+      // "droits" : colonne optionnelle donnant les droits à repos du
+      // demandeur (nombre de jours), utilisée pour bloquer la validation
+      // d'une demande de type "Repos" qui ferait dépasser ce quota (voir
+      // renderAbsencesList / reposDaysForRow).
+      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', creeLe: '', derniereMiseAJour: '', droits: '' },
       valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' },
       signataire: ''
     };
@@ -1461,7 +1557,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           decision: textOf(r[cfg.col.decision]),
           commentaire: cfg.col.commentaire ? textOf(r[cfg.col.commentaire]) : '',
           creeLe: cfg.col.creeLe ? r[cfg.col.creeLe] : null,
-          derniereMiseAJour: cfg.col.derniereMiseAJour ? r[cfg.col.derniereMiseAJour] : null
+          derniereMiseAJour: cfg.col.derniereMiseAJour ? r[cfg.col.derniereMiseAJour] : null,
+          droits: cfg.col.droits ? r[cfg.col.droits] : null
         };
       });
       if (absDemandeurLooksLikeRefId) {
@@ -1480,6 +1577,37 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       isRefusee: !!decisionText && normalizeNameKey(decisionText) === normalizeNameKey(cfg.valeurs.refusee),
       isAttente: !decisionText || normalizeNameKey(decisionText) === normalizeNameKey(cfg.valeurs.attente)
     };
+  }
+
+  // Nombre de jours "consommés" par une demande de type "Repos" : la
+  // différence (inclusive) entre les jours calendaires de début et de fin,
+  // sans tenir compte de l'heure (une demande sur un seul jour compte pour
+  // 1 jour). Sert au calcul du cumul face aux "Droits (à repos)".
+  function reposDaysForRow(r) {
+    var debut = parseGristDateTime(r.dateDebut);
+    var fin = parseGristDateTime(r.dateFin);
+    if (!debut || !fin) return 0;
+    var d0 = new Date(debut.getFullYear(), debut.getMonth(), debut.getDate());
+    var d1 = new Date(fin.getFullYear(), fin.getMonth(), fin.getDate());
+    var days = Math.round((d1 - d0) / 86400000) + 1;
+    return days > 0 ? days : 0;
+  }
+
+  // Cumul, pour chaque demandeur, des jours de "Repos" déjà validés (toutes
+  // demandes confondues, indépendamment des filtres actifs de la liste).
+  // Utilisé pour bloquer la validation d'une nouvelle demande de "Repos"
+  // qui ferait dépasser les "Droits (à repos)" configurés.
+  function reposValideesParDemandeur(cfg) {
+    var totals = {};
+    if (!cfg.col.droits) return totals;
+    absData.forEach(function (r) {
+      var isRepos = !!r.motif && normalizeNameKey(r.motif) === normalizeNameKey('Repos');
+      if (!isRepos) return;
+      if (!absDecisionState(cfg, r.decision).isValidee) return;
+      var key = normalizeNameKey(r.demandeur);
+      totals[key] = (totals[key] || 0) + reposDaysForRow(r);
+    });
+    return totals;
   }
 
   function renderAbsencesList() {
@@ -1519,6 +1647,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       (cfg.col.destination ? '<th scope="col">Destination</th>' : '') +
       '</tr></thead><tbody>';
 
+    var reposValidees = reposValideesParDemandeur(cfg);
+
     rows.forEach(function (r) {
       var debut = parseGristDateTime(r.dateDebut);
       var fin = parseGristDateTime(r.dateFin);
@@ -1543,15 +1673,41 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           : 'Le PDF est disponible une fois la demande validée.';
       }
 
+      // Blocage de la validation d'une demande de "Repos" qui ferait
+      // dépasser les "Droits (à repos)" du demandeur (colonne optionnelle) :
+      // le cumul déjà validé (hors cette ligne, puisqu'elle ne l'est pas
+      // encore) plus les jours de cette demande sont comparés au quota.
+      var validerBlockedByDroits = false;
+      var validerTooltipId = null;
+      var validerTooltipText = '';
+      if (cfg.col.droits && isRepos && !st.isValidee) {
+        var droitsValue = parseFloat(r.droits);
+        if (!isNaN(droitsValue)) {
+          var dejaAccorde = reposValidees[normalizeNameKey(r.demandeur)] || 0;
+          var joursDemande = reposDaysForRow(r);
+          var projete = dejaAccorde + joursDemande;
+          if (projete > droitsValue) {
+            validerBlockedByDroits = true;
+            validerTooltipId = 'absDroitsTooltip' + (absTooltipSeq++);
+            validerTooltipText = 'Droits à repos : ' + droitsValue + ' jour(s) — Repos déjà accordés : ' + dejaAccorde + ' jour(s).';
+          }
+        }
+      }
+
       html += '<tr data-row-id="' + r.id + '">' +
         '<td><div class="req-actions" role="group" aria-label="Décision">' +
-          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-check-line" title="Valider" data-action="validee" aria-pressed="' + (st.isValidee ? 'true' : 'false') + '"' + (st.isValidee ? ' disabled' : '') + '></button>' +
+          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-check-line" title="Valider" data-action="validee" aria-pressed="' + (st.isValidee ? 'true' : 'false') + '"' +
+            (st.isValidee || validerBlockedByDroits ? ' disabled' : '') +
+            (validerBlockedByDroits ? (' aria-describedby="' + validerTooltipId + '"') : '') +
+            '></button>' +
+          (validerBlockedByDroits ? ('<span class="fr-tooltip fr-placement" id="' + validerTooltipId + '" role="tooltip">' + escapeHtml(validerTooltipText) + '</span>') : '') +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-close-line" title="Refuser" data-action="refusee" aria-pressed="' + (st.isRefusee ? 'true' : 'false') + '"' + (st.isRefusee ? ' disabled' : '') + '></button>' +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-time-line" title="Remettre en attente" data-action="attente" aria-pressed="' + (st.isAttente ? 'true' : 'false') + '"' + (st.isAttente ? ' disabled' : '') + '></button>' +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-download-line" title="Télécharger le PDF" data-pdf-id="' + r.id + '"' +
             (pdfAvailable ? '' : (' disabled aria-describedby="' + pdfTooltipId + '"')) +
             '></button>' +
           (pdfAvailable ? '' : ('<span class="fr-tooltip fr-placement" id="' + pdfTooltipId + '" role="tooltip">' + escapeHtml(pdfTooltipText) + '</span>')) +
+          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier la demande" data-edit-id="' + r.id + '"></button>' +
         '</div></td>' +
         '<td>' + escapeHtml(r.demandeur) + '</td>' +
         (cfg.col.motif ? '<td>' + escapeHtml(formatAbsenceTypeLabel(r.motif)) + '</td>' : '') +
@@ -1579,6 +1735,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         if (row) generateAbsenceAuthorizationPdf(row);
       });
     });
+    absZone.querySelectorAll('button[data-edit-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var rowId = Number(btn.getAttribute('data-edit-id'));
+        var row = absData.filter(function (r) { return r.id === rowId; })[0];
+        if (row) openAbsEditModal(row);
+      });
+    });
   }
 
   function updateAbsenceDecision(rowId, newValue) {
@@ -1592,6 +1755,154 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       showAbsStatus('error', 'Impossible de mettre à jour la décision : ' + friendlyErrorMessage(e));
     });
   }
+
+  // ---- Création / édition d'une demande d'absence (modale) --------------
+  //
+  // Une même modale (élément <dialog> natif, cf. HTML) sert à la fois à
+  // créer une nouvelle demande (bouton "Nouvelle demande" de la barre
+  // d'outils, absEditingRowId === null) et à modifier une demande
+  // existante (icône crayon de chaque ligne, absEditingRowId = son id
+  // Grist). Seuls les champs correspondant à un rôle réellement mappé
+  // (cfg.col.X) sont affichés ; l'enregistrement fait un AddRecord ou un
+  // UpdateRecord selon le mode, puis recharge la liste depuis Grist.
+
+  function toDatetimeLocalValue(date) {
+    var y = date.getFullYear();
+    var mo = String(date.getMonth() + 1).padStart(2, '0');
+    var d = String(date.getDate()).padStart(2, '0');
+    var h = String(date.getHours()).padStart(2, '0');
+    var mi = String(date.getMinutes()).padStart(2, '0');
+    return y + '-' + mo + '-' + d + 'T' + h + ':' + mi;
+  }
+
+  function fromDatetimeLocalValue(value) {
+    if (!value) return null;
+    var m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+  }
+
+  function fillAbsEditMotifOptions() {
+    var seen = {};
+    absData.forEach(function (r) { if (r.motif) seen[r.motif] = true; });
+    absEditMotifOptions.innerHTML = Object.keys(seen).sort().map(function (v) {
+      return '<option value="' + escapeHtml(v) + '"></option>';
+    }).join('');
+  }
+
+  function openAbsEditForm(row) {
+    var cfg = absencesConfig;
+    absEditingRowId = row ? row.id : null;
+    absEditModalTitle.textContent = row ? 'Modifier la demande' : 'Nouvelle demande d\'absence';
+    absEditStatusZone.innerHTML = '';
+    fillAbsEditMotifOptions();
+
+    absEditFields.demandeur.value = row ? (row.demandeur || '') : '';
+    var debut = row ? parseGristDateTime(row.dateDebut) : null;
+    var fin = row ? parseGristDateTime(row.dateFin) : null;
+    absEditFields.dateDebut.value = debut ? toDatetimeLocalValue(debut) : '';
+    absEditFields.dateFin.value = fin ? toDatetimeLocalValue(fin) : '';
+
+    absEditGroups.motif.hidden = !cfg.col.motif;
+    absEditFields.motif.value = row ? (row.motif || '') : '';
+
+    absEditGroups.destination.hidden = !cfg.col.destination;
+    absEditFields.destination.value = row ? (row.destination || '') : '';
+
+    absEditGroups.commentaire.hidden = !cfg.col.commentaire;
+    absEditFields.commentaire.value = row ? (row.commentaire || '') : '';
+
+    absEditGroups.creeLe.hidden = !cfg.col.creeLe;
+    var creeLe = row ? parseGristDateTime(row.creeLe) : null;
+    absEditFields.creeLe.value = creeLe ? toDatetimeLocalValue(creeLe) : (row ? '' : toDatetimeLocalValue(new Date()));
+
+    absEditGroups.derniereMiseAJour.hidden = !cfg.col.derniereMiseAJour;
+    var derniereMaj = row ? parseGristDateTime(row.derniereMiseAJour) : null;
+    absEditFields.derniereMiseAJour.value = derniereMaj ? toDatetimeLocalValue(derniereMaj) : '';
+
+    if (typeof absEditModal.showModal === 'function') {
+      absEditModal.showModal();
+    } else {
+      showAbsStatus('error', 'Votre navigateur ne permet pas d\'ouvrir cette fenêtre.');
+    }
+  }
+
+  function openAbsEditModal(row) {
+    openAbsEditForm(row);
+  }
+
+  function openAbsNewRequestModal() {
+    var cfg = absencesConfig;
+    if (!isAbsencesConfigComplete(cfg)) {
+      showAbsStatus('warning', 'Aucune table n\'est configurée pour les absences. Cliquez 5 fois rapidement sur le bloc marque du header pour ouvrir les paramètres et en choisir une.');
+      return;
+    }
+    openAbsEditForm(null);
+  }
+
+  function closeAbsEditModal() {
+    if (typeof absEditModal.close === 'function') absEditModal.close();
+    absEditingRowId = null;
+  }
+
+  function saveAbsEditForm() {
+    var cfg = absencesConfig;
+    var demandeur = absEditFields.demandeur.value.trim();
+    var debut = fromDatetimeLocalValue(absEditFields.dateDebut.value);
+    var fin = fromDatetimeLocalValue(absEditFields.dateFin.value);
+
+    if (!demandeur || !debut || !fin) {
+      renderAlert(absEditStatusZone, 'error', 'Merci de renseigner au moins le demandeur, la date de début et la date de fin.');
+      return;
+    }
+    if (fin < debut) {
+      renderAlert(absEditStatusZone, 'error', 'La date de fin doit être postérieure ou égale à la date de début.');
+      return;
+    }
+
+    var patch = {};
+    patch[cfg.col.demandeur] = demandeur;
+    patch[cfg.col.dateDebut] = Math.round(debut.getTime() / 1000);
+    patch[cfg.col.dateFin] = Math.round(fin.getTime() / 1000);
+    if (cfg.col.motif) patch[cfg.col.motif] = absEditFields.motif.value.trim();
+    if (cfg.col.destination) patch[cfg.col.destination] = absEditFields.destination.value.trim();
+    if (cfg.col.commentaire) patch[cfg.col.commentaire] = absEditFields.commentaire.value.trim();
+    if (cfg.col.creeLe) {
+      var creeLe = fromDatetimeLocalValue(absEditFields.creeLe.value);
+      patch[cfg.col.creeLe] = creeLe ? Math.round(creeLe.getTime() / 1000) : null;
+    }
+    if (cfg.col.derniereMiseAJour) {
+      var derniereMaj = fromDatetimeLocalValue(absEditFields.derniereMiseAJour.value);
+      patch[cfg.col.derniereMiseAJour] = derniereMaj ? Math.round(derniereMaj.getTime() / 1000) : null;
+    }
+
+    var editingRowId = absEditingRowId;
+    var action = editingRowId
+      ? ['UpdateRecord', cfg.table, editingRowId, patch]
+      : ['AddRecord', cfg.table, null, patch];
+
+    absEditSaveBtn.disabled = true;
+    grist.docApi.applyUserActions([action]).then(function () {
+      absEditSaveBtn.disabled = false;
+      closeAbsEditModal();
+      showAbsStatus('success', editingRowId ? 'Demande modifiée.' : 'Nouvelle demande créée.');
+      renderAbsencesPage();
+    }).catch(function (e) {
+      absEditSaveBtn.disabled = false;
+      renderAlert(absEditStatusZone, 'error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  absNewRequestBtn.addEventListener('click', openAbsNewRequestModal);
+  absEditModalCloseBtn.addEventListener('click', closeAbsEditModal);
+  absEditCancelBtn.addEventListener('click', closeAbsEditModal);
+  absEditSaveBtn.addEventListener('click', saveAbsEditForm);
+  // Ferme aussi la modale d'un clic sur le fond (en dehors de la boîte de
+  // contenu), comme la touche Échap (comportement natif de <dialog>).
+  absEditModal.addEventListener('click', function (e) {
+    if (e.target === absEditModal) closeAbsEditModal();
+  });
+  absEditModal.addEventListener('close', function () { absEditingRowId = null; });
 
   // ---- Filtres (Décision / Demandeur) de la liste des absences ----------
 
