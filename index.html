@@ -186,6 +186,15 @@
     color: #fff;
   }
 
+  /* Filet de sécurité pour les deux boutons de téléchargement (icône
+     fr-icon-download-line + texte) : garantit que le libellé reste
+     visible et que le bouton ne se réduise pas à un simple carré-icône,
+     quelle que soit la largeur calculée par le CSS du DSFR. */
+  #generateBtn, #generateProgressionPdfBtn {
+    width: auto;
+    white-space: nowrap;
+  }
+
   /* Planning hebdomadaire : heures à l'horizontale, jours à la verticale.
      Chaque jour se subdivise en lignes fixes par peloton (P1, P2, P3, P4,
      ACC.). Les colonnes des noms de jour et des badges de peloton restent
@@ -409,7 +418,7 @@
 
     <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-3w">
       <li>
-        <button class="fr-btn fr-icon-download-line fr-btn--icon-left" id="generateBtn" type="button" disabled aria-label="Générer la FSJ">
+        <button class="fr-btn fr-icon-download-line fr-btn--icon-left" id="generateBtn" type="button" disabled>
           Générer la FSJ
         </button>
       </li>
@@ -589,6 +598,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   (function initDate() {
     var today = new Date();
+    // La sélection de date de l'onglet FSJ ne propose que les 3 prochains
+    // jours (aujourd'hui inclus) : la feuille de service journalier n'a
+    // vocation à être générée que pour une échéance proche.
+    var maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
+    dayPicker.min = toInputDateValue(today);
+    dayPicker.max = toInputDateValue(maxDate);
     dayPicker.value = toInputDateValue(today);
   })();
 
