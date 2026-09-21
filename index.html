@@ -106,15 +106,18 @@
   .week-timegrid__daylabel {
     box-sizing: border-box;
     display: flex;
-    align-items: center;
-    font-weight: 700;
-    font-size: 0.8em;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
     padding: 2px 8px;
     /* Trait nettement plus marqué que les séparateurs internes (lignes
        de peloton) : c'est la frontière entre deux jours. */
     border-bottom: 2px solid #8a8a8a;
   }
-  .week-timegrid__daylabel--today { color: var(--bleu-france); }
+  .week-timegrid__daylabel-date { font-weight: 700; font-size: 0.8em; }
+  .week-timegrid__daylabel-sop { font-weight: 700; font-size: 0.7em; color: var(--bleu-france); }
+  .week-timegrid__daylabel--today .week-timegrid__daylabel-date { color: var(--bleu-france); }
 
   .week-timegrid__pelotons {
     flex: 0 0 42px;
@@ -413,7 +416,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       { name: 'Encadrement', title: 'Encadrement', type: 'Any', optional: true },
       { name: 'Consignes', title: 'Consignes', type: 'Any', optional: true },
       { name: 'Apprenants', title: 'Apprenants', type: 'Any', optional: true },
-      { name: 'Type', title: "Type d'évènement", type: 'Any', optional: true }
+      { name: 'Type', title: 'Type', type: 'Any', optional: true }
     ]
   });
 
@@ -664,8 +667,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var days = [];
     for (var i = 0; i < 7; i++) {
       var d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
-      var occ = splitBySection(getOccurrencesForDay(d, mode)).progression;
-      days.push({ date: d, occ: occ, isToday: sameDay(d, today) });
+      var sections = splitBySection(getOccurrencesForDay(d, mode));
+      var sopCadre = findPermanenceCadre(sections.permanences, 'SOP');
+      days.push({ date: d, occ: sections.progression, isToday: sameDay(d, today), sopCadre: sopCadre });
     }
 
     // Amplitude horaire commune à toute la semaine (arrondie à l'heure) :
@@ -730,8 +734,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // Colonne fixe des badges de peloton, en début de ligne (ne défile pas).
     var pelotonsHtml = '<div class="week-timegrid__label-spacer" style="height:' + AXIS_H + 'px"></div>';
     days.forEach(function (day, i) {
+      var sopLineHtml = day.sopCadre
+        ? '<div class="week-timegrid__daylabel-sop">SOP&nbsp;: ' + escapeHtml(day.sopCadre) + '</div>'
+        : '';
       labelsHtml += '<div class="week-timegrid__daylabel' + (day.isToday ? ' week-timegrid__daylabel--today' : '') + '" style="height:' + day.totalHeight + 'px">' +
-        dayNames[i] + '&nbsp;' + escapeHtml(fmtDayTitle(day.date)) +
+        '<div class="week-timegrid__daylabel-date">' + dayNames[i] + '&nbsp;' + escapeHtml(fmtDayTitle(day.date)) + '</div>' +
+        sopLineHtml +
         '</div>';
 
       var rowBadgesHtml = day.rows.map(function (row) {
@@ -1342,16 +1350,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var editionLine = 'Version en vigueur le ' + fmtDayTitle(editionMoment) + ' à ' + fmtHM(editionMoment) + ', sous réserve de modifications par l\'AE.';
     doc.text(editionLine, pageWidth / 2, y, { align: 'center' });
 
-    // SOP du jour (sous-officier/cadre de permanence), sous la date.
-    var sopCadre = findPermanenceCadre(sections.permanences, 'SOP');
-    if (sopCadre) {
-      y += lineHeight * 0.9;
-      doc.setFont(baseFont, 'bold');
-      doc.setFontSize(9.5);
-      doc.setTextColor(0, 0, 0);
-      doc.text('SOP : ' + sopCadre, pageWidth / 2, y, { align: 'center' });
-    }
-
     y += lineHeight * 0.9;
     doc.setDrawColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
     doc.setLineWidth(0.5);
@@ -1558,30 +1556,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return Math.max(lo, Math.min(hi, value));
   }
 
-  // Énumère, sur l'ensemble des jours exportés, les valeurs de Type
-  // réellement rencontrées (dédupliquées, insensible à la casse/accents),
-  // triées alphabétiquement, avec la couleur qui leur est associée —
-  // pour construire la légende du PDF de Progression. "Sans type" est
-  // ajouté en dernier si au moins une occurrence n'a pas de Type renseigné.
-  function buildTypeLegend(days) {
-    var seen = {};
-    var entries = [];
-    var hasNone = false;
-    days.forEach(function (day) {
-      day.occ.forEach(function (o) {
-        var key = normalizeTypeKey(o.type);
-        if (!key) { hasNone = true; return; }
-        if (!seen[key]) {
-          seen[key] = true;
-          entries.push({ label: String(o.type).trim(), color: colorForType(o.type) });
-        }
-      });
-    });
-    entries.sort(function (a, b) { return a.label.localeCompare(b.label, 'fr'); });
-    if (hasNone) entries.push({ label: 'Sans type', color: TYPE_COLOR_NONE });
-    return entries;
-  }
-
   // Construit le document PDF de la Progression (sans le télécharger).
   // Retourne { doc, filename } ou null si rien à exporter (un message est
   // alors déjà affiché via showStatus).
@@ -1634,64 +1608,25 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var marginRight = 8;
     var marginBottom = 7;
 
-    // ---- En-tête : titre, puis légende des couleurs par Type d'évènement
-    // (une occurrence hérite de la couleur de son Type ; la légende énumère
-    // tous les Types réellement présents sur la période exportée, quel
-    // qu'en soit le nombre — elle s'étale sur autant de lignes que
-    // nécessaire, ce qui réduit d'autant la hauteur disponible pour la
-    // grille, calculée plus bas).
+    // ---- En-tête : titre, puis ligne de validité (date/heure de
+    // génération) — remplace l'ancienne légende des couleurs par Type
+    // (les couleurs restent visibles directement sur les occurrences).
     doc.setFont(baseFont, 'bold');
     doc.setFontSize(14);
     doc.setTextColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
-    var title = 'Progression du ' + fmtDayTitle(PROGRESSION_PDF_START) + ' au ' + fmtDayTitle(PROGRESSION_PDF_END);
+    var title = 'Progression PMG4 et stage d\'acculturation du ' + fmtDayTitle(PROGRESSION_PDF_START) + ' au ' + fmtDayTitle(PROGRESSION_PDF_END);
     doc.text(title, pageWidth / 2, 9, { align: 'center' });
     doc.setTextColor(0, 0, 0);
 
-    var legendEntries = buildTypeLegend(days);
-    var legendStartY = 13;
-    var legendLineH = 3.4;
-    var legendLines = [];
-    if (legendEntries.length) {
-      doc.setFont(baseFont, 'normal');
-      doc.setFontSize(6.3);
-      var swatchSize = 2.4;
-      var swatchGap = 1;
-      var entryGap = 4;
-      var legendMaxWidth = pageWidth - marginLeft - marginRight;
-      var currentLine = [];
-      var currentWidth = 0;
-      legendEntries.forEach(function (entry) {
-        var entryWidth = swatchSize + swatchGap + doc.getTextWidth(entry.label);
-        if (currentLine.length && currentWidth + entryGap + entryWidth > legendMaxWidth) {
-          legendLines.push(currentLine);
-          currentLine = [];
-          currentWidth = 0;
-        }
-        if (currentLine.length) currentWidth += entryGap;
-        currentLine.push(entry);
-        currentWidth += entryWidth;
-      });
-      if (currentLine.length) legendLines.push(currentLine);
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(130, 130, 130);
+    var genMoment = new Date();
+    var editionLine = 'En vigueur au ' + fmtDayTitle(genMoment) + ' à ' + fmtHM(genMoment) + ', sous réserve de modifications ultérieures.';
+    doc.text(editionLine, pageWidth / 2, 13.5, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
 
-      legendLines.forEach(function (line, li) {
-        var lineWidth = line.reduce(function (sum, e, i) {
-          return sum + swatchSize + swatchGap + doc.getTextWidth(e.label) + (i > 0 ? entryGap : 0);
-        }, 0);
-        var ly = legendStartY + li * legendLineH;
-        var x = (pageWidth - lineWidth) / 2;
-        line.forEach(function (entry, i) {
-          if (i > 0) x += entryGap;
-          doc.setFillColor(entry.color[0], entry.color[1], entry.color[2]);
-          doc.rect(x, ly - swatchSize + 0.5, swatchSize, swatchSize, 'F');
-          doc.setTextColor(60, 60, 60);
-          doc.text(entry.label, x + swatchSize + swatchGap, ly);
-          x += swatchSize + swatchGap + doc.getTextWidth(entry.label);
-        });
-      });
-      doc.setTextColor(0, 0, 0);
-    }
-
-    var contentTop = legendLines.length ? (legendStartY + legendLines.length * legendLineH + 1.8) : 14;
+    var contentTop = 16.5;
     var AXIS_H = 5;
     var DAY_LABEL_W = 20;
     var PELOTON_W = 8;
