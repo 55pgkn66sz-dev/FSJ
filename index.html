@@ -407,6 +407,33 @@
   .req-actions .fr-btn[data-action="refusee"][aria-pressed="true"] { background-color: #ce0500; color: #fff; }
   .req-actions .fr-btn[data-action="attente"][aria-pressed="true"] { background-color: #ffd200; color: #3a3a3a; }
 
+  /* Modale de création/édition d'une demande d'absence (#absEditModal) :
+     ouverte/fermée en JS via l'attribut "open" plutôt que showModal()/
+     close() (voir openAbsEditForm/closeAbsEditModal) pour rester
+     fonctionnelle même dans un iframe restreint (Grist). Ces règles
+     assurent l'affichage plein écran centré avec un fond assombri
+     indépendamment du ::backdrop natif, qui ne s'applique qu'en passant
+     par showModal(). */
+  #absEditModal { display: none; }
+  #absEditModal[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    margin: 0;
+    padding: 1rem;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border: none;
+    background-color: rgba(0, 0, 18, 0.64);
+    overflow-y: auto;
+  }
+  #absEditModal[open] > .fr-container { margin: auto; width: 100%; }
+
   /* Filtre "Demandeur" : champ de recherche clavier en tête du menu
      déroulant, pour retrouver rapidement un nom dans une longue liste. */
   .dropdown-menu__search {
@@ -442,7 +469,7 @@
       </div>
     </div>
   </div>
-  <div class="fr-header__menu fr-header__menu--sticky">
+  <div class="fr-header__menu">
     <div class="fr-container">
       <nav class="fr-nav" id="header-navigation" role="navigation" aria-label="Menu principal">
         <ul class="fr-nav__list">
@@ -794,10 +821,16 @@
   </div>
 
   <!-- Modale de création/édition d'une demande d'absence : élément natif
-       <dialog>, ouvert/fermé via showModal()/close() (pas le contrôleur JS
-       du DSFR, plus simple à piloter depuis un seul bouton par ligne du
-       tableau). Placée en dehors de tout panneau basculé en hidden, sinon
-       [hidden] (display:none) empêcherait son affichage même ouverte. -->
+       <dialog>, mais ouvert/fermé en posant directement l'attribut "open"
+       (dialog.open = true/false) plutôt que via showModal()/close() — ces
+       méthodes peuvent être bloquées sans avertissement dans un iframe
+       restreint comme celui utilisé par Grist pour les widgets, alors que
+       l'attribut "open" est un simple booléen HTML toujours autorisé.
+       L'affichage plein écran centré est assuré par le CSS #absEditModal
+       ci-dessous (voir <style>), indépendamment du ::backdrop natif (qui
+       nécessite showModal()). Placée en dehors de tout panneau basculé en
+       hidden, sinon [hidden] (display:none) empêcherait son affichage
+       même ouverte. -->
   <dialog id="absEditModal" class="fr-modal" aria-labelledby="absEditModalTitle">
     <div class="fr-container fr-container--fluid fr-container-md">
       <div class="fr-grid-row fr-grid-row--center">
@@ -1679,7 +1712,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       // encore) plus les jours de cette demande sont comparés au quota.
       var validerBlockedByDroits = false;
       var validerTooltipId = null;
-      var validerTooltipText = '';
+      var validerTooltipHtml = '';
       if (cfg.col.droits && isRepos && !st.isValidee) {
         var droitsValue = parseFloat(r.droits);
         if (!isNaN(droitsValue)) {
@@ -1689,7 +1722,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           if (projete > droitsValue) {
             validerBlockedByDroits = true;
             validerTooltipId = 'absDroitsTooltip' + (absTooltipSeq++);
-            validerTooltipText = 'Droits à repos : ' + droitsValue + ' jour(s) — Repos déjà accordés : ' + dejaAccorde + ' jour(s).';
+            validerTooltipHtml =
+              '<strong>Impossible de valider cette demande.</strong><br>' +
+              'Droits à repos de ' + escapeHtml(r.demandeur) + ' : ' + Math.round(droitsValue) + '.<br><br>' +
+              'Déjà accordés : ' + dejaAccorde + '<br>' +
+              'Avec cette absence, le total serait de ' + projete + '.';
           }
         }
       }
@@ -1700,7 +1737,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
             (st.isValidee || validerBlockedByDroits ? ' disabled' : '') +
             (validerBlockedByDroits ? (' aria-describedby="' + validerTooltipId + '"') : '') +
             '></button>' +
-          (validerBlockedByDroits ? ('<span class="fr-tooltip fr-placement" id="' + validerTooltipId + '" role="tooltip">' + escapeHtml(validerTooltipText) + '</span>') : '') +
+          (validerBlockedByDroits ? ('<span class="fr-tooltip fr-placement" id="' + validerTooltipId + '" role="tooltip">' + validerTooltipHtml + '</span>') : '') +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-close-line" title="Refuser" data-action="refusee" aria-pressed="' + (st.isRefusee ? 'true' : 'false') + '"' + (st.isRefusee ? ' disabled' : '') + '></button>' +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-time-line" title="Remettre en attente" data-action="attente" aria-pressed="' + (st.isAttente ? 'true' : 'false') + '"' + (st.isAttente ? ' disabled' : '') + '></button>' +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-download-line" title="Télécharger le PDF" data-pdf-id="' + r.id + '"' +
@@ -1820,10 +1857,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var derniereMaj = row ? parseGristDateTime(row.derniereMiseAJour) : null;
     absEditFields.derniereMiseAJour.value = derniereMaj ? toDatetimeLocalValue(derniereMaj) : '';
 
-    if (typeof absEditModal.showModal === 'function') {
-      absEditModal.showModal();
-    } else {
-      showAbsStatus('error', 'Votre navigateur ne permet pas d\'ouvrir cette fenêtre.');
+    // Affiche la modale en posant directement l'attribut booléen "open"
+    // (dialog.open = true), PLUTÔT QUE showModal()/close() : ces méthodes
+    // invoquent l'algorithme de "dialogue modal" du navigateur, qui peut
+    // être bloqué dans un iframe restreint (sandbox) comme celui utilisé
+    // par Grist pour les widgets personnalisés — bouton alors sans effet,
+    // sans la moindre erreur visible. Poser l'attribut "open" est un
+    // simple attribut booléen HTML, toujours autorisé (aucune permission
+    // requise), et l'affichage plein écran centré est assuré par notre
+    // propre CSS #absEditModal[open] (voir <style>), indépendamment du
+    // ::backdrop natif (qui, lui, nécessite showModal()).
+    try {
+      absEditModal.open = true;
+    } catch (e) {
+      showAbsStatus('error', 'Impossible d\'ouvrir cette fenêtre : ' + friendlyErrorMessage(e));
     }
   }
 
@@ -1841,7 +1888,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
 
   function closeAbsEditModal() {
-    if (typeof absEditModal.close === 'function') absEditModal.close();
+    absEditModal.open = false;
     absEditingRowId = null;
   }
 
@@ -1898,11 +1945,15 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   absEditCancelBtn.addEventListener('click', closeAbsEditModal);
   absEditSaveBtn.addEventListener('click', saveAbsEditForm);
   // Ferme aussi la modale d'un clic sur le fond (en dehors de la boîte de
-  // contenu), comme la touche Échap (comportement natif de <dialog>).
+  // contenu). L'ouverture/fermeture ne passant plus par showModal()/close()
+  // (voir openAbsEditForm), la touche Échap n'est plus gérée nativement :
+  // on la reproduit ici à la main.
   absEditModal.addEventListener('click', function (e) {
     if (e.target === absEditModal) closeAbsEditModal();
   });
-  absEditModal.addEventListener('close', function () { absEditingRowId = null; });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && absEditModal.open) closeAbsEditModal();
+  });
 
   // ---- Filtres (Décision / Demandeur) de la liste des absences ----------
 
