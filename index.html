@@ -752,7 +752,14 @@
             <label class="fr-label" for="absCol_commentaire">Commentaire <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="absCol_commentaire" name="absCol_commentaire"></select>
           </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_modele">Modèle d'autorisation d'absence <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="absCol_modele" name="absCol_modele"></select>
+          </div>
         </div>
+        <p class="fr-hint-text fr-mb-2w">
+          « Modèle d'autorisation d'absence » : colonne contenant, pour chaque demande, le contenu HTML à partir duquel le PDF est généré (à défaut, une mise en page par défaut est utilisée). Les jetons {{demandeur}}, {{datedebut}}, {{datefin}}, {{motif}}, {{destination}}, {{commentaire}}, {{decision}} et {{dategeneration}} y sont remplacés par les valeurs de la demande.
+        </p>
 
         <p class="fr-hint-text fr-mt-2w fr-mb-1w">Libellés utilisés dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
         <div class="config-grid-3col">
@@ -768,32 +775,6 @@
             <label class="fr-label" for="absVal_refusee">Refusée</label>
             <input class="fr-input" type="text" id="absVal_refusee" name="absVal_refusee" placeholder="Refusée">
           </div>
-        </div>
-
-        <h3 class="fr-text--lead config-section-title">Modèle PDF « Autorisation d'absence »</h3>
-        <p class="fr-hint-text fr-mb-2w">
-          Table et colonne où trouver le modèle HTML à éditer en PDF (optionnel : à défaut, une mise en page par défaut est utilisée).
-        </p>
-        <div class="config-grid-2col">
-          <div class="fr-select-group">
-            <label class="fr-label" for="absModeleTable">Table du modèle</label>
-            <select class="fr-select" id="absModeleTable" name="absModeleTable">
-              <option value="">Choisir une table…</option>
-            </select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absModeleCol">Colonne du modèle</label>
-            <select class="fr-select" id="absModeleCol" name="absModeleCol"></select>
-          </div>
-        </div>
-
-        <h3 class="fr-text--lead config-section-title">Signataire</h3>
-        <div class="fr-input-group">
-          <label class="fr-label" for="absSignataire">
-            Signataire de l'autorisation d'absence
-            <span class="fr-hint-text">Nom (et éventuellement qualité/grade) imprimé sur le PDF « Autorisation d'absence ».</span>
-          </label>
-          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : Cdt DUPONT, chef de la division">
         </div>
       </div>
 
@@ -901,8 +882,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     absences: document.getElementById('configSectionRadio_absences')
   };
   var configFsjLimit3Days = document.getElementById('configFsjLimit3Days');
-  var absModeleTableSelect = document.getElementById('absModeleTable');
-  var absModeleColSelect = document.getElementById('absModeleCol');
   var genColSelects = {};
   ['Debut', 'Fin', 'Occurrence', 'Intitule', 'Code', 'Lieu', 'Encadrement', 'Consignes', 'Apprenants', 'Type'].forEach(function (key) {
     genColSelects[key] = document.getElementById('genCol_' + key);
@@ -927,12 +906,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     motif: document.getElementById('absCol_motif'),
     destination: document.getElementById('absCol_destination'),
     decision: document.getElementById('absCol_decision'),
-    commentaire: document.getElementById('absCol_commentaire')
+    commentaire: document.getElementById('absCol_commentaire'),
+    modele: document.getElementById('absCol_modele')
   };
   var absValAttente = document.getElementById('absVal_attente');
   var absValValidee = document.getElementById('absVal_validee');
   var absValRefusee = document.getElementById('absVal_refusee');
-  var absSignataire = document.getElementById('absSignataire');
 
   // ---- Échelle de la vue Progression : Semaine ou Jour -------------------
   //
@@ -1135,7 +1114,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // option du widget (clé "absencesConfig"), au même principe que le
   // widget Réservations.
 
-  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire'];
+  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire', 'modele'];
 
   // Valeur exacte du type d'absence (colonne "Type d'absence") qui
   // conditionne la disponibilité du PDF, et son libellé abrégé pour
@@ -1153,13 +1132,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function defaultAbsencesConfig() {
     return {
       table: '',
-      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '' },
-      valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' },
-      signataire: '',
-      // Table/colonne où trouver un modèle HTML de l'autorisation d'absence
+      // "modele" : colonne contenant, pour chaque demande, le modèle HTML
       // à éditer en PDF (optionnel : à défaut, une mise en page par défaut
       // codée en dur est utilisée — voir renderAbsenceAuthorizationPdfContent).
-      modele: { table: '', col: '' }
+      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', modele: '' },
+      valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' }
     };
   }
 
@@ -1179,11 +1156,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         if (raw.valeurs.attente) cfg.valeurs.attente = String(raw.valeurs.attente);
         if (raw.valeurs.validee) cfg.valeurs.validee = String(raw.valeurs.validee);
         if (raw.valeurs.refusee) cfg.valeurs.refusee = String(raw.valeurs.refusee);
-      }
-      if (typeof raw.signataire === 'string') cfg.signataire = raw.signataire;
-      if (raw.modele && typeof raw.modele === 'object') {
-        if (typeof raw.modele.table === 'string') cfg.modele.table = raw.modele.table;
-        if (typeof raw.modele.col === 'string') cfg.modele.col = raw.modele.col;
       }
     }
     return cfg;
@@ -1243,33 +1215,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   absTableSelect.addEventListener('change', function () { refreshAbsencesColumnLists(absTableSelect.value); });
 
-  // Liste les tables du document pour peupler le sélecteur de table du
-  // modèle HTML de l'autorisation d'absence (indépendant de la table des
-  // demandes : ce peut être une table dédiée à un seul modèle).
-  function refreshAbsModeleTableList() {
-    if (!(grist.docApi && grist.docApi.listTables)) return;
-    grist.docApi.listTables().then(function (tables) {
-      absAllTableIds = tables || [];
-      fillSelectWithOptions(absModeleTableSelect, absAllTableIds, absencesConfig.modele.table, 'Choisir une table…');
-      if (absModeleTableSelect.value) refreshAbsModeleColumnList(absModeleTableSelect.value);
-      else fillSelectWithOptions(absModeleColSelect, [], '', 'Choisir une colonne…');
-    }).catch(function (e) {
-      showConfigStatus('error', 'Impossible de lister les tables du document : ' + friendlyErrorMessage(e));
-    });
-  }
-
-  function refreshAbsModeleColumnList(tableId) {
-    if (!tableId) return;
-    grist.docApi.fetchTable(tableId).then(function (data) {
-      var cols = Object.keys(data || {}).filter(function (c) { return c !== 'id' && c !== 'manualSort'; });
-      fillSelectWithOptions(absModeleColSelect, cols, absencesConfig.modele.col, 'Choisir une colonne…');
-    }).catch(function (e) {
-      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
-    });
-  }
-
-  absModeleTableSelect.addEventListener('change', function () { refreshAbsModeleColumnList(absModeleTableSelect.value); });
-
   // Peuple les 10 sélecteurs de colonnes "Données" avec les colonnes vues
   // dans les derniers enregistrements chargés, en présélectionnant le
   // mapping déjà enregistré.
@@ -1306,9 +1251,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     absValAttente.value = absencesConfig.valeurs.attente;
     absValValidee.value = absencesConfig.valeurs.validee;
     absValRefusee.value = absencesConfig.valeurs.refusee;
-    absSignataire.value = absencesConfig.signataire;
     refreshAbsencesTableList(); // pré-sélectionne aussi la table et les colonnes déjà enregistrées
-    refreshAbsModeleTableList(); // idem pour la table/colonne du modèle HTML
   }
 
   function absencesConfigFromForm() {
@@ -1318,9 +1261,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     cfg.valeurs.attente = absValAttente.value.trim() || 'En attente';
     cfg.valeurs.validee = absValValidee.value.trim() || 'Validée';
     cfg.valeurs.refusee = absValRefusee.value.trim() || 'Refusée';
-    cfg.signataire = absSignataire.value.trim();
-    cfg.modele.table = absModeleTableSelect.value;
-    cfg.modele.col = absModeleColSelect.value;
     return cfg;
   }
 
@@ -1503,7 +1443,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           motif: cfg.col.motif ? textOf(r[cfg.col.motif]) : '',
           destination: cfg.col.destination ? textOf(r[cfg.col.destination]) : '',
           decision: textOf(r[cfg.col.decision]),
-          commentaire: cfg.col.commentaire ? textOf(r[cfg.col.commentaire]) : ''
+          commentaire: cfg.col.commentaire ? textOf(r[cfg.col.commentaire]) : '',
+          modele: cfg.col.modele ? textOf(r[cfg.col.modele]) : ''
         };
       });
       if (absDemandeurLooksLikeRefId) {
@@ -1750,31 +1691,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // ---- Génération du PDF « Autorisation d'absence » ----------------------
 
-  // ---- Modèle HTML optionnel (backoffice, table/colonne "modèle") -------
+  // ---- Modèle HTML par demande (colonne "Modèle d'autorisation d'absence") --
   //
-  // Si absencesConfig.modele est renseigné, la première ligne de la
-  // colonne indiquée est utilisée comme corps du PDF (à la place du bloc
-  // de champs + phrase d'autorisation codés en dur ci-dessous) : les
-  // jetons {{champ}} y sont remplacés par les valeurs de la demande, puis
-  // le HTML restant est réduit à du texte simple (sauts de ligne aux
-  // balises de bloc) avant d'être imprimé dans le PDF. Titre et bloc de
-  // signature restent, eux, toujours générés de la même façon.
-
-  var absModeleCache = { key: null, promise: null };
-
-  function fetchAbsModeleHtml() {
-    var cfg = absencesConfig.modele;
-    if (!cfg.table || !cfg.col) return Promise.resolve(null);
-    var key = cfg.table + '::' + cfg.col;
-    if (absModeleCache.key === key && absModeleCache.promise) return absModeleCache.promise;
-    absModeleCache.key = key;
-    absModeleCache.promise = grist.docApi.fetchTable(cfg.table).then(function (data) {
-      var col = data && data[cfg.col];
-      var val = (col && col.length) ? col[0] : null;
-      return (typeof val === 'string' && val.trim()) ? val : null;
-    }).catch(function () { return null; });
-    return absModeleCache.promise;
-  }
+  // Si la ligne d'absence a une valeur dans la colonne "modele" (configurée
+  // dans le backoffice, rôle ABS_ROLES "modele"), ce contenu HTML est
+  // utilisé comme corps du PDF (à la place du bloc de champs + phrase
+  // d'autorisation codés en dur ci-dessous) : les jetons {{champ}} y sont
+  // remplacés par les valeurs de la demande, puis le HTML restant est
+  // réduit à du texte simple (sauts de ligne aux balises de bloc) avant
+  // d'être imprimé dans le PDF. Titre et bloc "Fait le / signature"
+  // restent, eux, toujours générés de la même façon.
 
   function fillModeleTemplate(html, row) {
     var debut = parseGristDateTime(row.dateDebut);
@@ -1787,7 +1713,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       destination: row.destination || '',
       commentaire: row.commentaire || '',
       decision: row.decision || '',
-      signataire: absencesConfig.signataire || '',
       dategeneration: fmtDayTitle(new Date())
     };
     return html.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, function (m, name) {
@@ -1910,25 +1835,18 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     y += 16;
     doc.setDrawColor(150, 150, 150);
     doc.line(sigX, y, sigX + sigWidth, y);
-    y += 5;
-    doc.setFont(baseFont, 'normal');
-    doc.setFontSize(10);
-    doc.text(absencesConfig.signataire || '(signataire non configuré)', sigX, y);
   }
 
   function generateAbsenceAuthorizationPdf(row) {
-    if (!absencesConfig.signataire) {
-      showAbsStatus('warning', 'Aucun signataire n\'est configuré (paramètres cachés) : le nom apparaîtra vide sur le PDF.');
-    }
-    fetchAbsModeleHtml().then(function (html) {
-      var modeleText = html ? htmlTemplateToPlainText(fillModeleTemplate(html, row)) : null;
+    try {
+      var modeleText = row.modele ? htmlTemplateToPlainText(fillModeleTemplate(row.modele, row)) : null;
       var built = buildAbsenceAuthorizationPdfDocument(row, modeleText);
       if (!built) return;
       built.doc.save(built.filename);
       showAbsStatus('success', 'PDF généré : ' + built.filename);
-    }).catch(function (e) {
+    } catch (e) {
       showAbsStatus('error', 'Impossible de générer le PDF : ' + friendlyErrorMessage(e));
-    });
+    }
   }
 
   // ---- Date du jour par défaut, et limite FSJ configurable --------------
