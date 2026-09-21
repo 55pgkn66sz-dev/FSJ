@@ -85,11 +85,12 @@
   .week-label { margin: 0; }
 
   /* Planning hebdomadaire : heures à l'horizontale, jours à la verticale.
-     La colonne des noms de jour reste fixe ; seule la zone des heures
-     (axe + lignes) défile horizontalement. */
+     Chaque jour se subdivise en lignes fixes par peloton (P1, P2, P3, P4,
+     ACC.). Les colonnes des noms de jour et des badges de peloton restent
+     fixes ; seule la zone des heures (axe + lignes) défile horizontalement. */
   .week-timegrid { display: flex; }
   .week-timegrid__labels {
-    flex: 0 0 92px;
+    flex: 0 0 84px;
     display: flex;
     flex-direction: column;
   }
@@ -104,6 +105,25 @@
     border-bottom: 1px solid var(--border-default-grey);
   }
   .week-timegrid__daylabel--today { color: var(--bleu-france); }
+
+  .week-timegrid__pelotons {
+    flex: 0 0 42px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-default-grey);
+  }
+  .week-timegrid__pelotonday {
+    display: flex;
+    flex-direction: column;
+  }
+  .week-timegrid__pelotonday--today { background: #f5f5fe; }
+  .week-timegrid__pelotonrow {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border-default-grey);
+  }
 
   .week-timegrid__scroll {
     flex: 1 1 auto;
@@ -126,6 +146,7 @@
     color: var(--text-mention-grey);
     white-space: nowrap;
   }
+  .week-day-block { position: relative; box-sizing: border-box; }
   .week-timegrid__lane {
     position: relative;
     box-sizing: border-box;
@@ -179,6 +200,19 @@
   .week-event--restricted:hover, .week-event--restricted:focus {
     background: #fbdbd7;
     outline-color: #CE0500;
+  }
+  /* Occurrence "tout le monde" (aucun peloton renseigné) : barre fusionnée
+     en travers de toutes les lignes du jour, texte centré. */
+  .week-event--all {
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    background: #fef3e2;
+    border-left-color: #B45309;
+  }
+  .week-event--all:hover, .week-event--all:focus {
+    background: #fbe6c2;
+    outline-color: #B45309;
   }
   .week-event__badges { display: inline-flex; gap: 2px; flex: 0 0 auto; }
   .week-event__title { overflow: hidden; text-overflow: ellipsis; }
@@ -489,6 +523,39 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }).join('') + '</span>';
   }
 
+  // Construit le contenu visible d'une barre et le contenu de son
+  // infobulle DSFR : (badges) Apprenants / (gras) Occurrence, puis Lieu /
+  // Cadres, puis Consignes en plus petit — chaque bloc séparé par une
+  // ligne vide.
+  function weekEventInfo(o) {
+    var label = o.intitule || o.occurrence || '';
+    var group1 = (o.apprenants.length ? inlineBadgesHtml(o.apprenants, 'week-tooltip__badges') + '<br>' : '') + '<strong>' + escapeHtml(label) + '</strong>';
+    var group2Lines = [];
+    if (o.lieu) group2Lines.push(escapeHtml(o.lieu));
+    if (o.encadrement) group2Lines.push(escapeHtml(o.encadrement));
+    var groups = [group1];
+    if (group2Lines.length) groups.push(group2Lines.join('<br>'));
+    if (o.consignes) groups.push('<span class="week-tooltip__consignes">' + escapeHtml(o.consignes) + '</span>');
+    return {
+      restricted: isExcludedCode(o.code),
+      visibleContent: escapeHtml(label),
+      tooltipContent: groups.join('<br><br>')
+    };
+  }
+
+  // Rendu générique d'une barre positionnée en absolu (left/top/width/
+  // height déjà calculés par l'appelant).
+  function weekEventWrapHtml(o, left, width, top, height, extraClass) {
+    var info = weekEventInfo(o);
+    var tooltipId = 'weekTooltip' + (weekTooltipSeq++);
+    return '<div class="week-event-wrap" style="left:' + left + 'px; width:' + width + 'px; top:' + top + 'px; height:' + height + 'px;">' +
+      '<div class="week-event' + (info.restricted ? ' week-event--restricted' : '') + (extraClass ? ' ' + extraClass : '') + '" tabindex="0" aria-describedby="' + tooltipId + '">' +
+      info.visibleContent +
+      '</div>' +
+      '<span class="fr-tooltip fr-placement" id="' + tooltipId + '" role="tooltip">' + info.tooltipContent + '</span>' +
+      '</div>';
+  }
+
   function renderWeekView() {
     if (!recordsLoaded) {
       weekGrid.innerHTML = '<p class="fr-text--sm">Chargement des données…</p>';
@@ -531,57 +598,57 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     if (gridEnd <= gridStart) gridEnd = gridStart + 60;
 
     var PX_PER_MIN = 1.2;
-    var SUBROW_H = 22;   // hauteur d'une sous-ligne (une occurrence)
-    var ROW_PAD = 6;     // marge haut/bas dans la ligne d'un jour
+    var SUBROW_H = 22;   // hauteur d'une sous-ligne (occurrences simultanées sur un même peloton)
+    var ROW_PAD = 6;     // marge haut/bas dans la ligne d'un peloton
     var AXIS_H = 24;      // hauteur de la ligne d'en-tête (heures)
     var totalWidth = (gridEnd - gridStart) * PX_PER_MIN;
 
-    // Calcule la disposition (sous-lignes qui se chevauchent) de chaque
-    // jour à l'avance, pour connaître la hauteur de chaque ligne.
+    // Répartit les occurrences de chaque jour sur les lignes "peloton"
+    // (P1, P2, P3, P4, ACC.). Une occurrence dont aucun jeton "Apprenants"
+    // ne désigne un peloton connu concerne tout le monde : elle est mise
+    // à part et sera affichée en travers de toutes les lignes du jour,
+    // comme une cellule fusionnée.
     days.forEach(function (day) {
-      day.events = layoutDayEvents(day.occ);
-      day.maxCols = day.events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
-      day.rowHeight = day.maxCols * SUBROW_H + ROW_PAD;
+      var rowCodes = rowCodesForDay(day.date);
+      var byCode = {};
+      rowCodes.forEach(function (rc) { byCode[rc] = []; });
+      var spanning = [];
+
+      day.occ.forEach(function (o) {
+        var matched = matchedRowCodes(o.apprenants, rowCodes);
+        if (matched.length) {
+          matched.forEach(function (rc) { byCode[rc].push(o); });
+        } else {
+          spanning.push(o);
+        }
+      });
+
+      day.rows = rowCodes.map(function (rc) {
+        var events = layoutDayEvents(byCode[rc]);
+        var maxCols = events.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
+        return { code: rc, events: events, rowHeight: maxCols * SUBROW_H + ROW_PAD };
+      });
+      day.spanningEvents = layoutDayEvents(spanning);
+      day.totalHeight = day.rows.reduce(function (sum, row) { return sum + row.rowHeight; }, 0);
+      day.isEmpty = (day.occ.length === 0);
     });
-
-    function renderEvent(ev) {
-      var o = ev.o;
-      var left = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
-      var width = Math.max(6, (ev.end - ev.start) * PX_PER_MIN);
-      var top = ROW_PAD / 2 + ev.col * SUBROW_H;
-      var restricted = isExcludedCode(o.code);
-      var tooltipId = 'weekTooltip' + (weekTooltipSeq++);
-      var label = o.intitule || o.occurrence || '';
-
-      // Contenu visible dans la barre : badges Apprenants - Occurrence.
-      var visibleBadges = inlineBadgesHtml(o.apprenants, 'week-event__badges');
-      var visibleContent = (o.apprenants.length ? visibleBadges + ' - ' : '') + escapeHtml(label);
-
-      // Infobulle : (badges) Apprenants / (gras) Occurrence, puis Lieu /
-      // Cadres, puis Consignes en plus petit — chaque bloc séparé par une
-      // ligne vide.
-      var group1 = (o.apprenants.length ? inlineBadgesHtml(o.apprenants, 'week-tooltip__badges') + '<br>' : '') + '<strong>' + escapeHtml(label) + '</strong>';
-      var group2Lines = [];
-      if (o.lieu) group2Lines.push(escapeHtml(o.lieu));
-      if (o.encadrement) group2Lines.push(escapeHtml(o.encadrement));
-      var groups = [group1];
-      if (group2Lines.length) groups.push(group2Lines.join('<br>'));
-      if (o.consignes) groups.push('<span class="week-tooltip__consignes">' + escapeHtml(o.consignes) + '</span>');
-      var tooltipContent = groups.join('<br><br>');
-
-      return '<div class="week-event-wrap" style="left:' + left + 'px; width:' + width + 'px; top:' + top + 'px; height:' + (SUBROW_H - 2) + 'px;">' +
-        '<div class="week-event' + (restricted ? ' week-event--restricted' : '') + '" tabindex="0" aria-describedby="' + tooltipId + '">' +
-        visibleContent +
-        '</div>' +
-        '<span class="fr-tooltip fr-placement" id="' + tooltipId + '" role="tooltip">' + tooltipContent + '</span>' +
-        '</div>';
-    }
 
     // Colonne fixe des noms de jour (ne défile pas horizontalement).
     var labelsHtml = '<div class="week-timegrid__label-spacer" style="height:' + AXIS_H + 'px"></div>';
+    // Colonne fixe des badges de peloton, en début de ligne (ne défile pas).
+    var pelotonsHtml = '<div class="week-timegrid__label-spacer" style="height:' + AXIS_H + 'px"></div>';
     days.forEach(function (day, i) {
-      labelsHtml += '<div class="week-timegrid__daylabel' + (day.isToday ? ' week-timegrid__daylabel--today' : '') + '" style="height:' + day.rowHeight + 'px">' +
+      labelsHtml += '<div class="week-timegrid__daylabel' + (day.isToday ? ' week-timegrid__daylabel--today' : '') + '" style="height:' + day.totalHeight + 'px">' +
         dayNames[i] + '&nbsp;' + escapeHtml(fmtDayTitle(day.date)) +
+        '</div>';
+
+      var rowBadgesHtml = day.rows.map(function (row) {
+        return '<div class="week-timegrid__pelotonrow" style="height:' + row.rowHeight + 'px">' +
+          '<span class="fr-badge fr-badge--sm">' + escapeHtml(rowLabel(row.code)) + '</span>' +
+          '</div>';
+      }).join('');
+      pelotonsHtml += '<div class="week-timegrid__pelotonday' + (day.isToday ? ' week-timegrid__pelotonday--today' : '') + '" style="height:' + day.totalHeight + 'px">' +
+        rowBadgesHtml +
         '</div>';
     });
 
@@ -594,20 +661,51 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var scrollHtml = '<div class="week-timegrid__axis" style="width:' + totalWidth + 'px; height:' + AXIS_H + 'px">' + axisHtml + '</div>';
 
     days.forEach(function (day) {
-      var gridlines = '';
+      var gridlinesTpl = '';
       for (var h2 = gridStart; h2 <= gridEnd; h2 += 60) {
-        gridlines += '<div class="week-timegrid__gridline" style="left:' + ((h2 - gridStart) * PX_PER_MIN) + 'px"></div>';
+        gridlinesTpl += '<div class="week-timegrid__gridline" style="left:' + ((h2 - gridStart) * PX_PER_MIN) + 'px"></div>';
       }
-      var eventsHtml = day.events.map(renderEvent).join('');
 
-      scrollHtml += '<div class="week-timegrid__lane' + (day.isToday ? ' week-timegrid__lane--today' : '') + '" style="width:' + totalWidth + 'px; height:' + day.rowHeight + 'px">' +
-        gridlines + eventsHtml +
-        (day.events.length ? '' : '<p class="week-day__empty">Aucune occurrence</p>') +
+      // Une ligne (lane) par peloton, avec ses propres occurrences.
+      var lanesHtml = day.rows.map(function (row) {
+        var eventsHtml = row.events.map(function (ev) {
+          var left = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
+          var width = Math.max(6, (ev.end - ev.start) * PX_PER_MIN);
+          var top = ROW_PAD / 2 + ev.col * SUBROW_H;
+          return weekEventWrapHtml(ev.o, left, width, top, SUBROW_H - 2);
+        }).join('');
+        return '<div class="week-timegrid__lane' + (day.isToday ? ' week-timegrid__lane--today' : '') + '" style="width:' + totalWidth + 'px; height:' + row.rowHeight + 'px">' +
+          gridlinesTpl + eventsHtml +
+          '</div>';
+      }).join('');
+
+      // Occurrences "tout le monde" : une barre en travers de toutes les
+      // lignes du jour (cellule fusionnée) ; si plusieurs se chevauchent
+      // dans le temps, elles se partagent la hauteur du jour côte à côte.
+      var spanningCols = day.spanningEvents.reduce(function (m, ev) { return Math.max(m, ev.cols); }, 1);
+      var spanningHtml = day.spanningEvents.map(function (ev) {
+        var left = Math.max(0, (ev.start - gridStart) * PX_PER_MIN);
+        var width = Math.max(6, (ev.end - ev.start) * PX_PER_MIN);
+        var slice = day.totalHeight / spanningCols;
+        var top = ev.col * slice + 1;
+        var height = Math.max(6, slice - 2);
+        return weekEventWrapHtml(ev.o, left, width, top, height, 'week-event--all');
+      }).join('');
+
+      var emptyHtml = day.isEmpty ? '<p class="week-day__empty">Aucune occurrence</p>' : '';
+
+      // Les barres "tout le monde" sont peintes en premier (fond fusionné
+      // sur toute la hauteur du jour) ; les lignes de peloton viennent
+      // ensuite, pour que leurs propres occurrences restent visibles
+      // au-dessus si elles chevauchent une occurrence commune dans le temps.
+      scrollHtml += '<div class="week-day-block" style="width:' + totalWidth + 'px; height:' + day.totalHeight + 'px">' +
+        spanningHtml + lanesHtml + emptyHtml +
         '</div>';
     });
 
     weekGrid.innerHTML =
       '<div class="week-timegrid__labels">' + labelsHtml + '</div>' +
+      '<div class="week-timegrid__pelotons">' + pelotonsHtml + '</div>' +
       '<div class="week-timegrid__scroll">' + scrollHtml + '</div>';
   }
 
@@ -670,6 +768,56 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return arr
       .map(function (v) { return String(v).trim(); })
       .filter(function (v) { return v.length > 0; });
+  }
+
+  // ---- Répartition par peloton (vue Progression) ---------------------------
+
+  // Lignes fixes affichées en début de chaque jour, dans cet ordre. Le
+  // peloton ACCULTURATION n'existe que jusqu'au 23/10 inclus : à partir du
+  // 24/10, il n'y a plus d'acculturation, donc plus de ligne "ACC.".
+  var PELOTON_CODES = ['P1', 'P2', 'P3', 'P4'];
+  var ACC_CODE = 'ACC';
+  var ACC_END_MONTH = 9;  // octobre (mois 0-indexé)
+  var ACC_END_DAY = 24;
+
+  function normalizePelotonToken(value) {
+    return String(value)
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // retire les accents
+      .trim()
+      .toUpperCase()
+      .replace(/\.+$/, ''); // "ACC." -> "ACC"
+  }
+
+  function accActiveOn(day) {
+    var cutoff = new Date(day.getFullYear(), ACC_END_MONTH, ACC_END_DAY);
+    return day < cutoff;
+  }
+
+  // Lignes (pelotons) à afficher pour un jour donné.
+  function rowCodesForDay(day) {
+    return accActiveOn(day) ? PELOTON_CODES.concat([ACC_CODE]) : PELOTON_CODES.slice();
+  }
+
+  function rowLabel(code) {
+    return code === ACC_CODE ? 'ACC.' : code;
+  }
+
+  // Un jeton de la colonne "Apprenants" désigne-t-il ce peloton ?
+  function tokenMatchesRow(token, rowCode) {
+    var t = normalizePelotonToken(token);
+    if (rowCode === ACC_CODE) return t === 'ACC' || t.indexOf('ACCULT') === 0;
+    return t === rowCode;
+  }
+
+  // Sur quelles lignes une occurrence doit-elle être placée ? Si aucun des
+  // jetons "Apprenants" ne correspond à un peloton connu (aucun "P" n'est
+  // renseigné), l'occurrence concerne tout le monde : on renvoie un
+  // tableau vide, et c'est à l'appelant de la répartir sur toutes les
+  // lignes actives du jour (case "tout le monde").
+  function matchedRowCodes(apprenants, rowCodes) {
+    return rowCodes.filter(function (rc) {
+      return apprenants.some(function (a) { return tokenMatchesRow(a, rc); });
+    });
   }
 
   // ---- Parsing des dates Grist ---------------------------------------------
