@@ -52,8 +52,9 @@
   .prog-card--encadrement-only {
     border-left-color: #CE0500;
   }
-  .prog-card .prog-title { font-weight: 700; }
+  .prog-card .prog-title { font-weight: 700; margin: 0 0 0.15rem; }
   .prog-card .prog-line { margin: 0.15rem 0; }
+  .prog-card .prog-line + .prog-line { margin-top: 0; }
   .prog-card .prog-line--meta { font-size: 0.85em; color: var(--text-mention-grey); }
   .prog-card .prog-line--consignes { font-size: 0.75em; }
   .badges { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
@@ -448,7 +449,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       html += '<p class="section-title">Progression</p>';
       html += sections.progression.map(function (o) {
         var lines = '';
-        var metaText = [o.encadrement, o.lieu].filter(Boolean).join(', ');
+        var metaText = [o.lieu, o.encadrement].filter(Boolean).join(', ');
         if (metaText) lines += '<p class="prog-line prog-line--meta">' + escapeHtml(metaText) + '</p>';
         if (o.consignes) lines += '<p class="prog-line prog-line--consignes">' + escapeHtml(o.consignes) + '</p>';
         var cardClass = 'prog-card' + (isExcludedCode(o.code) ? ' prog-card--encadrement-only' : '');
@@ -526,12 +527,27 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var marianneOk = registerMarianneFont(doc);
     var baseFont = marianneOk ? 'Marianne' : 'helvetica';
 
-    var marginLeft = 20;
-    var marginRight = 20;
-    var marginBottom = 20;
+    var marginLeft = 15;
+    var marginRight = 15;
+    var marginBottom = 9;
     var pageWidth = doc.internal.pageSize.getWidth();
     var pageHeight = doc.internal.pageSize.getHeight();
-    var lineHeight = 6.2;
+    var lineHeight = 4.8;
+
+    // Tailles et espacements resserrés pour que la feuille de service tienne
+    // sur une seule page, même avec un programme chargé (~18-20 occurrences).
+    var TITLE_FONT = 9.3;
+    var META_FONT = 7.2;
+    var CONSIGNES_FONT = 6.2;
+    var META_LH = 3.6;
+    var CONSIGNES_LH = 3.0;
+    var BADGE_H = 3.6;
+    var BADGE_FONT = 6.2;
+    var BADGE_ROW_GAP = 0.8;
+    var GAP_META = 0.55;
+    var GAP_CONSIGNES = 0.45;
+    var GAP_BADGE = 0.7;
+    var ROW_PAD = 1.1; // marge haut/bas du fond pastel autour de chaque bloc
 
     // La version "encadrement" affiche un bandeau d'information importante
     // en haut de chaque page (façon DSFR fr-notice) : on réserve la place
@@ -539,7 +555,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var bannerHeight = 14;
     var bannerText = 'Cette version ne doit en aucun cas être diffusée aux stagiaires.';
     var hasBanner = (mode === 'cadres');
-    var marginTop = hasBanner ? (22 + bannerHeight) : 22;
+    var marginTop = (hasBanner ? bannerHeight : 0) + 8;
     var y = marginTop;
 
     var bleuFrance = [0, 0, 145]; // #000091 — Bleu France (DSFR)
@@ -584,25 +600,31 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     doc.setDrawColor(bleuFrance[0], bleuFrance[1], bleuFrance[2]);
     doc.setLineWidth(0.5);
     doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += lineHeight * 1.6;
+    y += lineHeight * 1.0;
 
     doc.setTextColor(0, 0, 0);
 
     // Dessine une rangée de badges (apprenants), avec retour à la ligne et
-    // saut de page si nécessaire. Renvoie la position Y après le dernier badge.
+    // saut de page si nécessaire.
+    // Convention : `y` en entrée = HAUT du premier badge (comme un flux de
+    // texte classique) ; `y` en sortie = BAS du dernier badge. Ceci garantit
+    // que la hauteur réellement dessinée correspond exactement à la hauteur
+    // mesurée par measureBadgeRows, quel que soit le nombre de lignes de
+    // badges — et élimine le chevauchement avec le bloc suivant (les badges
+    // débordaient auparavant sur le fond pastel de l'occurrence d'après).
     function drawBadges(names) {
       if (!names.length) return;
-      var badgeHeight = 5.2;
-      var paddingX = 1.8;
-      var gap = 1.8;
+      var paddingX = 1.6;
+      var gap = 1.6;
+      var rowAdvance = BADGE_H + BADGE_ROW_GAP;
       var rightLimit = pageWidth - marginRight;
 
-      ensureRoom(badgeHeight);
-      y += badgeHeight;
+      ensureRoom(BADGE_H);
       var x = marginLeft;
+      var rowTop = y;
 
       doc.setFont(baseFont, 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(BADGE_FONT);
 
       names.forEach(function (name) {
         var textW = doc.getTextWidth(name);
@@ -610,20 +632,21 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
         if (x + badgeW > rightLimit && x > marginLeft) {
           x = marginLeft;
-          y += badgeHeight + 1.2;
-          ensureRoom(0);
+          rowTop += rowAdvance;
+          ensureRoom(BADGE_H);
         }
 
         doc.setFillColor(238, 238, 238);
         doc.setDrawColor(238, 238, 238);
-        doc.roundedRect(x, y - badgeHeight + 1.4, badgeW, badgeHeight, 1, 1, 'F');
+        doc.roundedRect(x, rowTop, badgeW, BADGE_H, 0.8, 0.8, 'F');
         doc.setTextColor(58, 58, 58);
-        doc.text(name, x + paddingX, y - 1.3);
+        doc.text(name, x + paddingX, rowTop + BADGE_H - 1.3);
 
         x += badgeW + gap;
       });
 
       doc.setTextColor(0, 0, 0);
+      y = rowTop + BADGE_H;
     }
 
     function printWrapped(text, x, maxWidth, bold) {
@@ -638,34 +661,33 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       });
     }
 
-    doc.setFontSize(11);
+    doc.setFontSize(TITLE_FONT);
 
     // ---- Section Permanences ----
     if (sections.permanences.length) {
       ensureRoom(lineHeight);
       doc.setFont(baseFont, 'bold');
+      doc.setFontSize(TITLE_FONT);
       drawUnderlinedText(doc, 'Permanences', marginLeft, y);
-      y += lineHeight * 1.3;
+      y += lineHeight * 1.0;
 
       sections.permanences.forEach(function (o) {
         ensureRoom(lineHeight);
+        doc.setFontSize(TITLE_FONT);
         printWrapped(o.occurrence, marginLeft, pageWidth - marginLeft - marginRight, false);
-        y += lineHeight;
+        y += lineHeight * 0.85;
         if (o.apprenants.length) {
           drawBadges(o.apprenants);
-          y += 2;
+          y += GAP_BADGE;
         }
       });
 
-      y += lineHeight * 0.6;
+      y += lineHeight * 0.5;
     }
 
     // ---- Section Progression ----
     if (sections.progression.length) {
       var contentWidth = pageWidth - marginLeft - marginRight;
-      var META_LH = 5.0;
-      var CONSIGNES_LH = 4.3;
-      var BADGE_H = 5.2;
       var metaColor = [110, 110, 110];
       var pastel = [235, 241, 250]; // fond pastel (une ligne sur deux)
 
@@ -677,10 +699,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
       function measureBadgeRows(names) {
         if (!names.length) return 0;
-        var paddingX = 1.8, gap = 1.8;
+        var paddingX = 1.6, gap = 1.6;
         var rightLimit = pageWidth - marginRight;
         doc.setFont(baseFont, 'normal');
-        doc.setFontSize(8);
+        doc.setFontSize(BADGE_FONT);
         var rows = 1;
         var x = marginLeft;
         names.forEach(function (name) {
@@ -707,48 +729,52 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
       ensureRoom(lineHeight);
       doc.setFont(baseFont, 'bold');
-      doc.setFontSize(11);
+      doc.setFontSize(TITLE_FONT);
       drawUnderlinedText(doc, 'Progression', marginLeft, y);
-      y += lineHeight * 1.3;
+      y += lineHeight * 1.0;
 
       sections.progression.forEach(function (o, index) {
         var titleText = fmtHM(o.debut) + ' - ' + fmtHM(o.fin) + ' : ' + o.intitule;
         var metaText = [o.encadrement, o.lieu].filter(Boolean).join(', ');
         var consignesText = o.consignes || '';
 
-        var titleLines = measureWrapped(titleText, 11, true);
-        var metaLines = metaText ? measureWrapped(metaText, 9, false) : [];
-        var consignesLines = consignesText ? measureWrapped(consignesText, 7.5, false) : [];
+        var titleLines = measureWrapped(titleText, TITLE_FONT, true);
+        var metaLines = metaText ? measureWrapped(metaText, META_FONT, false) : [];
+        var consignesLines = consignesText ? measureWrapped(consignesText, CONSIGNES_FONT, false) : [];
         var badgeRows = measureBadgeRows(o.apprenants);
 
         var blockHeight = titleLines.length * lineHeight;
-        if (metaLines.length) blockHeight += metaLines.length * META_LH + 1.2;
-        if (consignesLines.length) blockHeight += consignesLines.length * CONSIGNES_LH + 1.0;
-        if (badgeRows) blockHeight += badgeRows * (BADGE_H + 1.2) + 1.5;
+        if (metaLines.length) blockHeight += metaLines.length * META_LH + GAP_META;
+        if (consignesLines.length) blockHeight += consignesLines.length * CONSIGNES_LH + GAP_CONSIGNES;
+        if (badgeRows) blockHeight += (badgeRows - 1) * (BADGE_H + BADGE_ROW_GAP) + BADGE_H + GAP_BADGE;
 
-        ensureRoom(blockHeight + 4);
+        ensureRoom(blockHeight + ROW_PAD * 2);
 
         var rowStartY = y;
         if (index % 2 === 0) {
           doc.setFillColor(pastel[0], pastel[1], pastel[2]);
-          doc.rect(marginLeft - 3, rowStartY - 4.5, contentWidth + 6, blockHeight + 3, 'F');
+          doc.rect(marginLeft - 3, rowStartY - ROW_PAD, contentWidth + 6, blockHeight + ROW_PAD * 2, 'F');
         }
 
-        drawLines(titleLines, 11, true, [0, 0, 0], lineHeight);
+        drawLines(titleLines, TITLE_FONT, true, [0, 0, 0], lineHeight);
         if (metaLines.length) {
-          y += 1.2;
-          drawLines(metaLines, 9, false, metaColor, META_LH);
+          y += GAP_META;
+          drawLines(metaLines, META_FONT, false, metaColor, META_LH);
         }
         if (consignesLines.length) {
-          y += 1.0;
-          drawLines(consignesLines, 7.5, false, [0, 0, 0], CONSIGNES_LH);
+          y += GAP_CONSIGNES;
+          drawLines(consignesLines, CONSIGNES_FONT, false, [0, 0, 0], CONSIGNES_LH);
         }
         if (o.apprenants.length) {
-          y += 1.5;
+          y += GAP_BADGE;
           drawBadges(o.apprenants);
         }
 
-        y += lineHeight * 0.6; // séparation entre occurrences
+        // `y` est maintenant exactement à rowStartY + blockHeight (fin du
+        // contenu). ROW_PAD de part et d'autre forme l'espacement inter-
+        // occurrences : les fonds pastel se touchent sans jamais chevaucher
+        // le contenu du bloc voisin.
+        y += ROW_PAD * 2;
       });
     }
 
