@@ -394,17 +394,27 @@
   }
   .req-table th { font-weight: 700; }
   .req-actions { display: inline-flex; gap: 2px; }
-  .req-actions .fr-btn[aria-pressed="true"] { background-color: var(--bleu-france); color: #fff; }
-  .abs-decision {
-    display: inline-block;
-    padding: 0.1rem 0.6rem;
-    border-radius: 1rem;
-    font-size: 0.85em;
-    font-weight: 500;
+  /* L'icône de décision active (validée/refusée/en attente) se colore
+     plutôt que de dupliquer l'information dans une colonne "Décision" à
+     part (supprimée) : vert/rouge/jaune, mêmes teintes système que les
+     anciens badges. */
+  .req-actions .fr-btn[data-action="validee"][aria-pressed="true"] { color: #18753c; }
+  .req-actions .fr-btn[data-action="refusee"][aria-pressed="true"] { color: #ce0500; }
+  .req-actions .fr-btn[data-action="attente"][aria-pressed="true"] { color: #716043; }
+
+  /* Filtre "Demandeur" : champ de recherche clavier en tête du menu
+     déroulant, pour retrouver rapidement un nom dans une longue liste. */
+  .dropdown-menu__search {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border-default-grey);
   }
-  .abs-decision--attente { background: #eee; color: #3a3a3a; }
-  .abs-decision--validee { background: #b8fec9; color: #18753c; }
-  .abs-decision--refusee { background: #ffe9e9; color: #ce0500; }
+  .dropdown-menu__search input {
+    width: 100%;
+    border: 1px solid var(--border-default-grey);
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9em;
+  }
 </style>
 </head>
 <body>
@@ -575,63 +585,75 @@
 
     <form id="configForm">
 
-      <div class="scale-toggle fr-mb-3w" id="configSectionToggle" role="group" aria-label="Réglages par page">
-        <button class="fr-btn fr-btn--sm" id="configSectionBtn_donnees" type="button" aria-pressed="false" data-section="donnees">
-          Données
-        </button>
-        <button class="fr-btn fr-btn--sm" id="configSectionBtn_progression" type="button" aria-pressed="false" data-section="progression">
-          Progression (PDF)
-        </button>
-        <button class="fr-btn fr-btn--sm" id="configSectionBtn_absences" type="button" aria-pressed="false" data-section="absences">
-          Absences
-        </button>
+      <div class="fr-segmented fr-segmented--sm fr-mb-3w" id="configSectionToggle">
+        <fieldset class="fr-segmented__fieldset">
+          <legend class="fr-segmented__legend">Réglages par page</legend>
+          <div class="fr-segmented__elements">
+            <div class="fr-segmented__element">
+              <input value="donnees" type="radio" id="configSectionRadio_donnees" name="configSection" data-section="donnees" checked>
+              <label class="fr-label" for="configSectionRadio_donnees">Données</label>
+            </div>
+            <div class="fr-segmented__element">
+              <input value="progression" type="radio" id="configSectionRadio_progression" name="configSection" data-section="progression">
+              <label class="fr-label" for="configSectionRadio_progression">Progression (PDF)</label>
+            </div>
+            <div class="fr-segmented__element">
+              <input value="fsj" type="radio" id="configSectionRadio_fsj" name="configSection" data-section="fsj">
+              <label class="fr-label" for="configSectionRadio_fsj">FSJ</label>
+            </div>
+            <div class="fr-segmented__element">
+              <input value="absences" type="radio" id="configSectionRadio_absences" name="configSection" data-section="absences">
+              <label class="fr-label" for="configSectionRadio_absences">Absences</label>
+            </div>
+          </div>
+        </fieldset>
       </div>
 
       <div id="configSectionDonnees">
-        <h3 class="fr-text--lead config-section-title">Données (Génération &amp; Progression)</h3>
+        <h3 class="fr-text--lead config-section-title">Données</h3>
         <p class="fr-hint-text fr-mb-2w">
           Associez chaque rôle utilisé par le widget à l'une des colonnes de la table à laquelle il est relié dans Grist. Heure de début, Heure de fin, Occurrence et Intitulé sont obligatoires ; ce réglage remplace l'association de colonnes du panneau natif de Grist.
         </p>
 
         <div class="config-grid-2col">
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Debut">Colonne — Heure de début</label>
+            <label class="fr-label" for="genCol_Debut">Heure de début</label>
             <select class="fr-select" id="genCol_Debut" name="genCol_Debut"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Fin">Colonne — Heure de fin</label>
+            <label class="fr-label" for="genCol_Fin">Heure de fin</label>
             <select class="fr-select" id="genCol_Fin" name="genCol_Fin"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Occurrence">Colonne — Occurrence (permanences)</label>
+            <label class="fr-label" for="genCol_Occurrence">Occurrence (permanences)</label>
             <select class="fr-select" id="genCol_Occurrence" name="genCol_Occurrence"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Intitule">Colonne — Intitulé (progression)</label>
+            <label class="fr-label" for="genCol_Intitule">Intitulé (progression)</label>
             <select class="fr-select" id="genCol_Intitule" name="genCol_Intitule"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Code">Colonne — Code <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="genCol_Code">Code <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="genCol_Code" name="genCol_Code"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Lieu">Colonne — Lieu <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="genCol_Lieu">Lieu <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="genCol_Lieu" name="genCol_Lieu"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Encadrement">Colonne — Encadrement <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="genCol_Encadrement">Encadrement <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="genCol_Encadrement" name="genCol_Encadrement"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Consignes">Colonne — Consignes <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="genCol_Consignes">Consignes <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="genCol_Consignes" name="genCol_Consignes"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Apprenants">Colonne — Apprenants <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="genCol_Apprenants">Apprenants <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="genCol_Apprenants" name="genCol_Apprenants"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Type">Colonne — Type <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="genCol_Type">Type <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="genCol_Type" name="genCol_Type"></select>
           </div>
         </div>
@@ -660,6 +682,18 @@
         </div>
       </div>
 
+      <div id="configSectionFsj" hidden>
+        <h3 class="fr-text--lead config-section-title">Feuille de service journalier (FSJ)</h3>
+
+        <div class="fr-checkbox-group fr-mt-2w">
+          <input type="checkbox" id="configFsjLimit3Days" name="configFsjLimit3Days" checked>
+          <label class="fr-label" for="configFsjLimit3Days">
+            Limiter la génération de la FSJ aux 3 prochains jours
+            <span class="fr-hint-text">Le champ de sélection de date est alors réduit aux 3 prochains jours (aujourd'hui inclus) : impossible de générer une FSJ à une date plus lointaine. Les dates passées restent toujours accessibles.</span>
+          </label>
+        </div>
+      </div>
+
       <div id="configSectionAbsences" hidden>
         <h3 class="fr-text--lead config-section-title">Gestion des absences</h3>
         <p class="fr-hint-text fr-mb-2w">
@@ -675,31 +709,31 @@
 
         <div class="config-grid-2col">
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_demandeur">Colonne — Demandeur</label>
+            <label class="fr-label" for="absCol_demandeur">Demandeur</label>
             <select class="fr-select" id="absCol_demandeur" name="absCol_demandeur"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_decision">Colonne — Décision</label>
+            <label class="fr-label" for="absCol_decision">Décision</label>
             <select class="fr-select" id="absCol_decision" name="absCol_decision"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_dateDebut">Colonne — Date de début</label>
+            <label class="fr-label" for="absCol_dateDebut">Date de début</label>
             <select class="fr-select" id="absCol_dateDebut" name="absCol_dateDebut"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_dateFin">Colonne — Date de fin</label>
+            <label class="fr-label" for="absCol_dateFin">Date de fin</label>
             <select class="fr-select" id="absCol_dateFin" name="absCol_dateFin"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_motif">Colonne — Motif <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="absCol_motif">Type d'absence <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="absCol_motif" name="absCol_motif"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_destination">Colonne — Destination <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="absCol_destination">Destination <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="absCol_destination" name="absCol_destination"></select>
           </div>
           <div class="fr-select-group">
-            <label class="fr-label" for="absCol_commentaire">Colonne — Commentaire <span class="fr-hint-text">(optionnel)</span></label>
+            <label class="fr-label" for="absCol_commentaire">Commentaire <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="absCol_commentaire" name="absCol_commentaire"></select>
           </div>
         </div>
@@ -720,12 +754,41 @@
           </div>
         </div>
 
-        <div class="fr-input-group fr-mt-2w">
-          <label class="fr-label" for="absSignataire">
-            Signataire de l'autorisation d'absence
-            <span class="fr-hint-text">Nom (et éventuellement qualité/grade) imprimé sur le PDF « Autorisation d'absence », une fois une demande validée.</span>
-          </label>
-          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : Cdt DUPONT, chef de la division">
+        <h3 class="fr-text--lead config-section-title">Modèle PDF « Autorisation d'absence »</h3>
+        <p class="fr-hint-text fr-mb-2w">
+          Table et colonne où trouver le modèle HTML à éditer en PDF (optionnel : à défaut, une mise en page par défaut est utilisée).
+        </p>
+        <div class="config-grid-2col">
+          <div class="fr-select-group">
+            <label class="fr-label" for="absModeleTable">Table du modèle</label>
+            <select class="fr-select" id="absModeleTable" name="absModeleTable">
+              <option value="">Choisir une table…</option>
+            </select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absModeleCol">Colonne du modèle</label>
+            <select class="fr-select" id="absModeleCol" name="absModeleCol"></select>
+          </div>
+        </div>
+
+        <h3 class="fr-text--lead config-section-title">Signataire</h3>
+        <p class="fr-hint-text fr-mb-2w">
+          À choisir dans la liste des demandeurs déjà connus, ou à saisir librement ci-dessous. En cas de saisie manuelle, c'est elle qui est utilisée sur le PDF.
+        </p>
+        <div class="config-grid-2col">
+          <div class="fr-select-group">
+            <label class="fr-label" for="absSignataireSelect">Choisir un demandeur</label>
+            <select class="fr-select" id="absSignataireSelect" name="absSignataireSelect">
+              <option value="">— Aucun —</option>
+            </select>
+          </div>
+          <div class="fr-input-group">
+            <label class="fr-label" for="absSignataire">
+              Saisie manuelle
+              <span class="fr-hint-text">Nom (et éventuellement qualité/grade) imprimé sur le PDF « Autorisation d'absence ». Prévaut sur le choix ci-contre si renseignée.</span>
+            </label>
+            <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : Cdt DUPONT, chef de la division">
+          </div>
         </div>
       </div>
 
@@ -761,6 +824,18 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 <script>
 (function () {
   'use strict';
+
+  // Reformule certains messages d'erreur bruts de Grist en un texte
+  // compréhensible côté utilisateur. Utilisée par tous les .catch()
+  // affichant une erreur (Promise.all des setOption, applyUserActions,
+  // fetchTable/listTables...).
+  function friendlyErrorMessage(e) {
+    var raw = (e && e.message) ? e.message : String(e);
+    if (raw && raw.indexOf('Blocked by column update access rules') !== -1) {
+      return 'Vous ne disposez pas des droits nécessaires. Contactez l\'équipe projet si vous pensez qu\'il s\'agit d\'une erreur.';
+    }
+    return raw;
+  }
 
   var allRecords = [];
   var recordsLoaded = false;
@@ -805,17 +880,26 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var configCancelBtn = document.getElementById('configCancelBtn');
   var configSaveBtn = document.getElementById('configSaveBtn');
 
-  // Contrôle segmenté du backoffice (Données / Progression / Absences)
+  // Contrôle segmenté du backoffice (Données / Progression / FSJ / Absences),
+  // conforme au composant DSFR "Contrôle segmenté" (fr-segmented, un input
+  // radio par élément) plutôt qu'à l'imitation par boutons utilisée pour la
+  // bascule Semaine/Jour de la vue Progression.
   var configSectionPanels = {
     donnees: document.getElementById('configSectionDonnees'),
     progression: document.getElementById('configSectionProgression'),
+    fsj: document.getElementById('configSectionFsj'),
     absences: document.getElementById('configSectionAbsences')
   };
-  var configSectionButtons = {
-    donnees: document.getElementById('configSectionBtn_donnees'),
-    progression: document.getElementById('configSectionBtn_progression'),
-    absences: document.getElementById('configSectionBtn_absences')
+  var configSectionRadios = {
+    donnees: document.getElementById('configSectionRadio_donnees'),
+    progression: document.getElementById('configSectionRadio_progression'),
+    fsj: document.getElementById('configSectionRadio_fsj'),
+    absences: document.getElementById('configSectionRadio_absences')
   };
+  var configFsjLimit3Days = document.getElementById('configFsjLimit3Days');
+  var absModeleTableSelect = document.getElementById('absModeleTable');
+  var absModeleColSelect = document.getElementById('absModeleCol');
+  var absSignataireSelect = document.getElementById('absSignataireSelect');
   var genColSelects = {};
   ['Debut', 'Fin', 'Occurrence', 'Intitule', 'Code', 'Lieu', 'Encadrement', 'Consignes', 'Apprenants', 'Type'].forEach(function (key) {
     genColSelects[key] = document.getElementById('genCol_' + key);
@@ -1013,6 +1097,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // bloc marque du header (logo + intitulé du service).
 
   var progressionPdfEnabled = true; // par défaut, activé (comportement inchangé tant que l'option n'a jamais été enregistrée)
+  var fsjLimit3Days = true; // par défaut, activé (comportement inchangé tant que l'option n'a jamais été enregistrée)
 
   function parseYmd(value) {
     if (!value) return null;
@@ -1055,7 +1140,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       table: '',
       col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '' },
       valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' },
-      signataire: ''
+      signataire: '',
+      // Table/colonne où trouver un modèle HTML de l'autorisation d'absence
+      // à éditer en PDF (optionnel : à défaut, une mise en page par défaut
+      // codée en dur est utilisée — voir renderAbsenceAuthorizationPdfContent).
+      modele: { table: '', col: '' }
     };
   }
 
@@ -1077,6 +1166,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         if (raw.valeurs.refusee) cfg.valeurs.refusee = String(raw.valeurs.refusee);
       }
       if (typeof raw.signataire === 'string') cfg.signataire = raw.signataire;
+      if (raw.modele && typeof raw.modele === 'object') {
+        if (typeof raw.modele.table === 'string') cfg.modele.table = raw.modele.table;
+        if (typeof raw.modele.col === 'string') cfg.modele.col = raw.modele.col;
+      }
     }
     return cfg;
   }
@@ -1114,7 +1207,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       if (absTableSelect.value) refreshAbsencesColumnLists(absTableSelect.value);
       else ABS_ROLES.forEach(function (role) { fillSelectWithOptions(absColSelects[role], [], '', 'Choisir une colonne…'); });
     }).catch(function (e) {
-      showConfigStatus('error', 'Impossible de lister les tables du document : ' + (e && e.message ? e.message : e));
+      showConfigStatus('error', 'Impossible de lister les tables du document : ' + friendlyErrorMessage(e));
     });
   }
 
@@ -1128,12 +1221,69 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       ABS_ROLES.forEach(function (role) {
         fillSelectWithOptions(absColSelects[role], cols, absencesConfig.col[role], 'Choisir une colonne…');
       });
+      refreshAbsSignataireOptions(); // la colonne Demandeur vient d'être (re)sélectionnée
     }).catch(function (e) {
-      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + (e && e.message ? e.message : e));
+      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
     });
   }
 
-  absTableSelect.addEventListener('change', function () { refreshAbsencesColumnLists(absTableSelect.value); });
+  absTableSelect.addEventListener('change', function () {
+    refreshAbsencesColumnLists(absTableSelect.value); // rafraîchit aussi la liste des signataires une fois résolu
+  });
+
+  // Liste les tables du document pour peupler le sélecteur de table du
+  // modèle HTML de l'autorisation d'absence (indépendant de la table des
+  // demandes : ce peut être une table dédiée à un seul modèle).
+  function refreshAbsModeleTableList() {
+    if (!(grist.docApi && grist.docApi.listTables)) return;
+    grist.docApi.listTables().then(function (tables) {
+      absAllTableIds = tables || [];
+      fillSelectWithOptions(absModeleTableSelect, absAllTableIds, absencesConfig.modele.table, 'Choisir une table…');
+      if (absModeleTableSelect.value) refreshAbsModeleColumnList(absModeleTableSelect.value);
+      else fillSelectWithOptions(absModeleColSelect, [], '', 'Choisir une colonne…');
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lister les tables du document : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  function refreshAbsModeleColumnList(tableId) {
+    if (!tableId) return;
+    grist.docApi.fetchTable(tableId).then(function (data) {
+      var cols = Object.keys(data || {}).filter(function (c) { return c !== 'id' && c !== 'manualSort'; });
+      fillSelectWithOptions(absModeleColSelect, cols, absencesConfig.modele.col, 'Choisir une colonne…');
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  absModeleTableSelect.addEventListener('change', function () { refreshAbsModeleColumnList(absModeleTableSelect.value); });
+  absColSelects.demandeur.addEventListener('change', function () { refreshAbsSignataireOptions(); });
+
+  // Peuple le sélecteur "Choisir un demandeur" du signataire avec les
+  // valeurs (dédupliquées, triées) déjà vues dans la colonne Demandeur de
+  // la table d'absences configurée — pratique pour désigner un signataire
+  // parmi des personnes déjà connues, sans ressaisie.
+  function refreshAbsSignataireOptions() {
+    var tableId = absTableSelect.value;
+    var demCol = absColSelects.demandeur.value;
+    if (!tableId || !demCol) {
+      fillSelectWithOptions(absSignataireSelect, [], '', '— Aucun —');
+      return;
+    }
+    grist.docApi.fetchTable(tableId).then(function (data) {
+      var raw = (data && data[demCol]) || [];
+      var seen = {};
+      var names = [];
+      raw.forEach(function (v) {
+        var t = textOf(v);
+        if (t && !seen[t]) { seen[t] = true; names.push(t); }
+      });
+      names.sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+      fillSelectWithOptions(absSignataireSelect, names, '', '— Aucun —');
+    }).catch(function () {
+      fillSelectWithOptions(absSignataireSelect, [], '', '— Aucun —');
+    });
+  }
 
   // Peuple les 10 sélecteurs de colonnes "Données" avec les colonnes vues
   // dans les derniers enregistrements chargés, en présélectionnant le
@@ -1159,20 +1309,24 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     configActiveSection = section;
     Object.keys(configSectionPanels).forEach(function (key) {
       configSectionPanels[key].hidden = (key !== section);
-      configSectionButtons[key].setAttribute('aria-pressed', key === section ? 'true' : 'false');
+      configSectionRadios[key].checked = (key === section);
     });
   }
 
-  Object.keys(configSectionButtons).forEach(function (key) {
-    configSectionButtons[key].addEventListener('click', function () { setConfigSection(key); });
+  Object.keys(configSectionRadios).forEach(function (key) {
+    configSectionRadios[key].addEventListener('change', function () { if (configSectionRadios[key].checked) setConfigSection(key); });
   });
 
   function fillAbsencesSettingsForm() {
     absValAttente.value = absencesConfig.valeurs.attente;
     absValValidee.value = absencesConfig.valeurs.validee;
     absValRefusee.value = absencesConfig.valeurs.refusee;
+    // La saisie manuelle prévalant sur le choix dans la liste (voir
+    // absencesConfigFromForm), c'est elle qui restitue la valeur
+    // enregistrée ; le sélecteur repart sur son placeholder.
     absSignataire.value = absencesConfig.signataire;
-    refreshAbsencesTableList(); // pré-sélectionne aussi la table et les colonnes déjà enregistrées
+    refreshAbsencesTableList(); // pré-sélectionne aussi la table, les colonnes et la liste des signataires déjà enregistrées
+    refreshAbsModeleTableList(); // idem pour la table/colonne du modèle HTML
   }
 
   function absencesConfigFromForm() {
@@ -1182,7 +1336,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     cfg.valeurs.attente = absValAttente.value.trim() || 'En attente';
     cfg.valeurs.validee = absValValidee.value.trim() || 'Validée';
     cfg.valeurs.refusee = absValRefusee.value.trim() || 'Refusée';
-    cfg.signataire = absSignataire.value.trim();
+    // La saisie manuelle prévaut sur le choix dans la liste des demandeurs.
+    cfg.signataire = absSignataire.value.trim() || absSignataireSelect.value;
+    cfg.modele.table = absModeleTableSelect.value;
+    cfg.modele.col = absModeleColSelect.value;
     return cfg;
   }
 
@@ -1207,6 +1364,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     configStartDate.value = toInputDateValue(PROGRESSION_PDF_START);
     configEndDate.value = toInputDateValue(PROGRESSION_PDF_END);
     configPdfEnabled.checked = progressionPdfEnabled;
+    configFsjLimit3Days.checked = fsjLimit3Days;
     fillAbsencesSettingsForm();
   }
 
@@ -1227,6 +1385,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return;
     }
     var enabled = configPdfEnabled.checked;
+    var fsjLimit = configFsjLimit3Days.checked;
     var newAbsCfg = absencesConfigFromForm();
     var newGenCfg = genColumnsConfigFromForm();
 
@@ -1234,6 +1393,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     PROGRESSION_PDF_END = end;
     progressionPdfEnabled = enabled;
     applyProgressionPdfEnabledState();
+    fsjLimit3Days = fsjLimit;
+    applyFsjDateLimit();
     absencesConfig = newAbsCfg;
     genColumnsConfig = newGenCfg;
     // Ré-applique immédiatement le nouveau mapping de colonnes aux
@@ -1247,12 +1408,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       grist.setOption('progressionPdfStart', toInputDateValue(start)),
       grist.setOption('progressionPdfEnd', toInputDateValue(end)),
       grist.setOption('progressionPdfEnabled', enabled),
+      grist.setOption('fsjLimit3Days', fsjLimit),
       grist.setOption('absencesConfig', newAbsCfg),
       grist.setOption('genColumnsConfig', newGenCfg)
     ]).then(function () {
-      showConfigStatus('success', 'Paramètres enregistrés : données ' + (isGenColumnsConfigComplete(newGenCfg) ? 'configurées' : 'à compléter') + ', période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', absences ' + (isAbsencesConfigComplete(newAbsCfg) ? 'configurées' : 'à finaliser') + '.');
+      showConfigStatus('success', 'Paramètres enregistrés : données ' + (isGenColumnsConfigComplete(newGenCfg) ? 'configurées' : 'à compléter') + ', période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', FSJ ' + (fsjLimit ? 'limitée aux 3 prochains jours' : 'sans limite de date') + ', absences ' + (isAbsencesConfigComplete(newAbsCfg) ? 'configurées' : 'à finaliser') + '.');
     }).catch(function (e) {
-      showConfigStatus('error', 'Enregistrement impossible : ' + (e && e.message ? e.message : e));
+      showConfigStatus('error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
     });
   }
 
@@ -1291,6 +1453,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     progressionPdfEnabled = (opts.progressionPdfEnabled !== false);
     applyProgressionPdfEnabledState();
 
+    fsjLimit3Days = (opts.fsjLimit3Days !== false);
+    applyFsjDateLimit();
+
     genColumnsConfig = normalizeGenColumnsConfig(opts.genColumnsConfig);
     // Ré-applique le mapping de colonnes si des lignes ont déjà été
     // reçues (l'ordre d'arrivée de onOptions et onRecords n'est pas
@@ -1307,6 +1472,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var absData = []; // dernières lignes chargées depuis la table source (avec id Grist)
   var absActiveFilter = { decision: null, demandeur: null };
+  var absTooltipSeq = 0; // identifiants uniques pour les infobulles DSFR du bouton PDF désactivé
 
   function showAbsStatus(type, message) {
     renderAlert(absStatusZone, type, message);
@@ -1322,6 +1488,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     });
   }
 
+  // La colonne "Demandeur" doit renvoyer un texte (le nom affiché). Si la
+  // colonne configurée est en réalité une colonne Référence, l'API du
+  // widget renvoie l'identifiant numérique de la ligne visée (ex. 12) et
+  // non le texte affiché par Grist : ce cas est signalé (une fois par
+  // chargement) plutôt que silencieusement affiché comme un nom.
+  var absDemandeurLooksLikeRefId = false;
+  function resolveDemandeurDisplay(raw) {
+    if (typeof raw === 'number') {
+      absDemandeurLooksLikeRefId = true;
+      return '#' + raw;
+    }
+    return textOf(raw);
+  }
+
   // Recharge les données depuis la table source et redessine la liste.
   function renderAbsencesPage() {
     var cfg = absencesConfig;
@@ -1331,11 +1511,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absZone.innerHTML = '<div class="fr-alert fr-alert--warning fr-alert--sm"><p>Aucune table n\'est configurée pour les absences. Cliquez 5 fois rapidement sur le bloc marque du header pour ouvrir les paramètres et en choisir une.</p></div>';
       return;
     }
+    absDemandeurLooksLikeRefId = false;
     grist.docApi.fetchTable(cfg.table).then(function (table) {
       absData = columnarToRows(table).map(function (r) {
         return {
           id: r.id,
-          demandeur: textOf(r[cfg.col.demandeur]),
+          demandeur: resolveDemandeurDisplay(r[cfg.col.demandeur]),
           dateDebut: r[cfg.col.dateDebut],
           dateFin: r[cfg.col.dateFin],
           motif: cfg.col.motif ? textOf(r[cfg.col.motif]) : '',
@@ -1344,10 +1525,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           commentaire: cfg.col.commentaire ? textOf(r[cfg.col.commentaire]) : ''
         };
       });
+      if (absDemandeurLooksLikeRefId) {
+        showAbsStatus('warning', 'La colonne Demandeur renvoie un identifiant numérique (ex. « #12 ») plutôt qu\'un nom : c\'est probablement une colonne Référence. Dans les paramètres (backoffice), associez plutôt « Demandeur » à une colonne texte ou formule qui affiche le nom.');
+      }
       renderAbsencesList();
     }).catch(function (e) {
       absCount.textContent = '';
-      absZone.innerHTML = '<div class="fr-alert fr-alert--error fr-alert--sm"><p>Impossible de charger les données : ' + escapeHtml(e && e.message ? e.message : String(e)) + '</p></div>';
+      absZone.innerHTML = '<div class="fr-alert fr-alert--error fr-alert--sm"><p>Impossible de charger les données : ' + escapeHtml(friendlyErrorMessage(e)) + '</p></div>';
     });
   }
 
@@ -1376,6 +1560,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return;
     }
 
+    // Ordre croissant de date de début (les demandes sans date exploitable
+    // sont reléguées en fin de liste).
     rows.sort(function (a, b) {
       var da = parseGristDateTime(a.dateDebut);
       var db = parseGristDateTime(b.dateDebut);
@@ -1386,37 +1572,53 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     });
 
     var html = '<div class="req-table-wrap"><table class="req-table"><thead><tr>' +
+      '<th scope="col">Actions</th>' +
       '<th scope="col">Demandeur</th>' +
+      (cfg.col.motif ? '<th scope="col">Type d\'absence</th>' : '') +
       '<th scope="col">Début</th>' +
       '<th scope="col">Fin</th>' +
-      (cfg.col.motif ? '<th scope="col">Motif</th>' : '') +
       (cfg.col.destination ? '<th scope="col">Destination</th>' : '') +
-      '<th scope="col">Décision</th>' +
-      '<th scope="col">Autorisation</th>' +
-      '<th scope="col">Actions</th>' +
       '</tr></thead><tbody>';
 
     rows.forEach(function (r) {
       var debut = parseGristDateTime(r.dateDebut);
       var fin = parseGristDateTime(r.dateFin);
       var st = absDecisionState(cfg, r.decision);
-      var badgeClass = st.isValidee ? 'abs-decision--validee' : (st.isRefusee ? 'abs-decision--refusee' : 'abs-decision--attente');
+      // Pour les demandes de type "Repos", la date seule suffit (pas
+      // d'horaire précis à afficher).
+      var isRepos = !!r.motif && normalizeNameKey(r.motif) === normalizeNameKey('Repos');
+      var fmtAbsDate = function (d) { return isRepos ? fmtDayTitle(d) : (fmtDayTitle(d) + ' ' + fmtHM(d)); };
+
+      // Le PDF n'est proposé que pour les demandes validées ET de type
+      // "Autorisation d'absence" (si le type n'est pas configuré, seule la
+      // validation conditionne sa disponibilité). Deux infobulles DSFR
+      // distinctes selon la raison du blocage.
+      var isAutorisationType = !cfg.col.motif || (!!r.motif && normalizeNameKey(r.motif) === normalizeNameKey('Autorisation d\'absence'));
+      var pdfAvailable = st.isValidee && isAutorisationType;
+      var pdfTooltipId = null;
+      var pdfTooltipText = '';
+      if (!pdfAvailable) {
+        pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++);
+        pdfTooltipText = !isAutorisationType
+          ? 'Le PDF n\'est disponible que pour les demandes de type « Autorisation d\'absence ».'
+          : 'Le PDF est disponible une fois la demande validée.';
+      }
 
       html += '<tr data-row-id="' + r.id + '">' +
-        '<td>' + escapeHtml(r.demandeur) + '</td>' +
-        '<td>' + (debut ? escapeHtml(fmtDayTitle(debut) + ' ' + fmtHM(debut)) : '—') + '</td>' +
-        '<td>' + (fin ? escapeHtml(fmtDayTitle(fin) + ' ' + fmtHM(fin)) : '—') + '</td>' +
-        (cfg.col.motif ? '<td>' + escapeHtml(r.motif) + '</td>' : '') +
-        (cfg.col.destination ? '<td>' + escapeHtml(r.destination) + '</td>' : '') +
-        '<td><span class="abs-decision ' + badgeClass + '">' + escapeHtml(r.decision || cfg.valeurs.attente) + '</span></td>' +
-        '<td><button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-download-line fr-btn--icon-left" data-pdf-id="' + r.id + '"' +
-          (st.isValidee ? '' : ' disabled title="Disponible une fois la demande validée."') +
-          '>PDF</button></td>' +
         '<td><div class="req-actions" role="group" aria-label="Décision">' +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-check-line" title="Valider" data-action="validee" aria-pressed="' + (st.isValidee ? 'true' : 'false') + '"' + (st.isValidee ? ' disabled' : '') + '></button>' +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-close-line" title="Refuser" data-action="refusee" aria-pressed="' + (st.isRefusee ? 'true' : 'false') + '"' + (st.isRefusee ? ' disabled' : '') + '></button>' +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-time-line" title="Remettre en attente" data-action="attente" aria-pressed="' + (st.isAttente ? 'true' : 'false') + '"' + (st.isAttente ? ' disabled' : '') + '></button>' +
+          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-download-line" title="Télécharger le PDF" data-pdf-id="' + r.id + '"' +
+            (pdfAvailable ? '' : (' disabled aria-describedby="' + pdfTooltipId + '"')) +
+            '></button>' +
+          (pdfAvailable ? '' : ('<span class="fr-tooltip fr-placement" id="' + pdfTooltipId + '" role="tooltip">' + escapeHtml(pdfTooltipText) + '</span>')) +
         '</div></td>' +
+        '<td>' + escapeHtml(r.demandeur) + '</td>' +
+        (cfg.col.motif ? '<td>' + escapeHtml(r.motif) + '</td>' : '') +
+        '<td>' + (debut ? escapeHtml(fmtAbsDate(debut)) : '—') + '</td>' +
+        '<td>' + (fin ? escapeHtml(fmtAbsDate(fin)) : '—') + '</td>' +
+        (cfg.col.destination ? '<td>' + escapeHtml(r.destination) + '</td>' : '') +
       '</tr>';
     });
     html += '</tbody></table></div>';
@@ -1431,7 +1633,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         updateAbsenceDecision(rowId, target);
       });
     });
-    absZone.querySelectorAll('button[data-pdf-id]').forEach(function (btn) {
+    absZone.querySelectorAll('button[data-pdf-id]:not([disabled])').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var rowId = Number(btn.getAttribute('data-pdf-id'));
         var row = absData.filter(function (r) { return r.id === rowId; })[0];
@@ -1448,7 +1650,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absData.forEach(function (r) { if (r.id === rowId) r.decision = newValue; });
       renderAbsencesList();
     }).catch(function (e) {
-      showAbsStatus('error', 'Impossible de mettre à jour la décision : ' + (e && e.message ? e.message : e));
+      showAbsStatus('error', 'Impossible de mettre à jour la décision : ' + friendlyErrorMessage(e));
     });
   }
 
@@ -1501,6 +1703,19 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     names.sort(function (a, b) { return a.localeCompare(b, 'fr'); });
 
     absDemandeurFilterList.innerHTML = '';
+
+    // Champ de recherche clavier, en tête de liste : filtre les entrées
+    // ci-dessous au fur et à mesure de la saisie (pratique dès que la
+    // liste des demandeurs devient longue).
+    var searchLi = document.createElement('li');
+    searchLi.className = 'dropdown-menu__search';
+    var searchInput = document.createElement('input');
+    searchInput.type = 'search';
+    searchInput.placeholder = 'Rechercher un demandeur…';
+    searchInput.setAttribute('aria-label', 'Rechercher un demandeur');
+    searchLi.appendChild(searchInput);
+    absDemandeurFilterList.appendChild(searchLi);
+
     if (absActiveFilter.demandeur) {
       var resetLi = document.createElement('li');
       var resetBtn = document.createElement('button');
@@ -1516,6 +1731,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       resetLi.appendChild(resetBtn);
       absDemandeurFilterList.appendChild(resetLi);
     }
+    var nameEntries = [];
     names.forEach(function (name) {
       var li = document.createElement('li');
       var btn = document.createElement('button');
@@ -1531,7 +1747,19 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       });
       li.appendChild(btn);
       absDemandeurFilterList.appendChild(li);
+      nameEntries.push({ li: li, key: normalizeNameKey(name) });
     });
+
+    searchInput.addEventListener('input', function () {
+      var q = normalizeNameKey(searchInput.value);
+      nameEntries.forEach(function (entry) {
+        entry.li.hidden = !!q && entry.key.indexOf(q) === -1;
+      });
+    });
+    // Le clic dans le champ ne doit pas être interprété comme un clic à
+    // l'extérieur du menu (qui le refermerait, voir setupDropdown).
+    searchInput.addEventListener('click', function (e) { e.stopPropagation(); });
+    setTimeout(function () { searchInput.focus(); }, 0);
   }
 
   var absDecisionFilterDropdown = setupDropdown(absDecisionFilterBtn, absDecisionFilterList, buildAbsDecisionFilterMenu);
@@ -1541,21 +1769,81 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // ---- Génération du PDF « Autorisation d'absence » ----------------------
 
-  function buildAbsenceAuthorizationPdfDocument(row) {
+  // ---- Modèle HTML optionnel (backoffice, table/colonne "modèle") -------
+  //
+  // Si absencesConfig.modele est renseigné, la première ligne de la
+  // colonne indiquée est utilisée comme corps du PDF (à la place du bloc
+  // de champs + phrase d'autorisation codés en dur ci-dessous) : les
+  // jetons {{champ}} y sont remplacés par les valeurs de la demande, puis
+  // le HTML restant est réduit à du texte simple (sauts de ligne aux
+  // balises de bloc) avant d'être imprimé dans le PDF. Titre et bloc de
+  // signature restent, eux, toujours générés de la même façon.
+
+  var absModeleCache = { key: null, promise: null };
+
+  function fetchAbsModeleHtml() {
+    var cfg = absencesConfig.modele;
+    if (!cfg.table || !cfg.col) return Promise.resolve(null);
+    var key = cfg.table + '::' + cfg.col;
+    if (absModeleCache.key === key && absModeleCache.promise) return absModeleCache.promise;
+    absModeleCache.key = key;
+    absModeleCache.promise = grist.docApi.fetchTable(cfg.table).then(function (data) {
+      var col = data && data[cfg.col];
+      var val = (col && col.length) ? col[0] : null;
+      return (typeof val === 'string' && val.trim()) ? val : null;
+    }).catch(function () { return null; });
+    return absModeleCache.promise;
+  }
+
+  function fillModeleTemplate(html, row) {
+    var debut = parseGristDateTime(row.dateDebut);
+    var fin = parseGristDateTime(row.dateFin);
+    var tokens = {
+      demandeur: row.demandeur || '',
+      datedebut: debut ? (fmtDayTitle(debut) + ' à ' + fmtHM(debut)) : '',
+      datefin: fin ? (fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '',
+      motif: row.motif || '',
+      destination: row.destination || '',
+      commentaire: row.commentaire || '',
+      decision: row.decision || '',
+      signataire: absencesConfig.signataire || '',
+      dategeneration: fmtDayTitle(new Date())
+    };
+    return html.replace(/\{\{\s*([a-zA-Z]+)\s*\}\}/g, function (m, name) {
+      var key = name.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(tokens, key) ? tokens[key] : m;
+    });
+  }
+
+  function htmlTemplateToPlainText(html) {
+    var text = html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&#39;/gi, '\'')
+      .replace(/&quot;/gi, '"');
+    return text.split('\n').map(function (l) { return l.trim(); }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  function buildAbsenceAuthorizationPdfDocument(row, modeleText) {
     var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDFCtor) {
       showAbsStatus('error', 'La bibliothèque de génération PDF (jsPDF) n\'a pas pu être chargée.');
       return null;
     }
     var doc = new jsPDFCtor({ unit: 'mm', format: 'a4' });
-    renderAbsenceAuthorizationPdfContent(doc, row);
+    renderAbsenceAuthorizationPdfContent(doc, row, modeleText);
     var debut = parseGristDateTime(row.dateDebut);
     var filename = 'Autorisation_absence_' + (row.demandeur || 'demandeur').replace(/[^a-zA-Z0-9]+/g, '-') +
       (debut ? '_' + fmtDayTitle(debut).replace(/\//g, '-') : '') + '.pdf';
     return { doc: doc, filename: filename };
   }
 
-  function renderAbsenceAuthorizationPdfContent(doc, row) {
+  function renderAbsenceAuthorizationPdfContent(doc, row, modeleText) {
     var marianneOk = registerMarianneFont(doc);
     var baseFont = marianneOk ? 'Marianne' : 'helvetica';
     var bleuFrance = [0, 0, 145];
@@ -1580,41 +1868,54 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     var debut = parseGristDateTime(row.dateDebut);
     var fin = parseGristDateTime(row.dateFin);
-    var labelX = marginLeft;
-    var valueX = marginLeft + 42;
 
-    function field(label, value) {
-      doc.setFont(baseFont, 'bold');
-      doc.setFontSize(11);
-      doc.text(label, labelX, y);
+    if (modeleText) {
       doc.setFont(baseFont, 'normal');
-      var wrapped = doc.splitTextToSize(String(value || '—'), pageWidth - marginRight - valueX);
-      doc.text(wrapped, valueX, y);
-      y += Math.max(8, wrapped.length * 5.5);
+      doc.setFontSize(10.5);
+      modeleText.split('\n').forEach(function (para) {
+        if (!para) { y += 4; return; }
+        var wrapped = doc.splitTextToSize(para, pageWidth - marginLeft - marginRight);
+        doc.text(wrapped, marginLeft, y);
+        y += wrapped.length * 5.5 + 2;
+      });
+      y += 12;
+    } else {
+      var labelX = marginLeft;
+      var valueX = marginLeft + 42;
+
+      var field = function (label, value) {
+        doc.setFont(baseFont, 'bold');
+        doc.setFontSize(11);
+        doc.text(label, labelX, y);
+        doc.setFont(baseFont, 'normal');
+        var wrapped = doc.splitTextToSize(String(value || '—'), pageWidth - marginRight - valueX);
+        doc.text(wrapped, valueX, y);
+        y += Math.max(8, wrapped.length * 5.5);
+      };
+
+      field('Bénéficiaire :', row.demandeur);
+      field('Du :', debut ? (fmtDayTitle(debut) + ' à ' + fmtHM(debut)) : '—');
+      field('Au :', fin ? (fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '—');
+      if (row.destination) field('Destination :', row.destination);
+      if (row.motif) field('Motif :', row.motif);
+      field('Décision :', row.decision);
+      if (row.commentaire) field('Commentaire :', row.commentaire);
+
+      y += 8;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(marginLeft, y, pageWidth - marginRight, y);
+      y += 10;
+
+      doc.setFont(baseFont, 'normal');
+      doc.setFontSize(10.5);
+      var statement = 'Le signataire autorise ' + (row.demandeur || 'l\'intéressé(e)') + ' à s\'absenter' +
+        (row.destination ? (' pour se rendre à ' + row.destination) : '') +
+        (debut && fin ? (' du ' + fmtDayTitle(debut) + ' à ' + fmtHM(debut) + ' au ' + fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '') +
+        (row.motif ? (', pour le motif suivant : ' + row.motif) : '') + '.';
+      var wrappedStatement = doc.splitTextToSize(statement, pageWidth - marginLeft - marginRight);
+      doc.text(wrappedStatement, marginLeft, y);
+      y += wrappedStatement.length * 5.5 + 22;
     }
-
-    field('Bénéficiaire :', row.demandeur);
-    field('Du :', debut ? (fmtDayTitle(debut) + ' à ' + fmtHM(debut)) : '—');
-    field('Au :', fin ? (fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '—');
-    if (row.destination) field('Destination :', row.destination);
-    if (row.motif) field('Motif :', row.motif);
-    field('Décision :', row.decision);
-    if (row.commentaire) field('Commentaire :', row.commentaire);
-
-    y += 8;
-    doc.setDrawColor(200, 200, 200);
-    doc.line(marginLeft, y, pageWidth - marginRight, y);
-    y += 10;
-
-    doc.setFont(baseFont, 'normal');
-    doc.setFontSize(10.5);
-    var statement = 'Le signataire autorise ' + (row.demandeur || 'l\'intéressé(e)') + ' à s\'absenter' +
-      (row.destination ? (' pour se rendre à ' + row.destination) : '') +
-      (debut && fin ? (' du ' + fmtDayTitle(debut) + ' à ' + fmtHM(debut) + ' au ' + fmtDayTitle(fin) + ' à ' + fmtHM(fin)) : '') +
-      (row.motif ? (', pour le motif suivant : ' + row.motif) : '') + '.';
-    var wrappedStatement = doc.splitTextToSize(statement, pageWidth - marginLeft - marginRight);
-    doc.text(wrappedStatement, marginLeft, y);
-    y += wrappedStatement.length * 5.5 + 22;
 
     var genMoment = new Date();
     doc.setFontSize(10);
@@ -1638,23 +1939,40 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     if (!absencesConfig.signataire) {
       showAbsStatus('warning', 'Aucun signataire n\'est configuré (paramètres cachés) : le nom apparaîtra vide sur le PDF.');
     }
-    var built = buildAbsenceAuthorizationPdfDocument(row);
-    if (!built) return;
-    built.doc.save(built.filename);
-    showAbsStatus('success', 'PDF généré : ' + built.filename);
+    fetchAbsModeleHtml().then(function (html) {
+      var modeleText = html ? htmlTemplateToPlainText(fillModeleTemplate(html, row)) : null;
+      var built = buildAbsenceAuthorizationPdfDocument(row, modeleText);
+      if (!built) return;
+      built.doc.save(built.filename);
+      showAbsStatus('success', 'PDF généré : ' + built.filename);
+    }).catch(function (e) {
+      showAbsStatus('error', 'Impossible de générer le PDF : ' + friendlyErrorMessage(e));
+    });
   }
 
-  // ---- Date du jour par défaut --------------------------------------------
+  // ---- Date du jour par défaut, et limite FSJ configurable --------------
+  //
+  // Si fsjLimit3Days est activé (backoffice, onglet FSJ), la sélection de
+  // date ne propose que les 3 prochains jours (aujourd'hui inclus) : la
+  // feuille de service journalier n'a alors vocation à être générée que
+  // pour une échéance proche. Les dates passées restent en revanche
+  // toujours accessibles, quel que soit ce réglage.
+  function applyFsjDateLimit() {
+    if (fsjLimit3Days) {
+      var today = new Date();
+      var maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
+      dayPicker.removeAttribute('min');
+      dayPicker.max = toInputDateValue(maxDate);
+      if (getSelectedDate() > maxDate) dayPicker.value = toInputDateValue(maxDate);
+    } else {
+      dayPicker.removeAttribute('min');
+      dayPicker.removeAttribute('max');
+    }
+  }
 
   (function initDate() {
-    var today = new Date();
-    // La sélection de date de l'onglet FSJ ne propose que les 3 prochains
-    // jours (aujourd'hui inclus) : la feuille de service journalier n'a
-    // vocation à être générée que pour une échéance proche.
-    var maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
-    dayPicker.min = toInputDateValue(today);
-    dayPicker.max = toInputDateValue(maxDate);
-    dayPicker.value = toInputDateValue(today);
+    dayPicker.value = toInputDateValue(new Date());
+    applyFsjDateLimit();
   })();
 
   dayPicker.addEventListener('change', function () {
