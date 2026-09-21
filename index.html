@@ -559,10 +559,6 @@
       <span class="fr-tooltip fr-placement" id="progressionPdfTooltip" role="tooltip">La progression est en cours de création</span>
     </div>
 
-    <p class="fr-hint-text" id="progressionPdfBlockedHint" hidden>
-      La génération de la Progression en PDF est actuellement désactivée (configuration).
-    </p>
-
     <div id="weekGrid" class="week-timegrid"></div>
 
   </div>
@@ -792,23 +788,12 @@
         </div>
 
         <h3 class="fr-text--lead config-section-title">Signataire</h3>
-        <p class="fr-hint-text fr-mb-2w">
-          À choisir dans la liste des demandeurs déjà connus, ou à saisir librement ci-dessous. En cas de saisie manuelle, c'est elle qui est utilisée sur le PDF.
-        </p>
-        <div class="config-grid-2col">
-          <div class="fr-select-group">
-            <label class="fr-label" for="absSignataireSelect">Choisir un demandeur</label>
-            <select class="fr-select" id="absSignataireSelect" name="absSignataireSelect">
-              <option value="">— Aucun —</option>
-            </select>
-          </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="absSignataire">
-              Saisie manuelle
-              <span class="fr-hint-text">Nom (et éventuellement qualité/grade) imprimé sur le PDF « Autorisation d'absence ». Prévaut sur le choix ci-contre si renseignée.</span>
-            </label>
-            <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : Cdt DUPONT, chef de la division">
-          </div>
+        <div class="fr-input-group">
+          <label class="fr-label" for="absSignataire">
+            Signataire de l'autorisation d'absence
+            <span class="fr-hint-text">Nom (et éventuellement qualité/grade) imprimé sur le PDF « Autorisation d'absence ».</span>
+          </label>
+          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : Cdt DUPONT, chef de la division">
         </div>
       </div>
 
@@ -888,7 +873,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var progressionFilterList = document.getElementById('progressionFilterList');
   var scaleWeekBtn = document.getElementById('scaleWeekBtn');
   var scaleDayBtn = document.getElementById('scaleDayBtn');
-  var progressionPdfBlockedHint = document.getElementById('progressionPdfBlockedHint');
   var progressionPdfTooltip = document.getElementById('progressionPdfTooltip');
 
   var headerBrand = document.getElementById('headerBrand');
@@ -919,7 +903,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var configFsjLimit3Days = document.getElementById('configFsjLimit3Days');
   var absModeleTableSelect = document.getElementById('absModeleTable');
   var absModeleColSelect = document.getElementById('absModeleCol');
-  var absSignataireSelect = document.getElementById('absSignataireSelect');
   var genColSelects = {};
   ['Debut', 'Fin', 'Occurrence', 'Intitule', 'Code', 'Lieu', 'Encadrement', 'Consignes', 'Apprenants', 'Type'].forEach(function (key) {
     genColSelects[key] = document.getElementById('genCol_' + key);
@@ -1130,7 +1113,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var blocked = !progressionPdfEnabled;
     var disabled = blocked || !recordsLoaded;
     progressionPdfBtn.disabled = disabled;
-    progressionPdfBlockedHint.hidden = !blocked;
     // Infobulle DSFR (fr-tooltip) plutôt que l'attribut natif "title" :
     // affichée au survol/focus du bouton uniquement lorsqu'il n'est pas
     // cliquable, via aria-describedby (comportement pris en charge par le
@@ -1241,15 +1223,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       ABS_ROLES.forEach(function (role) {
         fillSelectWithOptions(absColSelects[role], cols, absencesConfig.col[role], 'Choisir une colonne…');
       });
-      refreshAbsSignataireOptions(); // la colonne Demandeur vient d'être (re)sélectionnée
     }).catch(function (e) {
       showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
     });
   }
 
-  absTableSelect.addEventListener('change', function () {
-    refreshAbsencesColumnLists(absTableSelect.value); // rafraîchit aussi la liste des signataires une fois résolu
-  });
+  absTableSelect.addEventListener('change', function () { refreshAbsencesColumnLists(absTableSelect.value); });
 
   // Liste les tables du document pour peupler le sélecteur de table du
   // modèle HTML de l'autorisation d'absence (indépendant de la table des
@@ -1277,33 +1256,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
 
   absModeleTableSelect.addEventListener('change', function () { refreshAbsModeleColumnList(absModeleTableSelect.value); });
-  absColSelects.demandeur.addEventListener('change', function () { refreshAbsSignataireOptions(); });
-
-  // Peuple le sélecteur "Choisir un demandeur" du signataire avec les
-  // valeurs (dédupliquées, triées) déjà vues dans la colonne Demandeur de
-  // la table d'absences configurée — pratique pour désigner un signataire
-  // parmi des personnes déjà connues, sans ressaisie.
-  function refreshAbsSignataireOptions() {
-    var tableId = absTableSelect.value;
-    var demCol = absColSelects.demandeur.value;
-    if (!tableId || !demCol) {
-      fillSelectWithOptions(absSignataireSelect, [], '', '— Aucun —');
-      return;
-    }
-    grist.docApi.fetchTable(tableId).then(function (data) {
-      var raw = (data && data[demCol]) || [];
-      var seen = {};
-      var names = [];
-      raw.forEach(function (v) {
-        var t = textOf(v);
-        if (t && !seen[t]) { seen[t] = true; names.push(t); }
-      });
-      names.sort(function (a, b) { return a.localeCompare(b, 'fr'); });
-      fillSelectWithOptions(absSignataireSelect, names, '', '— Aucun —');
-    }).catch(function () {
-      fillSelectWithOptions(absSignataireSelect, [], '', '— Aucun —');
-    });
-  }
 
   // Peuple les 10 sélecteurs de colonnes "Données" avec les colonnes vues
   // dans les derniers enregistrements chargés, en présélectionnant le
@@ -1341,11 +1293,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     absValAttente.value = absencesConfig.valeurs.attente;
     absValValidee.value = absencesConfig.valeurs.validee;
     absValRefusee.value = absencesConfig.valeurs.refusee;
-    // La saisie manuelle prévalant sur le choix dans la liste (voir
-    // absencesConfigFromForm), c'est elle qui restitue la valeur
-    // enregistrée ; le sélecteur repart sur son placeholder.
     absSignataire.value = absencesConfig.signataire;
-    refreshAbsencesTableList(); // pré-sélectionne aussi la table, les colonnes et la liste des signataires déjà enregistrées
+    refreshAbsencesTableList(); // pré-sélectionne aussi la table et les colonnes déjà enregistrées
     refreshAbsModeleTableList(); // idem pour la table/colonne du modèle HTML
   }
 
@@ -1356,8 +1305,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     cfg.valeurs.attente = absValAttente.value.trim() || 'En attente';
     cfg.valeurs.validee = absValValidee.value.trim() || 'Validée';
     cfg.valeurs.refusee = absValRefusee.value.trim() || 'Refusée';
-    // La saisie manuelle prévaut sur le choix dans la liste des demandeurs.
-    cfg.signataire = absSignataire.value.trim() || absSignataireSelect.value;
+    cfg.signataire = absSignataire.value.trim();
     cfg.modele.table = absModeleTableSelect.value;
     cfg.modele.col = absModeleColSelect.value;
     return cfg;
