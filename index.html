@@ -363,7 +363,7 @@
             <button class="fr-nav__link" id="navProgression" type="button" aria-current="page">Progression</button>
           </li>
           <li class="fr-nav__item">
-            <button class="fr-nav__link" id="navGenerer" type="button">Générer FSJ</button>
+            <button class="fr-nav__link" id="navGenerer" type="button">Feuille de service journalier</button>
           </li>
         </ul>
       </nav>
@@ -409,7 +409,7 @@
 
     <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-3w">
       <li>
-        <button class="fr-btn fr-icon-download-line fr-btn--icon-left" id="generateBtn" type="button" disabled>
+        <button class="fr-btn fr-icon-download-line fr-btn--icon-left" id="generateBtn" type="button" disabled aria-label="Générer la FSJ">
           Générer la FSJ
         </button>
       </li>
@@ -645,7 +645,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return { open: open, close: close };
   }
 
-  // ---- Menu de navigation principale (header) : Progression / Générer FSJ
+  // ---- Menu de navigation principale (header) : Progression / Feuille de service journalier
 
   function setView(view) {
     if (view === 'progression') {
