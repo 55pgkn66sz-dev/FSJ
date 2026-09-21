@@ -529,6 +529,7 @@
         <button class="fr-btn fr-icon-download-line fr-btn--icon-left" id="generateBtn" type="button" disabled>
           Générer la FSJ
         </button>
+        <span class="fr-tooltip fr-placement" id="generateBtnTooltip" role="tooltip"><strong>Impossible de générer ce PDF.</strong><br>Les données ne sont pas encore chargées.</span>
       </li>
     </ul>
 
@@ -568,7 +569,7 @@
       <button class="fr-btn fr-btn--secondary fr-btn--sm fr-icon-download-line fr-btn--icon-left" id="generateProgressionPdfBtn" type="button" disabled>
         Progression en PDF
       </button>
-      <span class="fr-tooltip fr-placement" id="progressionPdfTooltip" role="tooltip">La progression est en cours de création</span>
+      <span class="fr-tooltip fr-placement" id="progressionPdfTooltip" role="tooltip"><strong>Impossible de générer ce PDF.</strong><br>Les données ne sont pas encore chargées.</span>
     </div>
 
     <div id="weekGrid" class="week-timegrid"></div>
@@ -583,6 +584,7 @@
       <button class="fr-btn fr-btn--sm fr-icon-add-line fr-btn--icon-left" id="absNewRequestBtn" type="button">
         Nouvelle demande
       </button>
+      <span class="fr-tooltip fr-placement" id="absNewRequestTooltip" role="tooltip"></span>
       <div class="dropdown-menu" id="absDecisionFilterMenu">
         <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="absDecisionFilterBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="absDecisionFilterList">
           Décision
@@ -941,6 +943,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var dayPicker = document.getElementById('dayPicker');
   var generateBtn = document.getElementById('generateBtn');
+  var generateBtnTooltip = document.getElementById('generateBtnTooltip');
   var statusZone = document.getElementById('statusZone');
   var previewZone = document.getElementById('previewZone');
   var fsjRadios = document.querySelectorAll('input[name="fsjType"]');
@@ -1001,6 +1004,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var absDemandeurFilterList = document.getElementById('absDemandeurFilterList');
   var absRefreshBtn = document.getElementById('absRefreshBtn');
   var absNewRequestBtn = document.getElementById('absNewRequestBtn');
+  var absNewRequestTooltip = document.getElementById('absNewRequestTooltip');
   var absCount = document.getElementById('absCount');
   var absStatusZone = document.getElementById('absStatusZone');
   var absZone = document.getElementById('absZone');
@@ -1233,8 +1237,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // affichée au survol/focus du bouton uniquement lorsqu'il n'est pas
     // cliquable, via aria-describedby (comportement pris en charge par le
     // JS du DSFR déjà chargé, sur le même principe que les info-bulles de
-    // la vue Progression).
+    // la vue Progression). Le contenu explique la vraie raison du blocage
+    // (données pas encore chargées, ou génération désactivée dans les
+    // paramètres), plutôt qu'un message générique.
     if (disabled) {
+      var reason = !recordsLoaded
+        ? 'Les données ne sont pas encore chargées.'
+        : 'La génération du PDF de la Progression a été désactivée dans les paramètres du widget.';
+      progressionPdfTooltip.innerHTML = blockedTooltipHtml('Impossible de générer ce PDF.', [reason]);
       progressionPdfBtn.setAttribute('aria-describedby', 'progressionPdfTooltip');
     } else {
       progressionPdfBtn.removeAttribute('aria-describedby');
@@ -1572,11 +1582,24 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function renderAbsencesPage() {
     var cfg = absencesConfig;
     absStatusZone.innerHTML = '';
+
+    // Le bouton "Nouvelle demande" ne peut rien créer tant qu'aucune table
+    // n'est configurée pour les absences (backoffice) : on le désactive et
+    // on explique pourquoi via une infobulle, plutôt que de laisser
+    // l'utilisateur cliquer pour ne découvrir le problème qu'après coup.
     if (!isAbsencesConfigComplete(cfg)) {
+      absNewRequestBtn.disabled = true;
+      absNewRequestTooltip.innerHTML = blockedTooltipHtml('Impossible de créer une demande.', [
+        'Aucune table n\'est configurée pour les absences.',
+        'Cliquez 5 fois rapidement sur le bloc marque du header pour ouvrir les paramètres et en choisir une.'
+      ]);
+      absNewRequestBtn.setAttribute('aria-describedby', 'absNewRequestTooltip');
       absCount.textContent = '';
       absZone.innerHTML = '<div class="fr-alert fr-alert--warning fr-alert--sm"><p>Aucune table n\'est configurée pour les absences. Cliquez 5 fois rapidement sur le bloc marque du header pour ouvrir les paramètres et en choisir une.</p></div>';
       return;
     }
+    absNewRequestBtn.disabled = false;
+    absNewRequestBtn.removeAttribute('aria-describedby');
     absDemandeurLooksLikeRefId = false;
     grist.docApi.fetchTable(cfg.table).then(function (table) {
       absData = columnarToRows(table).map(function (r) {
@@ -1698,12 +1721,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var isAutorisationType = !cfg.col.motif || (!!r.motif && normalizeNameKey(r.motif) === normalizeNameKey(ABSENCE_TYPE_AUTORISATION));
       var pdfAvailable = st.isValidee && isAutorisationType;
       var pdfTooltipId = null;
-      var pdfTooltipText = '';
+      var pdfTooltipHtml = '';
       if (!pdfAvailable) {
         pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++);
-        pdfTooltipText = !isAutorisationType
-          ? 'Le PDF n\'est disponible que pour les demandes de type « ' + ABSENCE_TYPE_AUTORISATION + ' ».'
-          : 'Le PDF est disponible une fois la demande validée.';
+        pdfTooltipHtml = blockedTooltipHtml('Impossible de télécharger le PDF.', [
+          !isAutorisationType
+            ? 'Le PDF n\'est disponible que pour les demandes de type « ' + escapeHtml(ABSENCE_TYPE_AUTORISATION) + ' ».'
+            : 'Le PDF est disponible une fois la demande validée.'
+        ]);
       }
 
       // Blocage de la validation d'une demande de "Repos" qui ferait
@@ -1722,11 +1747,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           if (projete > droitsValue) {
             validerBlockedByDroits = true;
             validerTooltipId = 'absDroitsTooltip' + (absTooltipSeq++);
-            validerTooltipHtml =
-              '<strong>Impossible de valider cette demande.</strong><br>' +
-              'Droits à repos de ' + escapeHtml(r.demandeur) + ' : ' + Math.round(droitsValue) + '.<br><br>' +
-              'Déjà accordés : ' + dejaAccorde + '<br>' +
-              'Avec cette absence, le total serait de ' + projete + '.';
+            validerTooltipHtml = blockedTooltipHtml('Impossible de valider cette demande.', [
+              'Droits à repos de ' + escapeHtml(r.demandeur) + ' : ' + Math.round(droitsValue) + '.',
+              '',
+              'Déjà accordés : ' + dejaAccorde,
+              'Avec cette absence, le total serait de ' + projete + '.'
+            ]);
           }
         }
       }
@@ -1743,7 +1769,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-download-line" title="Télécharger le PDF" data-pdf-id="' + r.id + '"' +
             (pdfAvailable ? '' : (' disabled aria-describedby="' + pdfTooltipId + '"')) +
             '></button>' +
-          (pdfAvailable ? '' : ('<span class="fr-tooltip fr-placement" id="' + pdfTooltipId + '" role="tooltip">' + escapeHtml(pdfTooltipText) + '</span>')) +
+          (pdfAvailable ? '' : ('<span class="fr-tooltip fr-placement" id="' + pdfTooltipId + '" role="tooltip">' + pdfTooltipHtml + '</span>')) +
           '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier la demande" data-edit-id="' + r.id + '"></button>' +
         '</div></td>' +
         '<td>' + escapeHtml(r.demandeur) + '</td>' +
@@ -3157,6 +3183,17 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return div.innerHTML;
   }
 
+  // Construit le contenu HTML d'une infobulle DSFR expliquant pourquoi une
+  // action est actuellement impossible : un titre en gras (ce qui est
+  // bloqué) suivi d'une explication claire, sur le modèle de l'infobulle
+  // "Droits à repos" de la page Absences. `bodyLines` est un tableau de
+  // lignes déjà prêtes à l'affichage (échapper individuellement toute
+  // valeur variable avant de l'y placer) ; une chaîne vide insère un saut
+  // de ligne supplémentaire (paragraphe).
+  function blockedTooltipHtml(heading, bodyLines) {
+    return '<strong>' + heading + '</strong><br>' + bodyLines.join('<br>');
+  }
+
   function badgesHtml(names) {
     if (!names.length) return '';
     return '<div class="badges">' + names.map(function (n) {
@@ -3164,9 +3201,27 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }).join('') + '</div>';
   }
 
+  // Active/désactive "Générer la FSJ" et pose (ou retire) l'infobulle
+  // expliquant pourquoi, sur le même principe que les autres boutons
+  // d'action bloqués du widget (Droits à repos, PDF d'absence, PDF de la
+  // Progression) : plutôt que de laisser cliquer pour ne découvrir le
+  // problème qu'après coup (message affiché seulement après l'échec de la
+  // génération), le bouton est indisponible et l'infobulle l'explique dès
+  // le survol.
+  function applyGenerateBtnState(reason) {
+    generateBtn.disabled = !!reason;
+    if (reason) {
+      generateBtnTooltip.innerHTML = blockedTooltipHtml('Impossible de générer ce PDF.', [reason]);
+      generateBtn.setAttribute('aria-describedby', 'generateBtnTooltip');
+    } else {
+      generateBtn.removeAttribute('aria-describedby');
+    }
+  }
+
   function renderPreview() {
     if (!recordsLoaded) {
       previewZone.innerHTML = '';
+      applyGenerateBtnState('Les données ne sont pas encore chargées.');
       return;
     }
     var day = getSelectedDate();
@@ -3181,8 +3236,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         '<div class="fr-alert fr-alert--info fr-alert--sm">' +
         '<p>Aucune occurrence trouvée pour le ' + escapeHtml(fmtDayTitle(day)) + '.</p>' +
         '</div>';
+      applyGenerateBtnState('Aucune occurrence à exporter pour le ' + escapeHtml(fmtDayTitle(day)) + '.');
       return;
     }
+    applyGenerateBtnState(null);
 
     var countLine = occ.length + ' occurrence(s) pour le ' + escapeHtml(fmtDayTitle(day));
     if (hiddenCount > 0) {
