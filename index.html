@@ -407,15 +407,51 @@
   .req-actions .fr-btn[data-action="refusee"][aria-pressed="true"] { background-color: #ce0500; color: #fff; }
   .req-actions .fr-btn[data-action="attente"][aria-pressed="true"] { background-color: #ffd200; color: #3a3a3a; }
 
+  /* Cartes de demande d'absence (vue mobile, en dessous de 40rem — voir la
+     règle @media plus bas) : le tableau (.req-table-view) et les cartes
+     (.req-cards-view) sont construits en parallèle dans le DOM par
+     renderAbsencesList (même principe que le widget Réservations), le CSS
+     n'affichant que celui qui convient à la largeur d'écran. display: none
+     ici, et display: grid uniquement porté par .req-cards-view (règle
+     @media) : .req-cards ne fixe volontairement PAS sa propre valeur de
+     display, pour ne pas gagner le conflit en écran large simplement parce
+     qu'elle est déclarée après. */
+  .req-cards-view { display: none; }
+  .req-cards { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 1rem; }
+  .req-card {
+    border: 1px solid var(--border-default-grey);
+    border-radius: 0.5rem;
+    background: #fff;
+    padding: 1rem;
+  }
+  .req-card__line { margin: 0 0 0.5rem; line-height: 1.4; }
+  .req-card__line:last-of-type { margin-bottom: 0.85rem; }
+  .req-card__label { color: var(--text-mention-grey); }
+  /* Fond pastel selon la décision, même principe que les boutons d'action
+     surbrillés (mêmes teintes) : un repère visuel immédiat sans avoir à
+     lire le libellé. */
+  .req-card[data-status="validee"] { background: #e0f3e4; border-color: #18753c; }
+  .req-card[data-status="refusee"] { background: #fbe1e0; border-color: #ce0500; }
+  .req-card[data-status="attente"] { background: #fff6d6; border-color: #ffd200; }
+  .req-card__actions {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+  }
+
   /* Modale de création/édition d'une demande d'absence (#absEditModal) :
-     ouverte/fermée en JS via l'attribut "open" plutôt que showModal()/
-     close() (voir openAbsEditForm/closeAbsEditModal) pour rester
-     fonctionnelle même dans un iframe restreint (Grist). Ces règles
-     assurent l'affichage plein écran centré avec un fond assombri
-     indépendamment du ::backdrop natif, qui ne s'applique qu'en passant
-     par showModal(). */
-  #absEditModal { display: none; }
-  #absEditModal[open] {
+     ouverte/fermée via l'API JS officielle du DSFR (window.dsfr(elem)
+     .modal.disclose()/.conceal(), voir openAbsEditForm/closeAbsEditModal),
+     qui gère normalement seule tout l'affichage (le DSFR "prend
+     possession" de tout <dialog class="fr-modal"> dès que son script
+     s'exécute, et marque alors l'élément avec l'attribut
+     data-fr-js-modal). Les règles ci-dessous ne sont qu'un REPLI, pour le
+     cas rare où le script du DSFR ne serait pas chargé (ex. réseau
+     bloqué) : elles ne s'appliquent que si data-fr-js-modal est absent
+     (:not([data-fr-js-modal])), afin de ne jamais entrer en conflit avec
+     le rendu normal du DSFR quand celui-ci a bien pris la main. */
+  #absEditModal:not([data-fr-js-modal]) { display: none; }
+  #absEditModal[open]:not([data-fr-js-modal]) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -432,7 +468,7 @@
     background-color: rgba(0, 0, 18, 0.64);
     overflow-y: auto;
   }
-  #absEditModal[open] > .fr-container { margin: auto; width: 100%; }
+  #absEditModal[open]:not([data-fr-js-modal]) > .fr-container { margin: auto; width: 100%; }
 
   /* Filtre "Demandeur" : champ de recherche clavier en tête du menu
      déroulant, pour retrouver rapidement un nom dans une longue liste. */
@@ -446,6 +482,39 @@
     border-radius: 0.25rem;
     padding: 0.25rem 0.5rem;
     font-size: 0.9em;
+  }
+
+  /* ---- Gestion des absences : vue mobile (écran étroit, en dessous de
+     40rem / ~640px), repris du widget Réservations ----------------------
+     Le tableau des demandes d'absence cède la place à une pile de cartes
+     (une par demande, voir .req-card ci-dessus et renderAbsencesList) : le
+     tableau lui-même reste construit dans le DOM (accessible, notamment
+     aux lecteurs d'écran) mais n'est plus affiché à cette largeur. ---- */
+  @media (max-width: 40rem) {
+    .req-toolbar { gap: 0.5rem 0.6rem; }
+    /* "Nouvelle demande" devient un bouton d'action principal pleine
+       largeur, toujours en tête de la barre d'outils (avant les filtres) :
+       reconnu par élimination (seul bouton de la barre qui n'est pas en
+       style tertiaire). */
+    .req-toolbar > .fr-btn:not(.fr-btn--tertiary) {
+      width: 100%;
+      justify-content: center;
+      order: -1;
+      padding-top: 0.6rem;
+      padding-bottom: 0.6rem;
+    }
+    .req-count { margin-left: 0; flex-basis: 100%; margin-top: 0.15rem; }
+    .req-table-view { display: none; }
+    .req-cards-view { display: grid; }
+    /* Cibles tactiles agrandies pour les icônes d'action, sur les cartes
+       comme sur la modale de création/édition. */
+    .req-actions .fr-btn {
+      min-width: 2.5rem;
+      min-height: 2.5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 </style>
 </head>
@@ -1694,16 +1763,24 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return da - db;
     });
 
-    var html = '<div class="req-table-wrap"><table class="req-table"><thead><tr>' +
+    var head = '<tr>' +
       '<th scope="col">Actions</th>' +
       '<th scope="col">Demandeur</th>' +
       (cfg.col.motif ? '<th scope="col">Type d\'absence</th>' : '') +
       '<th scope="col">Début</th>' +
       '<th scope="col">Fin</th>' +
       (cfg.col.destination ? '<th scope="col">Destination</th>' : '') +
-      '</tr></thead><tbody>';
+      '</tr>';
 
     var reposValidees = reposValideesParDemandeur(cfg);
+
+    // Deux rendus construits en parallèle pour chaque ligne (tableau écran
+    // large / carte mobile, voir .req-table-view/.req-cards-view dans le
+    // CSS et la règle @media) : plus simple et plus fiable que de dériver
+    // visuellement l'un de l'autre en CSS pur, les deux présentations
+    // différant sensiblement (repris du widget Réservations).
+    var tableRows = '';
+    var cardsHtml = '';
 
     rows.forEach(function (r) {
       var debut = parseGristDateTime(r.dateDebut);
@@ -1757,9 +1834,35 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         }
       }
 
-      html += '<tr data-row-id="' + r.id + '">' +
-        '<td><div class="req-actions" role="group" aria-label="Décision">' +
-          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-check-line" title="Valider" data-action="validee" aria-pressed="' + (st.isValidee ? 'true' : 'false') + '"' +
+      // data-status : sans effet en écran large (tableau classique), pilote
+      // le fond pastel de la carte une fois affichée en dessous de 40rem
+      // (voir .req-card[data-status] dans le CSS) — un repère visuel
+      // immédiat, sans avoir à lire le libellé.
+      var statusKey = st.isValidee ? 'validee' : (st.isRefusee ? 'refusee' : 'attente');
+
+      // Boutons d'action : construits séparément pour chaque rendu (au lieu
+      // d'une seule chaîne réutilisée telle quelle) car les deux infobulles
+      // de blocage (Droits/PDF) portent chacune un id unique — les
+      // réutiliser à l'identique dans le tableau ET dans la carte, présents
+      // tous les deux en permanence dans le DOM (seul le CSS choisit lequel
+      // afficher), créerait des id HTML dupliqués. `variant` distingue les
+      // deux jeux d'ids ('t' tableau, 'c' carte).
+      function buildActionButtonsHtml(variant) {
+        var pdfTooltipId = null;
+        var pdfTooltipHtml = '';
+        if (!pdfAvailable) {
+          pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++) + variant;
+          pdfTooltipHtml = blockedTooltipHtml('Impossible de télécharger le PDF.', [
+            !isAutorisationType
+              ? 'Le PDF n\'est disponible que pour les demandes de type « ' + escapeHtml(ABSENCE_TYPE_AUTORISATION) + ' ».'
+              : 'Le PDF est disponible une fois la demande validée.'
+          ]);
+        }
+        var validerTooltipId = null;
+        if (validerBlockedByDroits) {
+          validerTooltipId = 'absDroitsTooltip' + (absTooltipSeq++) + variant;
+        }
+        return '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-check-line" title="Valider" data-action="validee" aria-pressed="' + (st.isValidee ? 'true' : 'false') + '"' +
             (st.isValidee || validerBlockedByDroits ? ' disabled' : '') +
             (validerBlockedByDroits ? (' aria-describedby="' + validerTooltipId + '"') : '') +
             '></button>' +
@@ -1770,22 +1873,42 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
             (pdfAvailable ? '' : (' disabled aria-describedby="' + pdfTooltipId + '"')) +
             '></button>' +
           (pdfAvailable ? '' : ('<span class="fr-tooltip fr-placement" id="' + pdfTooltipId + '" role="tooltip">' + pdfTooltipHtml + '</span>')) +
-          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier la demande" data-edit-id="' + r.id + '"></button>' +
-        '</div></td>' +
+          '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier la demande" data-edit-id="' + r.id + '"></button>';
+      }
+
+      // -- Tableau (écran large) : Actions en première colonne, comme
+      // avant. --
+      tableRows += '<tr data-row-id="' + r.id + '" data-status="' + statusKey + '">' +
+        '<td><div class="req-actions" role="group" aria-label="Décision">' + buildActionButtonsHtml('t') + '</div></td>' +
         '<td>' + escapeHtml(r.demandeur) + '</td>' +
         (cfg.col.motif ? '<td>' + escapeHtml(formatAbsenceTypeLabel(r.motif)) + '</td>' : '') +
         '<td>' + (debut ? escapeHtml(fmtAbsDate(debut)) : '—') + '</td>' +
         '<td>' + (fin ? escapeHtml(fmtAbsDate(fin)) : '—') + '</td>' +
         (cfg.col.destination ? '<td>' + escapeHtml(r.destination) + '</td>' : '') +
       '</tr>';
+
+      // -- Carte (mobile, en dessous de 40rem) : format sobre, une ligne
+      // par champ, demandeur en gras, icônes d'action en dessous — repris
+      // du widget Réservations (voir .req-card dans le CSS). --
+      var demandeurLine = '<p class="req-card__line"><span class="req-card__label">Demandeur :</span> <strong>' + escapeHtml(r.demandeur) + '</strong></p>';
+      var motifLine = cfg.col.motif ? '<p class="req-card__line"><span class="req-card__label">Type d\'absence :</span> ' + escapeHtml(formatAbsenceTypeLabel(r.motif)) + '</p>' : '';
+      var periodeLine = '<p class="req-card__line"><span class="req-card__label">Période :</span> ' + (debut ? escapeHtml(fmtAbsDate(debut)) : '—') + ' → ' + (fin ? escapeHtml(fmtAbsDate(fin)) : '—') + '</p>';
+      var destinationLine = cfg.col.destination ? '<p class="req-card__line"><span class="req-card__label">Destination :</span> ' + escapeHtml(r.destination) + '</p>' : '';
+      var cardLines = demandeurLine + motifLine + periodeLine + destinationLine;
+      cardsHtml += '<div class="req-card" data-row-id="' + r.id + '" data-status="' + statusKey + '">' +
+        cardLines +
+        '<div class="req-card__actions req-actions" role="group" aria-label="Décision">' + buildActionButtonsHtml('c') + '</div>' +
+      '</div>';
     });
-    html += '</tbody></table></div>';
-    absZone.innerHTML = html;
+
+    absZone.innerHTML =
+      '<div class="req-table-wrap req-table-view"><table class="req-table"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
+      '<div class="req-cards req-cards-view">' + cardsHtml + '</div>';
 
     absZone.querySelectorAll('button[data-action]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var tr = btn.closest('tr[data-row-id]');
-        var rowId = Number(tr.getAttribute('data-row-id'));
+        var row = btn.closest('[data-row-id]');
+        var rowId = Number(row.getAttribute('data-row-id'));
         var action = btn.getAttribute('data-action');
         var target = action === 'validee' ? cfg.valeurs.validee : (action === 'refusee' ? cfg.valeurs.refusee : cfg.valeurs.attente);
         updateAbsenceDecision(rowId, target);
@@ -1900,17 +2023,18 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var derniereMaj = row ? parseGristDateTime(row.derniereMiseAJour) : null;
       absEditFields.derniereMiseAJour.value = derniereMaj ? toDatetimeLocalValue(derniereMaj) : '';
 
-      // Affiche la modale en posant directement l'attribut booléen "open"
-      // (dialog.open = true), PLUTÔT QUE showModal()/close() : ces méthodes
-      // invoquent l'algorithme de "dialogue modal" du navigateur, qui peut
-      // être bloqué dans un iframe restreint (sandbox) comme celui utilisé
-      // par Grist pour les widgets personnalisés — bouton alors sans effet,
-      // sans la moindre erreur visible. Poser l'attribut "open" est un
-      // simple attribut booléen HTML, toujours autorisé (aucune permission
-      // requise), et l'affichage plein écran centré est assuré par notre
-      // propre CSS #absEditModal[open] (voir <style>), indépendamment du
-      // ::backdrop natif (qui, lui, nécessite showModal()).
-      absEditModal.open = true;
+      // Affiche la modale via l'API JS officielle du DSFR
+      // (window.dsfr(elem).modal.disclose()), et non en posant l'attribut
+      // "open" nous-mêmes : le DSFR "prend possession" de tout <dialog
+      // class="fr-modal"> présent sur la page dès que son propre script
+      // (dsfr.module.min.js) s'exécute — il gère alors seul l'affichage
+      // (classe/attribut internes, centrage, fond assombri, focus) et
+      // ignore un attribut "open" posé en direct : c'est ce qui rendait la
+      // fenêtre invisible malgré un clic bien reçu (open=true posé sans
+      // erreur, mais aussitôt neutralisé par le DSFR). On utilise donc
+      // disclose()/conceal(), avec un repli sur l'attribut "open" si le
+      // script du DSFR n'est pas chargé (ex. réseau bloqué).
+      absModalDisclose();
     } catch (e) {
       if (window.console && console.error) console.error('openAbsEditForm a échoué :', e);
       showAbsStatus('error', 'Impossible d\'ouvrir cette fenêtre : ' + friendlyErrorMessage(e));
@@ -1930,8 +2054,32 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     openAbsEditForm(null);
   }
 
+  // Wrappers autour de l'API JS du DSFR pour la modale de demande
+  // d'absence (voir openAbsEditForm ci-dessus pour l'explication). Repli
+  // sur l'attribut natif "open" si window.dsfr n'est pas disponible.
+  function absModalDisclose() {
+    if (typeof window.dsfr === 'function') {
+      window.dsfr(absEditModal).modal.disclose();
+    } else {
+      absEditModal.open = true;
+    }
+  }
+  function absModalConceal() {
+    if (typeof window.dsfr === 'function') {
+      window.dsfr(absEditModal).modal.conceal();
+    } else {
+      absEditModal.open = false;
+    }
+  }
+  function absModalIsOpen() {
+    if (typeof window.dsfr === 'function') {
+      return !!window.dsfr(absEditModal).modal.isDisclosed;
+    }
+    return absEditModal.open;
+  }
+
   function closeAbsEditModal() {
-    absEditModal.open = false;
+    absModalConceal();
     absEditingRowId = null;
     absStatusZone.innerHTML = '';
   }
@@ -1989,14 +2137,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   absEditCancelBtn.addEventListener('click', closeAbsEditModal);
   absEditSaveBtn.addEventListener('click', saveAbsEditForm);
   // Ferme aussi la modale d'un clic sur le fond (en dehors de la boîte de
-  // contenu). L'ouverture/fermeture ne passant plus par showModal()/close()
-  // (voir openAbsEditForm), la touche Échap n'est plus gérée nativement :
-  // on la reproduit ici à la main.
+  // contenu). Le DSFR gère normalement lui-même la touche Échap une fois
+  // la modale ouverte via son API ; ce gestionnaire est conservé par
+  // sécurité (repli si window.dsfr est indisponible, ou si la version du
+  // DSFR chargée ne gère pas ce cas) — l'appeler une seconde fois sur une
+  // modale déjà fermée est sans effet.
   absEditModal.addEventListener('click', function (e) {
     if (e.target === absEditModal) closeAbsEditModal();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && absEditModal.open) closeAbsEditModal();
+    if (e.key === 'Escape' && absModalIsOpen()) closeAbsEditModal();
   });
 
   // ---- Filtres (Décision / Demandeur) de la liste des absences ----------
