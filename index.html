@@ -969,10 +969,9 @@
                     <input class="fr-input" type="datetime-local" id="absEditField_dateFin" name="absEditField_dateFin">
                   </div>
                 </div>
-                <div class="fr-input-group" id="absEditGroup_motif">
+                <div class="fr-select-group" id="absEditGroup_motif">
                   <label class="fr-label" for="absEditField_motif">Type d'absence</label>
-                  <input class="fr-input" type="text" id="absEditField_motif" name="absEditField_motif" list="absEditMotifOptions">
-                  <datalist id="absEditMotifOptions"></datalist>
+                  <select class="fr-select" id="absEditField_motif" name="absEditField_motif"></select>
                 </div>
                 <div class="fr-input-group" id="absEditGroup_destination">
                   <label class="fr-label" for="absEditField_destination">Destination</label>
@@ -1144,7 +1143,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     creeLe: document.getElementById('absEditGroup_creeLe'),
     derniereMiseAJour: document.getElementById('absEditGroup_derniereMiseAJour')
   };
-  var absEditMotifOptions = document.getElementById('absEditMotifOptions');
   var absEditingRowId = null; // null en création, id de la ligne en édition
 
   var absTableSelect = document.getElementById('absTable');
@@ -2076,12 +2074,24 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
   }
 
-  function fillAbsEditMotifOptions() {
+  // « Type d'absence » est un choix contraint (select), et non plus un
+  // champ libre suggéré par une datalist : la liste proposée réunit les
+  // deux types reconnus par le widget (qui conditionnent respectivement
+  // le blocage "Droits à repos" et la disponibilité du PDF — voir
+  // ABSENCE_TYPE_AUTORISATION/isRepos ailleurs dans ce fichier), toutes
+  // les valeurs déjà vues dans les demandes existantes (pour ne pas
+  // perdre d'éventuels types personnalisés déjà présents dans la table),
+  // et la valeur actuelle de la ligne en cours d'édition le cas échéant
+  // (au cas, improbable, où elle ne serait pour une raison quelconque pas
+  // déjà comprise dans les deux ensembles précédents).
+  function fillAbsEditMotifSelect(currentValue) {
     var seen = {};
+    seen[ABSENCE_TYPE_AUTORISATION] = true;
+    seen['Repos'] = true;
     absData.forEach(function (r) { if (r.motif) seen[r.motif] = true; });
-    absEditMotifOptions.innerHTML = Object.keys(seen).sort().map(function (v) {
-      return '<option value="' + escapeHtml(v) + '"></option>';
-    }).join('');
+    if (currentValue) seen[currentValue] = true;
+    var values = Object.keys(seen).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+    fillSelectWithOptions(absEditFields.motif, values, currentValue || '', 'Choisir un type…');
   }
 
   // L'intégralité de la fonction est couverte par un seul bloc try/catch :
@@ -2106,7 +2116,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absEditingRowId = row ? row.id : null;
       absEditModalTitle.textContent = row ? 'Modifier la demande' : 'Nouvelle demande d\'absence';
       absEditStatusZone.innerHTML = '';
-      fillAbsEditMotifOptions();
 
       absEditFields.demandeur.value = row ? (row.demandeur || '') : '';
       var debut = row ? parseGristDateTime(row.dateDebut) : null;
@@ -2115,7 +2124,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absEditFields.dateFin.value = fin ? toDatetimeLocalValue(fin) : '';
 
       absEditGroups.motif.hidden = !cfg.col.motif;
-      absEditFields.motif.value = row ? (row.motif || '') : '';
+      fillAbsEditMotifSelect(row ? (row.motif || '') : '');
 
       absEditGroups.destination.hidden = !cfg.col.destination;
       absEditFields.destination.value = row ? (row.destination || '') : '';
