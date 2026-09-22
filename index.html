@@ -375,6 +375,18 @@
     gap: 0 1.5rem;
   }
 
+  /* Réorganisation de la page cachée "Paramètres du widget", sur le même
+     principe que le widget Réservations : un badge d'état (Configurées /
+     À compléter, ou l'état d'une option) dans chaque intitulé d'onglet du
+     contrôle segmenté donne une vue d'ensemble sans avoir à cliquer sur
+     chacun, et les réglages "Gestion des absences" (le plus long onglet,
+     plusieurs préoccupations distinctes : table/colonnes, libellés,
+     signataire) sont repliés par défaut dans des accordéons DSFR — voir
+     updateAllConfigTabBadges côté script. */
+  .fr-segmented__element .fr-label .fr-badge { margin-left: 0.4rem; vertical-align: middle; }
+  .fr-accordion__btn .fr-badge { margin-left: 0.5rem; vertical-align: middle; }
+  .fr-accordions-group .fr-accordion + .fr-accordion { margin-top: 0.75rem; }
+
   /* ---- Page "Gestion des absences" --------------------------------- */
   .req-toolbar {
     display: flex;
@@ -682,7 +694,7 @@
 
     <h2 class="fr-h6">Paramètres du widget</h2>
     <div class="fr-alert fr-alert--info fr-alert--sm fr-mb-3w">
-      <p>Ces réglages sont enregistrés dans ce document Grist : ils s'appliquent donc pour tous les utilisateurs du widget, sans jamais toucher au code.</p>
+      <p>Ces réglages sont enregistrés dans ce document Grist : ils s'appliquent donc pour tous les utilisateurs du widget, sans jamais toucher au code. Le badge à côté de chaque onglet ci-dessous indique en un coup d'œil son état actuel.</p>
     </div>
 
     <form id="configForm">
@@ -693,19 +705,19 @@
           <div class="fr-segmented__elements">
             <div class="fr-segmented__element">
               <input value="donnees" type="radio" id="configSectionRadio_donnees" name="configSection" data-section="donnees" checked>
-              <label class="fr-label" for="configSectionRadio_donnees">Données</label>
+              <label class="fr-label" for="configSectionRadio_donnees">Données <span class="fr-badge fr-badge--sm" id="configTabStatus_donnees"></span></label>
             </div>
             <div class="fr-segmented__element">
               <input value="progression" type="radio" id="configSectionRadio_progression" name="configSection" data-section="progression">
-              <label class="fr-label" for="configSectionRadio_progression">Progression (PDF)</label>
+              <label class="fr-label" for="configSectionRadio_progression">Progression (PDF) <span class="fr-badge fr-badge--sm" id="configTabStatus_progression"></span></label>
             </div>
             <div class="fr-segmented__element">
               <input value="fsj" type="radio" id="configSectionRadio_fsj" name="configSection" data-section="fsj">
-              <label class="fr-label" for="configSectionRadio_fsj">FSJ</label>
+              <label class="fr-label" for="configSectionRadio_fsj">FSJ <span class="fr-badge fr-badge--sm" id="configTabStatus_fsj"></span></label>
             </div>
             <div class="fr-segmented__element">
               <input value="absences" type="radio" id="configSectionRadio_absences" name="configSection" data-section="absences">
-              <label class="fr-label" for="configSectionRadio_absences">Absences</label>
+              <label class="fr-label" for="configSectionRadio_absences">Absences <span class="fr-badge fr-badge--sm" id="configTabStatus_absences"></span></label>
             </div>
           </div>
         </fieldset>
@@ -799,92 +811,114 @@
       <div id="configSectionAbsences" hidden>
         <h3 class="fr-text--lead config-section-title">Gestion des absences</h3>
         <p class="fr-hint-text fr-mb-2w">
-          Choisissez la table Grist source des demandes d'absence, puis associez chaque rôle à l'une de ses colonnes. Seuls Demandeur, Début, Fin et Décision sont obligatoires.
+          Choisissez la table Grist source des demandes d'absence, puis associez chaque rôle à l'une de ses colonnes. Seuls Demandeur, Début, Fin et Décision sont obligatoires. Cliquez sur une section pour la déplier ; le badge indique si elle est déjà configurée.
         </p>
 
-        <div class="fr-select-group">
-          <label class="fr-label" for="absTable">Table source</label>
-          <select class="fr-select" id="absTable" name="absTable">
-            <option value="">Choisir une table…</option>
-          </select>
-        </div>
+        <div class="fr-accordions-group">
+          <section class="fr-accordion">
+            <h4 class="fr-accordion__title">
+              <button type="button" class="fr-accordion__btn" aria-expanded="true" aria-controls="accAbsTableCols">Table et colonnes <span class="fr-badge fr-badge--sm" id="absConfigStatus"></span></button>
+            </h4>
+            <div class="fr-collapse fr-collapse--expanded" id="accAbsTableCols">
+              <div class="fr-select-group">
+                <label class="fr-label" for="absTable">Table source</label>
+                <select class="fr-select" id="absTable" name="absTable">
+                  <option value="">Choisir une table…</option>
+                </select>
+              </div>
 
-        <div class="config-grid-2col">
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_demandeur">Demandeur</label>
-            <select class="fr-select" id="absCol_demandeur" name="absCol_demandeur"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_decision">Décision</label>
-            <select class="fr-select" id="absCol_decision" name="absCol_decision"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_dateDebut">Date de début</label>
-            <select class="fr-select" id="absCol_dateDebut" name="absCol_dateDebut"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_dateFin">Date de fin</label>
-            <select class="fr-select" id="absCol_dateFin" name="absCol_dateFin"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_motif">Type d'absence <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="absCol_motif" name="absCol_motif"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_destination">Destination <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="absCol_destination" name="absCol_destination"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_commentaire">Commentaire <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="absCol_commentaire" name="absCol_commentaire"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_creeLe">Date de la demande <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="absCol_creeLe" name="absCol_creeLe"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_derniereMiseAJour">Date de la décision <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="absCol_derniereMiseAJour" name="absCol_derniereMiseAJour"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_droits">Droits (à repos) <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="absCol_droits" name="absCol_droits"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="absCol_conflit">Conflit <span class="fr-hint-text">(optionnel, case à cocher)</span></label>
-            <select class="fr-select" id="absCol_conflit" name="absCol_conflit"></select>
-          </div>
-        </div>
-        <p class="fr-hint-text fr-mb-2w">
-          « Droits (à repos) » : colonne donnant le nombre de jours de repos accordés au demandeur. Si elle est configurée, valider une demande de type « Repos » est bloqué dès lors que le cumul des « Repos » déjà validés pour ce demandeur (celui-ci compris) dépasserait ce quota.
-        </p>
-        <p class="fr-hint-text fr-mb-2w">
-          « Conflit » : colonne Oui/Non (case à cocher), calculée côté document Grist. Si elle est configurée et cochée pour une demande, un badge « Conflit » s'affiche à côté du type d'absence — purement informatif, la validation reste toujours possible.
-        </p>
+              <div class="config-grid-2col">
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_demandeur">Demandeur</label>
+                  <select class="fr-select" id="absCol_demandeur" name="absCol_demandeur"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_decision">Décision</label>
+                  <select class="fr-select" id="absCol_decision" name="absCol_decision"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_dateDebut">Date de début</label>
+                  <select class="fr-select" id="absCol_dateDebut" name="absCol_dateDebut"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_dateFin">Date de fin</label>
+                  <select class="fr-select" id="absCol_dateFin" name="absCol_dateFin"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_motif">Type d'absence <span class="fr-hint-text">(optionnel)</span></label>
+                  <select class="fr-select" id="absCol_motif" name="absCol_motif"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_destination">Destination <span class="fr-hint-text">(optionnel)</span></label>
+                  <select class="fr-select" id="absCol_destination" name="absCol_destination"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_commentaire">Commentaire <span class="fr-hint-text">(optionnel)</span></label>
+                  <select class="fr-select" id="absCol_commentaire" name="absCol_commentaire"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_creeLe">Date de la demande <span class="fr-hint-text">(optionnel)</span></label>
+                  <select class="fr-select" id="absCol_creeLe" name="absCol_creeLe"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_derniereMiseAJour">Date de la décision <span class="fr-hint-text">(optionnel)</span></label>
+                  <select class="fr-select" id="absCol_derniereMiseAJour" name="absCol_derniereMiseAJour"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_droits">Droits (à repos) <span class="fr-hint-text">(optionnel)</span></label>
+                  <select class="fr-select" id="absCol_droits" name="absCol_droits"></select>
+                </div>
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absCol_conflit">Conflit <span class="fr-hint-text">(optionnel, case à cocher)</span></label>
+                  <select class="fr-select" id="absCol_conflit" name="absCol_conflit"></select>
+                </div>
+              </div>
+              <p class="fr-hint-text fr-mt-2w">
+                « Droits (à repos) » : colonne donnant le nombre de jours de repos accordés au demandeur. Si elle est configurée, valider une demande de type « Repos » est bloqué dès lors que le cumul des « Repos » déjà validés pour ce demandeur (celui-ci compris) dépasserait ce quota.
+              </p>
+              <p class="fr-hint-text fr-mt-2w">
+                « Conflit » : colonne Oui/Non (case à cocher), calculée côté document Grist. Si elle est configurée et cochée pour une demande, un badge « Conflit » s'affiche à côté du type d'absence — purement informatif, la validation reste toujours possible.
+              </p>
+            </div>
+          </section>
 
-        <p class="fr-hint-text fr-mt-2w fr-mb-1w">Libellés utilisés dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
-        <div class="config-grid-3col">
-          <div class="fr-input-group">
-            <label class="fr-label" for="absVal_attente">En attente</label>
-            <input class="fr-input" type="text" id="absVal_attente" name="absVal_attente" placeholder="En attente">
-          </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="absVal_validee">Validée</label>
-            <input class="fr-input" type="text" id="absVal_validee" name="absVal_validee" placeholder="Validée">
-          </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="absVal_refusee">Refusée</label>
-            <input class="fr-input" type="text" id="absVal_refusee" name="absVal_refusee" placeholder="Refusée">
-          </div>
-        </div>
+          <section class="fr-accordion">
+            <h4 class="fr-accordion__title">
+              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accAbsLibelles">Libellés de décision</button>
+            </h4>
+            <div class="fr-collapse" id="accAbsLibelles">
+              <p class="fr-hint-text fr-mb-2w">Valeurs utilisées dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
+              <div class="config-grid-3col">
+                <div class="fr-input-group">
+                  <label class="fr-label" for="absVal_attente">En attente</label>
+                  <input class="fr-input" type="text" id="absVal_attente" name="absVal_attente" placeholder="En attente">
+                </div>
+                <div class="fr-input-group">
+                  <label class="fr-label" for="absVal_validee">Validée</label>
+                  <input class="fr-input" type="text" id="absVal_validee" name="absVal_validee" placeholder="Validée">
+                </div>
+                <div class="fr-input-group">
+                  <label class="fr-label" for="absVal_refusee">Refusée</label>
+                  <input class="fr-input" type="text" id="absVal_refusee" name="absVal_refusee" placeholder="Refusée">
+                </div>
+              </div>
+            </div>
+          </section>
 
-        <h3 class="fr-text--lead config-section-title">Signataire</h3>
-        <div class="fr-input-group">
-          <label class="fr-label" for="absSignataire">
-            Signataire de l'autorisation d'absence
-            <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « SLT de HAZE Vincent, directeur de stage »).</span>
-          </label>
-          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : SLT de HAZE Vincent, directeur de stage">
+          <section class="fr-accordion">
+            <h4 class="fr-accordion__title">
+              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accAbsSignataire">Signataire</button>
+            </h4>
+            <div class="fr-collapse" id="accAbsSignataire">
+              <div class="fr-input-group">
+                <label class="fr-label" for="absSignataire">
+                  Signataire de l'autorisation d'absence
+                  <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « SLT de HAZE Vincent, directeur de stage »).</span>
+                </label>
+                <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : SLT de HAZE Vincent, directeur de stage">
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -1043,6 +1077,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var headerBrand = document.getElementById('headerBrand');
   var panelConfig = document.getElementById('panelConfig');
+  var configForm = document.getElementById('configForm');
   var configStartDate = document.getElementById('configStartDate');
   var configEndDate = document.getElementById('configEndDate');
   var configPdfEnabled = document.getElementById('configPdfEnabled');
@@ -1422,7 +1457,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absAllTableIds = tables || [];
       fillSelectWithOptions(absTableSelect, absAllTableIds, absencesConfig.table, 'Choisir une table…');
       if (absTableSelect.value) refreshAbsencesColumnLists(absTableSelect.value);
-      else ABS_ROLES.forEach(function (role) { fillSelectWithOptions(absColSelects[role], [], '', 'Choisir une colonne…'); });
+      else {
+        ABS_ROLES.forEach(function (role) { fillSelectWithOptions(absColSelects[role], [], '', 'Choisir une colonne…'); });
+        updateAbsencesTabBadge();
+      }
     }).catch(function (e) {
       showConfigStatus('error', 'Impossible de lister les tables du document : ' + friendlyErrorMessage(e));
     });
@@ -1438,6 +1476,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       ABS_ROLES.forEach(function (role) {
         fillSelectWithOptions(absColSelects[role], cols, absencesConfig.col[role], 'Choisir une colonne…');
       });
+      updateAbsencesTabBadge();
     }).catch(function (e) {
       showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
     });
@@ -1496,6 +1535,48 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return cfg;
   }
 
+  // Badges d'état du backoffice (un par onglet du contrôle segmenté, plus
+  // un dans l'intitulé de l'accordéon "Table et colonnes" d'Absences) :
+  // même principe que le widget Réservations — peignent l'état ACTUEL du
+  // formulaire (pas encore enregistré), recalculés à la moindre
+  // modification (voir l'écouteur "change" délégué sur configForm plus
+  // bas, et les appels explicites après le rechargement asynchrone des
+  // tables/colonnes d'Absences), pour un retour en direct pendant la
+  // saisie plutôt qu'un état figé au dernier enregistrement.
+  function paintConfigBadge(el, text, variant) {
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'fr-badge fr-badge--sm' + (variant ? ' fr-badge--' + variant : '');
+  }
+  function updateDonneesTabBadge() {
+    var complete = isGenColumnsConfigComplete(genColumnsConfigFromForm());
+    paintConfigBadge(document.getElementById('configTabStatus_donnees'), complete ? 'Configurées' : 'À compléter', complete ? 'success' : 'warning');
+  }
+  function updateProgressionTabBadge() {
+    var enabled = configPdfEnabled.checked;
+    paintConfigBadge(document.getElementById('configTabStatus_progression'), enabled ? 'PDF activé' : 'PDF désactivé', enabled ? 'success' : 'warning');
+  }
+  function updateFsjTabBadge() {
+    var limited = configFsjLimit3Days.checked;
+    paintConfigBadge(document.getElementById('configTabStatus_fsj'), limited ? 'Limitée à 3 j.' : 'Sans limite');
+  }
+  function updateAbsencesTabBadge() {
+    var complete = isAbsencesConfigComplete(absencesConfigFromForm());
+    var text = complete ? 'Configurées' : 'À compléter';
+    var variant = complete ? 'success' : 'warning';
+    paintConfigBadge(document.getElementById('configTabStatus_absences'), text, variant);
+    paintConfigBadge(document.getElementById('absConfigStatus'), text, variant);
+  }
+  function updateAllConfigTabBadges() {
+    updateDonneesTabBadge();
+    updateProgressionTabBadge();
+    updateFsjTabBadge();
+    updateAbsencesTabBadge();
+  }
+  // Écouteur unique, délégué sur le formulaire entier (plutôt qu'un par
+  // champ), pour couvrir aussi les futurs champs sans y penser.
+  configForm.addEventListener('change', updateAllConfigTabBadges);
+
   var viewBeforeConfig = null;
 
   function showConfigStatus(type, message) {
@@ -1519,6 +1600,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     configPdfEnabled.checked = progressionPdfEnabled;
     configFsjLimit3Days.checked = fsjLimit3Days;
     fillAbsencesSettingsForm();
+    updateAllConfigTabBadges();
   }
 
   function closeConfigPanel() {
