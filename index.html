@@ -850,9 +850,16 @@
             <label class="fr-label" for="absCol_droits">Droits (à repos) <span class="fr-hint-text">(optionnel)</span></label>
             <select class="fr-select" id="absCol_droits" name="absCol_droits"></select>
           </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="absCol_conflit">Conflit <span class="fr-hint-text">(optionnel, case à cocher)</span></label>
+            <select class="fr-select" id="absCol_conflit" name="absCol_conflit"></select>
+          </div>
         </div>
         <p class="fr-hint-text fr-mb-2w">
           « Droits (à repos) » : colonne donnant le nombre de jours de repos accordés au demandeur. Si elle est configurée, valider une demande de type « Repos » est bloqué dès lors que le cumul des « Repos » déjà validés pour ce demandeur (celui-ci compris) dépasserait ce quota.
+        </p>
+        <p class="fr-hint-text fr-mb-2w">
+          « Conflit » : colonne Oui/Non (case à cocher), calculée côté document Grist. Si elle est configurée et cochée pour une demande, un badge « Conflit » s'affiche à côté du type d'absence — purement informatif, la validation reste toujours possible.
         </p>
 
         <p class="fr-hint-text fr-mt-2w fr-mb-1w">Libellés utilisés dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
@@ -1116,7 +1123,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     commentaire: document.getElementById('absCol_commentaire'),
     creeLe: document.getElementById('absCol_creeLe'),
     derniereMiseAJour: document.getElementById('absCol_derniereMiseAJour'),
-    droits: document.getElementById('absCol_droits')
+    droits: document.getElementById('absCol_droits'),
+    conflit: document.getElementById('absCol_conflit')
   };
   var absValAttente = document.getElementById('absVal_attente');
   var absValValidee = document.getElementById('absVal_validee');
@@ -1330,7 +1338,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // option du widget (clé "absencesConfig"), au même principe que le
   // widget Réservations.
 
-  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire', 'creeLe', 'derniereMiseAJour', 'droits'];
+  var ABS_ROLES = ['demandeur', 'dateDebut', 'dateFin', 'motif', 'destination', 'decision', 'commentaire', 'creeLe', 'derniereMiseAJour', 'droits', 'conflit'];
 
   // Valeur exacte du type d'absence (colonne "Type d'absence") qui
   // conditionne la disponibilité du PDF, et son libellé abrégé pour
@@ -1355,7 +1363,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       // demandeur (nombre de jours), utilisée pour bloquer la validation
       // d'une demande de type "Repos" qui ferait dépasser ce quota (voir
       // renderAbsencesList / reposDaysForRow).
-      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', creeLe: '', derniereMiseAJour: '', droits: '' },
+      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', creeLe: '', derniereMiseAJour: '', droits: '', conflit: '' },
       valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' },
       signataire: ''
     };
@@ -1683,7 +1691,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           commentaire: cfg.col.commentaire ? textOf(r[cfg.col.commentaire]) : '',
           creeLe: cfg.col.creeLe ? r[cfg.col.creeLe] : null,
           derniereMiseAJour: cfg.col.derniereMiseAJour ? r[cfg.col.derniereMiseAJour] : null,
-          droits: cfg.col.droits ? r[cfg.col.droits] : null
+          droits: cfg.col.droits ? r[cfg.col.droits] : null,
+          conflit: cfg.col.conflit ? r[cfg.col.conflit] : null
         };
       });
       if (absDemandeurLooksLikeRefId) {
@@ -1702,6 +1711,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       isRefusee: !!decisionText && normalizeNameKey(decisionText) === normalizeNameKey(cfg.valeurs.refusee),
       isAttente: !decisionText || normalizeNameKey(decisionText) === normalizeNameKey(cfg.valeurs.attente)
     };
+  }
+
+  // Détecte une valeur "cochée" pour une colonne Oui/Non (case à cocher)
+  // Grist : fetchTable renvoie un booléen JS natif pour ces colonnes, mais on
+  // tolère aussi 1 par prudence (cellules calculées / anciens formats).
+  function isConflitChecked(v) {
+    return v === true || v === 1;
   }
 
   // Nombre de jours "consommés" par une demande de type "Repos" : la
@@ -1840,6 +1856,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       // immédiat, sans avoir à lire le libellé.
       var statusKey = st.isValidee ? 'validee' : (st.isRefusee ? 'refusee' : 'attente');
 
+      // Conflit détecté (case à cocher "Conflit" configurée et cochée pour
+      // cette demande) : signalé par un badge DSFR "Conflit", purement
+      // informatif — n'a aucune incidence sur la possibilité de valider.
+      // Deux variantes de taille selon l'emplacement : "sm" à côté du type
+      // d'absence dans le tableau (avec un retour à la ligne), "md" en
+      // ligne à côté des boutons d'action sur la carte mobile.
+      var conflitDetected = !!cfg.col.conflit && isConflitChecked(r.conflit);
+      var conflitBadgeHtml = conflitDetected ? '<br><span class="fr-badge fr-badge--warning fr-badge--sm">Conflit</span>' : '';
+      var conflitBadgeInline = conflitDetected ? '<span class="fr-badge fr-badge--warning fr-badge--md">Conflit</span>' : '';
+
       // Boutons d'action : construits séparément pour chaque rendu (au lieu
       // d'une seule chaîne réutilisée telle quelle) car les deux infobulles
       // de blocage (Droits/PDF) portent chacune un id unique — les
@@ -1881,7 +1907,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       tableRows += '<tr data-row-id="' + r.id + '" data-status="' + statusKey + '">' +
         '<td><div class="req-actions" role="group" aria-label="Décision">' + buildActionButtonsHtml('t') + '</div></td>' +
         '<td>' + escapeHtml(r.demandeur) + '</td>' +
-        (cfg.col.motif ? '<td>' + escapeHtml(formatAbsenceTypeLabel(r.motif)) + '</td>' : '') +
+        (cfg.col.motif ? '<td>' + escapeHtml(formatAbsenceTypeLabel(r.motif)) + conflitBadgeHtml + '</td>' : '') +
         '<td>' + (debut ? escapeHtml(fmtAbsDate(debut)) : '—') + '</td>' +
         '<td>' + (fin ? escapeHtml(fmtAbsDate(fin)) : '—') + '</td>' +
         (cfg.col.destination ? '<td>' + escapeHtml(r.destination) + '</td>' : '') +
@@ -1897,7 +1923,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var cardLines = demandeurLine + motifLine + periodeLine + destinationLine;
       cardsHtml += '<div class="req-card" data-row-id="' + r.id + '" data-status="' + statusKey + '">' +
         cardLines +
-        '<div class="req-card__actions req-actions" role="group" aria-label="Décision">' + buildActionButtonsHtml('c') + '</div>' +
+        '<div class="req-card__actions req-actions" role="group" aria-label="Décision">' + buildActionButtonsHtml('c') + conflitBadgeInline + '</div>' +
       '</div>';
     });
 
