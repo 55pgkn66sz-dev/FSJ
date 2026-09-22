@@ -1853,49 +1853,66 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }).join('');
   }
 
+  // L'intégralité de la fonction est couverte par un seul bloc try/catch :
+  // si quoi que ce soit échoue en préparant le formulaire (donnée
+  // inattendue, champ introuvable, etc.), l'exception serait sinon levée
+  // silencieusement dans le gestionnaire de clic (aucune erreur visible
+  // pour l'utilisateur, bouton "sans effet" en apparence) — ici, elle est
+  // au contraire affichée clairement, et aussi tracée dans la console
+  // (F12) pour le diagnostic.
   function openAbsEditForm(row) {
-    var cfg = absencesConfig;
-    absEditingRowId = row ? row.id : null;
-    absEditModalTitle.textContent = row ? 'Modifier la demande' : 'Nouvelle demande d\'absence';
-    absEditStatusZone.innerHTML = '';
-    fillAbsEditMotifOptions();
-
-    absEditFields.demandeur.value = row ? (row.demandeur || '') : '';
-    var debut = row ? parseGristDateTime(row.dateDebut) : null;
-    var fin = row ? parseGristDateTime(row.dateFin) : null;
-    absEditFields.dateDebut.value = debut ? toDatetimeLocalValue(debut) : '';
-    absEditFields.dateFin.value = fin ? toDatetimeLocalValue(fin) : '';
-
-    absEditGroups.motif.hidden = !cfg.col.motif;
-    absEditFields.motif.value = row ? (row.motif || '') : '';
-
-    absEditGroups.destination.hidden = !cfg.col.destination;
-    absEditFields.destination.value = row ? (row.destination || '') : '';
-
-    absEditGroups.commentaire.hidden = !cfg.col.commentaire;
-    absEditFields.commentaire.value = row ? (row.commentaire || '') : '';
-
-    absEditGroups.creeLe.hidden = !cfg.col.creeLe;
-    var creeLe = row ? parseGristDateTime(row.creeLe) : null;
-    absEditFields.creeLe.value = creeLe ? toDatetimeLocalValue(creeLe) : (row ? '' : toDatetimeLocalValue(new Date()));
-
-    absEditGroups.derniereMiseAJour.hidden = !cfg.col.derniereMiseAJour;
-    var derniereMaj = row ? parseGristDateTime(row.derniereMiseAJour) : null;
-    absEditFields.derniereMiseAJour.value = derniereMaj ? toDatetimeLocalValue(derniereMaj) : '';
-
-    // Affiche la modale en posant directement l'attribut booléen "open"
-    // (dialog.open = true), PLUTÔT QUE showModal()/close() : ces méthodes
-    // invoquent l'algorithme de "dialogue modal" du navigateur, qui peut
-    // être bloqué dans un iframe restreint (sandbox) comme celui utilisé
-    // par Grist pour les widgets personnalisés — bouton alors sans effet,
-    // sans la moindre erreur visible. Poser l'attribut "open" est un
-    // simple attribut booléen HTML, toujours autorisé (aucune permission
-    // requise), et l'affichage plein écran centré est assuré par notre
-    // propre CSS #absEditModal[open] (voir <style>), indépendamment du
-    // ::backdrop natif (qui, lui, nécessite showModal()).
+    // Message de diagnostic : affiché dès l'entrée dans la fonction, avant
+    // toute autre opération, et sur la page (pas dans la modale elle-même)
+    // pour rester visible même si la fenêtre ne s'affiche pas à l'écran
+    // pour une raison quelconque. Il est effacé par closeAbsEditModal() une
+    // fois la fenêtre correctement fermée ; s'il reste affiché après un
+    // clic sans qu'aucune fenêtre n'apparaisse, cela prouve que le clic est
+    // bien reçu et traité (le problème serait alors purement dans
+    // l'affichage de la fenêtre, pas dans la détection du clic).
+    showAbsStatus('info', 'Ouverture du formulaire de la demande…');
     try {
+      var cfg = absencesConfig;
+      absEditingRowId = row ? row.id : null;
+      absEditModalTitle.textContent = row ? 'Modifier la demande' : 'Nouvelle demande d\'absence';
+      absEditStatusZone.innerHTML = '';
+      fillAbsEditMotifOptions();
+
+      absEditFields.demandeur.value = row ? (row.demandeur || '') : '';
+      var debut = row ? parseGristDateTime(row.dateDebut) : null;
+      var fin = row ? parseGristDateTime(row.dateFin) : null;
+      absEditFields.dateDebut.value = debut ? toDatetimeLocalValue(debut) : '';
+      absEditFields.dateFin.value = fin ? toDatetimeLocalValue(fin) : '';
+
+      absEditGroups.motif.hidden = !cfg.col.motif;
+      absEditFields.motif.value = row ? (row.motif || '') : '';
+
+      absEditGroups.destination.hidden = !cfg.col.destination;
+      absEditFields.destination.value = row ? (row.destination || '') : '';
+
+      absEditGroups.commentaire.hidden = !cfg.col.commentaire;
+      absEditFields.commentaire.value = row ? (row.commentaire || '') : '';
+
+      absEditGroups.creeLe.hidden = !cfg.col.creeLe;
+      var creeLe = row ? parseGristDateTime(row.creeLe) : null;
+      absEditFields.creeLe.value = creeLe ? toDatetimeLocalValue(creeLe) : (row ? '' : toDatetimeLocalValue(new Date()));
+
+      absEditGroups.derniereMiseAJour.hidden = !cfg.col.derniereMiseAJour;
+      var derniereMaj = row ? parseGristDateTime(row.derniereMiseAJour) : null;
+      absEditFields.derniereMiseAJour.value = derniereMaj ? toDatetimeLocalValue(derniereMaj) : '';
+
+      // Affiche la modale en posant directement l'attribut booléen "open"
+      // (dialog.open = true), PLUTÔT QUE showModal()/close() : ces méthodes
+      // invoquent l'algorithme de "dialogue modal" du navigateur, qui peut
+      // être bloqué dans un iframe restreint (sandbox) comme celui utilisé
+      // par Grist pour les widgets personnalisés — bouton alors sans effet,
+      // sans la moindre erreur visible. Poser l'attribut "open" est un
+      // simple attribut booléen HTML, toujours autorisé (aucune permission
+      // requise), et l'affichage plein écran centré est assuré par notre
+      // propre CSS #absEditModal[open] (voir <style>), indépendamment du
+      // ::backdrop natif (qui, lui, nécessite showModal()).
       absEditModal.open = true;
     } catch (e) {
+      if (window.console && console.error) console.error('openAbsEditForm a échoué :', e);
       showAbsStatus('error', 'Impossible d\'ouvrir cette fenêtre : ' + friendlyErrorMessage(e));
     }
   }
@@ -1916,6 +1933,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function closeAbsEditModal() {
     absEditModal.open = false;
     absEditingRowId = null;
+    absStatusZone.innerHTML = '';
   }
 
   function saveAbsEditForm() {
