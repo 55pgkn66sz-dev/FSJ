@@ -92,6 +92,26 @@
   #fsjFieldset .fr-radio-group label {
     white-space: nowrap;
   }
+
+  /* Page FSJ : commandes à gauche, aperçu web à droite (la page est coupée
+     en deux) ; empilés en dessous de 64rem. */
+  .fsj-layout {
+    display: grid;
+    grid-template-columns: minmax(24rem, 36rem) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+  }
+  .fsj-preview { min-width: 0; border-left: 1px solid var(--border-default-grey); padding-left: 2rem; }
+  @media (max-width: 64rem) {
+    .fsj-layout { grid-template-columns: minmax(0, 1fr); }
+    .fsj-preview { border-left: none; padding-left: 0; }
+  }
+  /* Champ date réduit */
+  .fsj-date-group { max-width: 13rem; }
+  /* Boutons radio en ligne : les deux versions côte à côte */
+  #fsjFieldset { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+  #fsjFieldset .fr-fieldset__legend { flex: 0 0 100%; }
+  #fsjFieldset .fr-fieldset__element { flex: 1 1 0; min-width: 14rem; max-width: none; margin: 0; }
   #fsjFieldset .fr-radio-group label .fr-hint-text {
     white-space: normal;
   }
@@ -388,6 +408,12 @@
     white-space: nowrap;
   }
   .req-table th { font-weight: 700; }
+  /* Demandes d'absence : le texte passe à la ligne (colonnes de largeur
+     répartie), sauf la colonne des actions, dont les icônes restent toujours
+     sur une seule ligne. */
+  .req-table--wrap th, .req-table--wrap td { white-space: normal; overflow-wrap: anywhere; }
+  .req-table--wrap th:first-child, .req-table--wrap td:first-child { white-space: nowrap; overflow-wrap: normal; width: 1%; }
+  .req-table--wrap .req-actions { flex-wrap: nowrap; }
   /* En-têtes triables (page Réglages des activités) */
   .req-sort {
     display: inline-flex;
@@ -432,13 +458,26 @@
     overflow-wrap: anywhere;
     padding: 0.5rem 0.5rem;
   }
-  .req-table--fit .col-actions { width: 5.5rem; }
+  .req-table--fit .col-actions { width: 3rem; }
   .req-table--fit .col-code { width: 7rem; }
   .req-table--fit .col-num { width: 5.5rem; }
   .req-table--fit .col-duree { width: 5rem; }
   .req-table--fit .col-intitule { width: 22%; }
   .req-table--fit .col-cadres { width: 20%; }
   .req-table--fit .req-actions { flex-wrap: nowrap; }
+  /* Suppression : bouton rond discret en fin de ligne (gris, rouge au survol) */
+  .req-delete-cell { text-align: right; vertical-align: middle; }
+  .req-delete-btn {
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    min-height: 2rem;
+    padding: 0;
+    border-radius: 50%;
+    color: #929292;
+    opacity: 0.8;
+  }
+  .req-delete-btn:hover { background-color: #fbe1e0; color: #ce0500; opacity: 1; }
   /* Regroupement par Type */
   .req-table--fit tbody tr.req-cluster-start td { border-top: 2px solid var(--border-default-grey); }
   .req-code-cell { vertical-align: top; background: #fafafd; }
@@ -484,6 +523,7 @@
   .code-suggest__item[aria-selected="true"], .code-suggest__item:hover { background: #f0f0f5; }
   .code-suggest__detail { color: var(--text-mention-grey); }
   .code-suggest__item--excluded strong { color: #ce0500; }
+  .code-hidden-icon { color: #ce0500; vertical-align: middle; margin-left: 0.25rem; }
   .code-suggest__excluded { color: #ce0500; font-size: 0.85em; }
   .code-excluded-note { color: #ce0500; margin-top: 0.35rem; }
   .code-suggest__empty { padding: 0.4rem 0.75rem; color: var(--text-mention-grey); font-style: italic; }
@@ -696,15 +736,22 @@
 
   <div id="panelGenerer" hidden>
 
-    <div class="fr-input-group">
-      <label class="fr-label" for="dayPicker">
-        Feuille de service à générer
-        <span class="fr-hint-text">La date choisie apparaîtra dans le titre du document.</span>
-      </label>
-      <input class="fr-input" type="date" id="dayPicker" name="dayPicker">
-    </div>
+    <!-- Bandeaux d'information / d'alerte : en haut de la page -->
+    <div id="statusZone" class="fr-mb-2w" aria-live="polite"></div>
+    <div id="fsjInfoZone" class="fr-mb-2w" aria-live="polite"></div>
 
-    <fieldset class="fr-fieldset fr-mt-2w" id="fsjFieldset" aria-labelledby="fsjFieldset-legend">
+    <div class="fsj-layout">
+
+      <div class="fsj-controls">
+        <div class="fr-input-group fsj-date-group">
+          <label class="fr-label" for="dayPicker">
+            Feuille de service à générer
+            <span class="fr-hint-text">La date choisie apparaîtra dans le titre du document.</span>
+          </label>
+          <input class="fr-input" type="date" id="dayPicker" name="dayPicker">
+        </div>
+
+    <fieldset class="fr-fieldset fr-mt-3w" id="fsjFieldset" aria-labelledby="fsjFieldset-legend">
       <legend class="fr-fieldset__legend fr-text--regular" id="fsjFieldset-legend">
         Version à générer
       </legend>
@@ -736,10 +783,13 @@
         <span class="fr-tooltip fr-placement" id="generateBtnTooltip" role="tooltip"><strong>Impossible de générer ce PDF.</strong><br>Les données ne sont pas encore chargées.</span>
       </li>
     </ul>
+      </div>
 
-    <div id="statusZone" class="fr-mt-3w" aria-live="polite"></div>
+      <div class="fsj-preview">
+        <div id="previewZone"></div>
+      </div>
 
-    <div id="previewZone" class="fr-mt-4w"></div>
+    </div>
 
   </div>
 
@@ -1386,6 +1436,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var generateBtnTooltip = document.getElementById('generateBtnTooltip');
   var statusZone = document.getElementById('statusZone');
   var previewZone = document.getElementById('previewZone');
+  var fsjInfoZone = document.getElementById('fsjInfoZone');
   var fsjRadios = document.querySelectorAll('input[name="fsjType"]');
 
   var navProgression = document.getElementById('navProgression');
@@ -2584,7 +2635,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     });
 
     absZone.innerHTML =
-      '<div class="req-table-wrap req-table-view"><table class="req-table"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
+      '<div class="req-table-wrap req-table-view"><table class="req-table req-table--wrap"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
       '<div class="req-cards req-cards-view">' + cardsHtml + '</div>';
 
     absZone.querySelectorAll('button[data-action]').forEach(function (btn) {
@@ -3473,6 +3524,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // Réglage associé à un code. Si plusieurs activités partagent ce code, on
   // ne pré-remplit que ce qui leur est commun : intitulé et consignes
   // uniquement s'ils sont identiques partout, cadres désignés = union.
+  // Icône "œil barré" signalant un code masqué dans la FSJ stagiaires
+  // (voir isExcludedCode / EXCLUDED_CODES).
+  function hiddenFsjIconHtml() {
+    return '<span class="fr-icon-eye-off-line fr-icon--sm code-hidden-icon" aria-hidden="true"></span>' +
+      '<span class="fr-sr-only">Non affiché dans la FSJ stagiaires</span>';
+  }
+
   function catalogEntryFor(code) {
     var key = normalizeNameKey(code);
     if (!key) return null;
@@ -3596,7 +3654,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         return '<div class="code-suggest__item' + (excluded ? ' code-suggest__item--excluded' : '') + '" role="option" id="occCodeSuggest_' + i + '" data-code="' + escapeHtml(it.code) + '" aria-selected="false">' +
           '<strong>' + escapeHtml(it.code) + '</strong>' +
           (it.intitule ? ' <span class="code-suggest__detail">— ' + escapeHtml(it.intitule) + '</span>' : '') +
-          (excluded ? ' <span class="code-suggest__excluded">(non affiché dans la FSJ stagiaires)</span>' : '') + '</div>';
+          (excluded ? ' ' + hiddenFsjIconHtml() + '<span class="code-suggest__excluded">(non affiché dans la FSJ stagiaires)</span>' : '') + '</div>';
       }).join('');
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
@@ -3955,8 +4013,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         REGLAGES_SORT_LABELS[key] + ' <span class="req-sort__arrow" aria-hidden="true">' + arrow + '</span></button></th>';
     }
     var COLS = 7;
-    var head = '<tr><th class="col-actions">Actions</th>' + sortHeader('code', 'col-code') + sortHeader('numero', 'col-num') + sortHeader('duree', 'col-duree') +
-      sortHeader('intitule', 'col-intitule') + '<th class="col-cadres">Cadres désignés</th><th>Consignes</th></tr>';
+    var head = '<tr>' + sortHeader('code', 'col-code') + sortHeader('numero', 'col-num') + sortHeader('duree', 'col-duree') +
+      sortHeader('intitule', 'col-intitule') + '<th class="col-cadres">Cadres désignés</th><th>Consignes</th><th class="col-actions"><span class="fr-sr-only">Supprimer</span></th></tr>';
 
     // Regroupement par Type (ordre alphabétique, "Sans type" en dernier) ;
     // sans colonne Type dans la table, un seul groupe sans en-tête.
@@ -4011,19 +4069,19 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       clusters.forEach(function (cluster) { cluster.forEach(function (r, ri) {
         var actionsHtml = actionsFor(r);
         var codeCell = ri > 0 ? '' :
-          '<td class="req-code-cell"' + (cluster.length > 1 ? ' rowspan="' + cluster.length + '"' : '') + '><strong>' + escapeHtml(r.code) + '</strong>' +
-          (cluster.length > 1 ? ' <span class="fr-badge fr-badge--sm" title="' + cluster.length + ' activités pour ce code">' + cluster.length + '</span>' : '') + '</td>';
+          '<td class="req-code-cell"' + (cluster.length > 1 ? ' rowspan="' + cluster.length + '"' : '') + '><strong>' + escapeHtml(r.code) + '</strong>' + (isExcludedCode(r.code) ? '<span title="Non affiché dans la FSJ stagiaires">' + hiddenFsjIconHtml() + '</span>' : '') + '</td>';
         tableRows += '<tr data-row-id="' + r.id + '"' + (ri === 0 ? ' class="req-cluster-start"' : '') + ' title="Double-clic pour modifier">' +
-          '<td><div class="req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div></td>' +
-          codeCell +          '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
+          codeCell +
+          '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
           '<td>' + (r.duree ? escapeHtml(r.duree) : '—') + '</td>' +
           '<td>' + escapeHtml(r.intitule) + '</td>' +
           '<td>' + editableCellHtml(r, 'cadres', r.cadresDesignes.length ? inlineBadgesHtml(r.cadresDesignes, 'badges') : '<span class="cell-empty">—</span>') + '</td>' +
           '<td>' + editableCellHtml(r, 'consignes', r.consignes ? '<span class="req-cell-text">' + escapeHtml(r.consignes) + '</span>' : '<span class="cell-empty">—</span>') + '</td>' +
+          '<td class="req-delete-cell"><button type="button" class="fr-btn fr-btn--tertiary-no-outline fr-btn--sm fr-icon-delete-line req-delete-btn" title="Supprimer ce réglage" data-delete-id="' + r.id + '"><span class="fr-sr-only">Supprimer</span></button></td>' +
         '</tr>';
 
         cardsHtml += '<div class="req-card" data-row-id="' + r.id + '">' +
-          '<p class="req-card__line"><span class="req-card__label">Code :</span> <strong>' + escapeHtml(r.code) + '</strong></p>' +
+          '<p class="req-card__line"><span class="req-card__label">Code :</span> <strong>' + escapeHtml(r.code) + '</strong>' + (isExcludedCode(r.code) ? '<span title="Non affiché dans la FSJ stagiaires">' + hiddenFsjIconHtml() + '</span>' : '') + '</p>' +
           (r.numero ? '<p class="req-card__line"><span class="req-card__label">Numéro :</span> ' + escapeHtml(r.numero) + '</p>' : '') +
           (r.duree ? '<p class="req-card__line"><span class="req-card__label">Durée :</span> ' + escapeHtml(r.duree) + '</p>' : '') +
           '<p class="req-card__line"><span class="req-card__label">Intitulé :</span> ' + escapeHtml(r.intitule) + '</p>' +
@@ -5618,6 +5676,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function renderPreview() {
     if (!recordsLoaded) {
       previewZone.innerHTML = '';
+      fsjInfoZone.innerHTML = '';
       applyGenerateBtnState('Les données ne sont pas encore chargées.');
       return;
     }
@@ -5630,7 +5689,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var sections = splitBySection(occ);
 
     if (occ.length === 0) {
-      previewZone.innerHTML =
+      previewZone.innerHTML = '';
+      fsjInfoZone.innerHTML =
         '<div class="fr-alert fr-alert--info fr-alert--sm">' +
         '<p>Aucune occurrence trouvée pour le ' + escapeHtml(fmtDayTitle(day)) + '.</p>' +
         '</div>';
@@ -5638,6 +5698,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return;
     }
     applyGenerateBtnState(dateLimitReason);
+    fsjInfoZone.innerHTML = '';
 
     var countLine = occ.length + ' occurrence(s) pour le ' + escapeHtml(fmtDayTitle(day));
     if (hiddenCount > 0) {
