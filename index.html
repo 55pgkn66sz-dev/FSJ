@@ -420,11 +420,32 @@
   /* Libellé "Code activité" + icône d'aide (liste des codes existants). */
   .occ-code-label-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
   .occ-code-label-row .fr-label { margin-bottom: 0; }
-  /* L'info-bulle liste potentiellement de nombreux codes : plus large que
-     l'info-bulle DSFR standard, sur deux colonnes. */
-  #occCodeHelpTooltip { width: max-content; max-width: min(36rem, 90vw); }
-  .code-help-list { columns: 2; column-gap: 1.5rem; margin: 0.25rem 0 0; padding: 0; list-style: none; text-align: left; }
-  .code-help-list li { margin: 0 0 0.15rem; break-inside: avoid; }
+  /* Panneau d'aide (liste des codes existants) : ouvert au survol, au clic
+     ou au focus clavier ; défile s'il y a beaucoup de codes. Volontairement
+     pas une info-bulle DSFR (fr-tooltip), qui se rogne dès que son contenu
+     est long. */
+  .code-help { position: relative; display: inline-block; }
+  .code-help__panel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 50;
+    box-sizing: border-box;
+    width: 28rem;
+    max-width: calc(100vw - 4rem);
+    max-height: 14rem;
+    overflow-y: auto;
+    padding: 0.6rem 0.9rem;
+    background: #fff;
+    border: 1px solid var(--border-default-grey);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    font-size: 0.85rem;
+    line-height: 1.35;
+    text-align: left;
+  }
+  .code-help__panel[hidden] { display: none; }
+  .code-help-list { margin: 0.35rem 0 0; padding: 0; list-style: none; }
+  .code-help-list li { margin: 0 0 0.2rem; }
   /* Groupe d'icônes d'action façon "Gérer la demande" du widget
      Réservations (repris à l'identique de son CSS .req-actions) : boutons
      DSFR tertiaires standards (pas de contour permanent) ; seul le
@@ -1100,8 +1121,10 @@
                 <div class="fr-input-group">
                   <div class="occ-code-label-row">
                     <label class="fr-label" for="occEditField_code">Code activité <span class="fr-hint-text">(optionnel)</span></label>
-                    <button type="button" class="fr-btn--tooltip fr-btn" id="occCodeHelpBtn" aria-describedby="occCodeHelpTooltip">Afficher les codes d'activité existants</button>
-                    <span class="fr-tooltip fr-placement" id="occCodeHelpTooltip" role="tooltip"></span>
+                    <span class="code-help" id="occCodeHelp">
+                      <button type="button" class="fr-btn fr-btn--tertiary-no-outline fr-btn--sm fr-icon-information-line" id="occCodeHelpBtn" aria-expanded="false" aria-controls="occCodeHelpPanel" title="Codes d'activité existants">Codes d'activité existants</button>
+                      <div class="code-help__panel" id="occCodeHelpPanel" role="region" aria-label="Codes d'activité existants" hidden></div>
+                    </span>
                   </div>
                   <input class="fr-input" type="text" id="occEditField_code" name="occEditField_code">
                 </div>
@@ -1220,7 +1243,7 @@
                 </fieldset>
                 <fieldset class="fr-fieldset fr-mt-2w" id="occEditEncadrementFieldset" aria-labelledby="occEditEncadrementFieldset-legend">
                   <legend class="fr-fieldset__legend fr-text--regular" id="occEditEncadrementFieldset-legend">
-                    Encadrement <span class="fr-hint-text">(optionnel)</span>
+                    Encadrement <span class="fr-hint-text">(optionnel — pré-rempli d'après les informations associées au code saisi, modifiable)</span>
                   </legend>
                   <div id="occEditEncadrementList" class="occ-checkbox-row"></div>
                 </fieldset>
@@ -1229,11 +1252,11 @@
                   <input class="fr-input" type="text" id="occEditField_lieu" name="occEditField_lieu">
                 </div>
                 <div class="fr-input-group">
-                  <label class="fr-label" for="occEditField_intitule">Intitulé <span class="fr-hint-text">Pré-rempli d'après le code activité (Réglages des activités), modifiable</span></label>
+                  <label class="fr-label" for="occEditField_intitule">Intitulé <span class="fr-hint-text">Pré-rempli d'après les informations associées au code saisi, modifiable</span></label>
                   <input class="fr-input" type="text" id="occEditField_intitule" name="occEditField_intitule">
                 </div>
                 <div class="fr-input-group">
-                  <label class="fr-label" for="occEditField_consignes">Consignes <span class="fr-hint-text">(optionnel)</span></label>
+                  <label class="fr-label" for="occEditField_consignes">Consignes <span class="fr-hint-text">(optionnel — pré-rempli d'après les informations associées au code saisi, modifiable)</span></label>
                   <textarea class="fr-input" id="occEditField_consignes" name="occEditField_consignes" rows="3"></textarea>
                 </div>
                 </div>
@@ -3364,6 +3387,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
       fillPermMilitaireSelect();
       updateCodeHelpTooltip();
+      document.getElementById('occCodeHelpPanel').hidden = true;
       occLastCodeProcessed = row ? textOf(row.Code) : '';
       occAuto = { intitule: '', consignes: '', cadres: [] };
       loadReglagesCatalog().then(function () {
@@ -3582,7 +3606,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // catalogue "Réglages des activités" (avec leur intitulé), complétés des
   // codes déjà utilisés par des occurrences mais absents du catalogue.
   function updateCodeHelpTooltip() {
-    var tooltip = document.getElementById('occCodeHelpTooltip');
+    var tooltip = document.getElementById('occCodeHelpPanel');
     if (!tooltip) return;
     var seen = {};
     var items = [];
@@ -3608,6 +3632,39 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         }).join('') + '</ul>'
       : 'Aucun code n\'existe pour l\'instant.';
   }
+
+  // Ouverture/fermeture du panneau d'aide : survol (avec un court délai à la
+  // sortie pour pouvoir atteindre et faire défiler le panneau), focus
+  // clavier, clic (tactile) ; Échap le referme sans fermer la modale.
+  (function setupCodeHelp() {
+    var wrap = document.getElementById('occCodeHelp');
+    var btn = document.getElementById('occCodeHelpBtn');
+    var panel = document.getElementById('occCodeHelpPanel');
+    var closeTimer = null;
+    function show() {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+      panel.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+    }
+    function hide() {
+      panel.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+    function hideSoon() {
+      if (closeTimer) clearTimeout(closeTimer);
+      closeTimer = setTimeout(hide, 200);
+    }
+    wrap.addEventListener('mouseenter', show);
+    wrap.addEventListener('mouseleave', hideSoon);
+    btn.addEventListener('focus', show);
+    btn.addEventListener('blur', hideSoon);
+    btn.addEventListener('click', function () { if (panel.hidden) show(); else hide(); });
+    wrap.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !panel.hidden) { e.stopPropagation(); hide(); }
+    });
+    // Fermé à chaque ouverture de la modale.
+    occEditModal.addEventListener('click', function (e) { if (!wrap.contains(e.target)) hide(); });
+  })();
 
   function applyCatalogFromCode() {
     var code = occEditFields.code.value;
