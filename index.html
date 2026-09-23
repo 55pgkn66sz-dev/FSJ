@@ -495,9 +495,15 @@
     gap: 0.25rem 1.5rem;
   }
   .occ-checkbox-row .fr-fieldset__element {
+    /* Le DSFR donne à chaque élément de fieldset flex: 1 1 100% (donc une
+       case par ligne) : on l'annule pour que les cases se placent côte à
+       côte et ne passent à la ligne qu'à court de place. */
+    flex: 0 0 auto;
     width: auto;
+    max-width: none;
     margin: 0;
   }
+  .occ-checkbox-row .fr-hint-text { flex: 1 1 100%; margin: 0; }
 
   /* Filtre "Demandeur" : champ de recherche clavier en tête du menu
      déroulant, pour retrouver rapidement un nom dans une longue liste. */
@@ -853,9 +859,39 @@
             <span class="fr-hint-text">Décochez pour bloquer temporairement le bouton « Progression en PDF » (le reste du widget continue de fonctionner normalement).</span>
           </label>
         </div>
+
+        <h4 class="fr-h6 fr-mt-4w">Permanences</h4>
+        <p class="fr-hint-text fr-mb-2w">
+          Numéro de téléphone de permanence, affiché entre parenthèses après le nom du militaire lors de la création d'une permanence (« Commandement : Identité complète (numéro) »). En l'absence de numéro renseigné ici, le numéro personnel du militaire (colonne « Tél » de la table des cadres) est utilisé.
+        </p>
+        <div class="config-grid-2col">
+          <div class="fr-input-group">
+            <label class="fr-label" for="configPermTel_CDT">Commandement (CDT) <span class="fr-hint-text">(optionnel)</span></label>
+            <input class="fr-input" type="text" id="configPermTel_CDT" name="configPermTel_CDT" placeholder="Ex. : 06 00 00 00 00">
+          </div>
+          <div class="fr-input-group">
+            <label class="fr-label" for="configPermTel_AE">Adjudant d'escadron (AE) <span class="fr-hint-text">(optionnel)</span></label>
+            <input class="fr-input" type="text" id="configPermTel_AE" name="configPermTel_AE">
+          </div>
+          <div class="fr-input-group">
+            <label class="fr-label" for="configPermTel_SAN">Soutien sanitaire (SAN) <span class="fr-hint-text">(optionnel)</span></label>
+            <input class="fr-input" type="text" id="configPermTel_SAN" name="configPermTel_SAN">
+          </div>
+          <div class="fr-input-group">
+            <label class="fr-label" for="configPermTel_SOP">SOP <span class="fr-hint-text">(optionnel)</span></label>
+            <input class="fr-input" type="text" id="configPermTel_SOP" name="configPermTel_SOP">
+          </div>
+        </div>
+        <div class="fr-input-group">
+          <label class="fr-label" for="configPermTelColumn">
+            Colonne du numéro personnel <span class="fr-hint-text">(optionnel — nom ou identifiant de la colonne dans la table des cadres ; détectée automatiquement si elle s'appelle « Tél », « Téléphone », « Portable »…)</span>
+          </label>
+          <input class="fr-input" type="text" id="configPermTelColumn" name="configPermTelColumn" placeholder="Ex. : Tél">
+        </div>
       </div>
 
       <div id="configSectionFsj" hidden>
+
         <h3 class="fr-text--lead config-section-title">Feuille de service journalier (FSJ)</h3>
 
         <div class="fr-checkbox-group fr-mt-2w">
@@ -1127,11 +1163,33 @@
             <div class="fr-modal__content">
               <h1 id="occEditModalTitle" class="fr-modal__title">Occurrence</h1>
               <div id="occEditStatusZone" aria-live="polite"></div>
+              <div class="fr-segmented fr-segmented--sm fr-mb-2w" id="occModeToggle" hidden>
+                <fieldset class="fr-segmented__fieldset">
+                  <legend class="fr-segmented__legend">Type de création</legend>
+                  <div class="fr-segmented__elements">
+                    <div class="fr-segmented__element">
+                      <input value="occurrence" type="radio" id="occMode_occurrence" name="occMode" checked>
+                      <label class="fr-label" for="occMode_occurrence">Créer une occurrence</label>
+                    </div>
+                    <div class="fr-segmented__element">
+                      <input value="recurrence" type="radio" id="occMode_recurrence" name="occMode">
+                      <label class="fr-label" for="occMode_recurrence">Créer une récurrence</label>
+                    </div>
+                    <div class="fr-segmented__element">
+                      <input value="permanence" type="radio" id="occMode_permanence" name="occMode">
+                      <label class="fr-label" for="occMode_permanence">Permanence</label>
+                    </div>
+                  </div>
+                </fieldset>
+              </div>
               <form id="occEditForm">
+                <div id="occGroupCode">
                 <div class="fr-input-group">
                   <label class="fr-label" for="occEditField_code">Code activité <span class="fr-hint-text">(optionnel)</span></label>
                   <input class="fr-input" type="text" id="occEditField_code" name="occEditField_code">
                 </div>
+                </div>
+                <div id="occGroupDatetime">
                 <div class="config-grid-2col">
                   <div class="fr-input-group">
                     <label class="fr-label" for="occEditField_dateDebut">Date de début <span class="fr-hint-text">JJ/MM/AAAA HH:mm</span></label>
@@ -1142,6 +1200,70 @@
                     <input class="fr-input" type="datetime-local" id="occEditField_dateFin" name="occEditField_dateFin">
                   </div>
                 </div>
+                </div>
+                <div id="occGroupRecurrence" hidden>
+                  <div class="config-grid-2col">
+                    <div class="fr-input-group">
+                      <label class="fr-label" for="occRecFrom">Répéter du</label>
+                      <input class="fr-input" type="date" id="occRecFrom" name="occRecFrom">
+                    </div>
+                    <div class="fr-input-group">
+                      <label class="fr-label" for="occRecTo">au <span class="fr-hint-text">(inclus)</span></label>
+                      <input class="fr-input" type="date" id="occRecTo" name="occRecTo">
+                    </div>
+                  </div>
+                  <div class="config-grid-2col">
+                    <div class="fr-input-group">
+                      <label class="fr-label" for="occRecTimeStart">Heure de début <span class="fr-hint-text">HH:mm</span></label>
+                      <input class="fr-input" type="time" id="occRecTimeStart" name="occRecTimeStart">
+                    </div>
+                    <div class="fr-input-group">
+                      <label class="fr-label" for="occRecTimeEnd">Heure de fin <span class="fr-hint-text">(optionnel) HH:mm</span></label>
+                      <input class="fr-input" type="time" id="occRecTimeEnd" name="occRecTimeEnd">
+                    </div>
+                  </div>
+                  <p class="fr-hint-text">Une occurrence est créée pour chaque jour de la période, week-ends compris.</p>
+                </div>
+                <div id="occGroupPermanence" hidden>
+                  <fieldset class="fr-fieldset" id="occPermTypeFieldset" aria-labelledby="occPermTypeFieldset-legend">
+                    <legend class="fr-fieldset__legend fr-text--regular" id="occPermTypeFieldset-legend">Permanence</legend>
+                    <div class="occ-checkbox-row">
+                      <div class="fr-fieldset__element">
+                        <div class="fr-radio-group">
+                          <input type="radio" id="occPerm_CDT" name="occPermType" value="CDT">
+                          <label class="fr-label" for="occPerm_CDT">Commandement</label>
+                        </div>
+                      </div>
+                      <div class="fr-fieldset__element">
+                        <div class="fr-radio-group">
+                          <input type="radio" id="occPerm_AE" name="occPermType" value="AE">
+                          <label class="fr-label" for="occPerm_AE">Adjudant d'escadron</label>
+                        </div>
+                      </div>
+                      <div class="fr-fieldset__element">
+                        <div class="fr-radio-group">
+                          <input type="radio" id="occPerm_SAN" name="occPermType" value="SAN">
+                          <label class="fr-label" for="occPerm_SAN">Soutien sanitaire</label>
+                        </div>
+                      </div>
+                      <div class="fr-fieldset__element">
+                        <div class="fr-radio-group">
+                          <input type="radio" id="occPerm_SOP" name="occPermType" value="SOP">
+                          <label class="fr-label" for="occPerm_SOP">SOP</label>
+                        </div>
+                      </div>
+                    </div>
+                  </fieldset>
+                  <div class="fr-input-group">
+                    <label class="fr-label" for="occPermDate">Date <span class="fr-hint-text">La permanence débute à 07:30</span></label>
+                    <input class="fr-input" type="date" id="occPermDate" name="occPermDate">
+                  </div>
+                  <div class="fr-select-group">
+                    <label class="fr-label" for="occPermMilitaire">Militaire</label>
+                    <select class="fr-select" id="occPermMilitaire" name="occPermMilitaire"></select>
+                  </div>
+                </div>
+                <div id="occGroupRest">
                 <fieldset class="fr-fieldset fr-mt-2w" id="occEditApprenantsFieldset" aria-labelledby="occEditApprenantsFieldset-legend">
                   <legend class="fr-fieldset__legend fr-text--regular" id="occEditApprenantsFieldset-legend">
                     Apprenants <span class="fr-hint-text">(optionnel — pelotons concernés ; aucune case cochée = tous les pelotons)</span>
@@ -1190,12 +1312,13 @@
                   <input class="fr-input" type="text" id="occEditField_lieu" name="occEditField_lieu">
                 </div>
                 <div class="fr-input-group">
-                  <label class="fr-label" for="occEditField_intitule">Intitulé</label>
+                  <label class="fr-label" for="occEditField_intitule">Intitulé <span class="fr-hint-text">Pré-rempli d'après le code activité (Réglages des activités), modifiable</span></label>
                   <input class="fr-input" type="text" id="occEditField_intitule" name="occEditField_intitule">
                 </div>
                 <div class="fr-input-group">
                   <label class="fr-label" for="occEditField_consignes">Consignes <span class="fr-hint-text">(optionnel)</span></label>
                   <textarea class="fr-input" id="occEditField_consignes" name="occEditField_consignes" rows="3"></textarea>
+                </div>
                 </div>
               </form>
             </div>
@@ -1382,6 +1505,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     reglages: document.getElementById('configSectionRadio_reglages')
   };
   var configFsjLimit3Days = document.getElementById('configFsjLimit3Days');
+  var configPermTel = {};
+  ['CDT', 'AE', 'SAN', 'SOP'].forEach(function (k) { configPermTel[k] = document.getElementById('configPermTel_' + k); });
+  var configPermTelColumn = document.getElementById('configPermTelColumn');
   var genColSelects = {};
   ['Debut', 'Fin', 'Occurrence', 'Intitule', 'Code', 'Lieu', 'Encadrement', 'Consignes', 'Apprenants', 'Type'].forEach(function (key) {
     genColSelects[key] = document.getElementById('genCol_' + key);
@@ -1629,16 +1755,62 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return Promise.resolve(null);
   }
 
+  // Repli si l'API ne donne pas l'identifiant de la table liée : on le
+  // déduit des métadonnées — tables possédant toutes les colonnes associées
+  // dans l'onglet "Données" du backoffice (hors tables des absences et des
+  // réglages) ; en cas d'ambiguïté, on retient celle qui contient toutes
+  // les lignes actuellement reçues par le widget.
+  function findLinkedTableIdByColumns() {
+    var required = [];
+    GEN_ROLES.forEach(function (r) { if (genColumnsConfig[r.key]) required.push(genColumnsConfig[r.key]); });
+    if (!required.length) return Promise.resolve(null);
+    return Promise.all([
+      grist.docApi.fetchTable('_grist_Tables'),
+      grist.docApi.fetchTable('_grist_Tables_column')
+    ]).then(function (res) {
+      var tables = columnarToRows(res[0]);
+      var cols = columnarToRows(res[1]);
+      var candidates = tables.filter(function (t) {
+        if (t.tableId === absencesConfig.table || t.tableId === reglagesConfig.table) return false;
+        var names = {};
+        cols.forEach(function (c) { if (c.parentId === t.id) names[c.colId] = true; });
+        return required.every(function (n) { return names[n]; });
+      }).map(function (t) { return t.tableId; });
+      if (candidates.length <= 1) return candidates[0] || null;
+      var wanted = lastRawGenRecords.map(function (r) { return r.id; });
+      if (!wanted.length) return null;
+      var chain = Promise.resolve(null);
+      candidates.forEach(function (tid) {
+        chain = chain.then(function (found) {
+          if (found) return found;
+          return grist.docApi.fetchTable(tid).then(function (tbl) {
+            var have = {};
+            (tbl.id || []).forEach(function (id) { have[id] = true; });
+            return wanted.every(function (id) { return have[id]; }) ? tid : null;
+          }).catch(function () { return null; });
+        });
+      });
+      return chain;
+    }).catch(function () { return null; });
+  }
+
   function refreshEncadrementInfo() {
     var col = genColumnsConfig.Encadrement || '';
-    if (col === encadrementInfoCol) return;
-    encadrementInfoCol = col;
+    // La clé distingue "avant/après réception des premières lignes" : un
+    // premier essai sans lignes (repli par colonnes impossible à départager)
+    // est retenté dès qu'elles arrivent.
+    var key = col + '|' + (lastRawGenRecords.length ? 'r' : 'n');
+    if (key === encadrementInfoCol) return;
+    if (encadrementInfoCol && encadrementInfoCol.split('|')[0] === col && encadrementInfo) return;
+    encadrementInfoCol = key;
     encadrementInfo = null;
     if (!col) return;
     selectedTableIdPromise().then(function (tableId) {
-      return loadColumnChoicesInfo(tableId, col);
+      return tableId || findLinkedTableIdByColumns();
+    }).then(function (tableId) {
+      return loadColumnChoicesInfo(tableId, col, permanencesConfig.telColumn);
     }).then(function (info) {
-      if (encadrementInfoCol !== col || !info) return;
+      if (encadrementInfoCol !== key || !info) return;
       encadrementInfo = info;
       // Les valeurs déjà reçues (identifiants de références notamment)
       // peuvent maintenant être résolues en noms.
@@ -1690,6 +1862,29 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var progressionPdfEnabled = true; // par défaut, activé (comportement inchangé tant que l'option n'a jamais été enregistrée)
   var fsjLimit3Days = true; // par défaut, activé (comportement inchangé tant que l'option n'a jamais été enregistrée)
+
+  // Permanences (création depuis la vue Progression) : numéro de téléphone
+  // de chacune des 4 permanences, et colonne (optionnelle) du numéro
+  // personnel dans la table des cadres, utilisé à défaut de numéro de
+  // permanence — voir savePermanence.
+  var PERMANENCE_TEL_KEYS = ['CDT', 'AE', 'SAN', 'SOP'];
+  function normalizePermanencesConfig(raw) {
+    var cfg = { tel: { CDT: '', AE: '', SAN: '', SOP: '' }, telColumn: '' };
+    if (raw && typeof raw === 'object') {
+      if (raw.tel && typeof raw.tel === 'object') {
+        PERMANENCE_TEL_KEYS.forEach(function (k) { if (typeof raw.tel[k] === 'string') cfg.tel[k] = raw.tel[k].trim(); });
+      }
+      if (typeof raw.telColumn === 'string') cfg.telColumn = raw.telColumn.trim();
+    }
+    return cfg;
+  }
+  function permanencesConfigFromForm() {
+    var cfg = normalizePermanencesConfig(null);
+    PERMANENCE_TEL_KEYS.forEach(function (k) { cfg.tel[k] = configPermTel[k].value.trim(); });
+    cfg.telColumn = configPermTelColumn.value.trim();
+    return cfg;
+  }
+  var permanencesConfig = normalizePermanencesConfig(null);
 
   function parseYmd(value) {
     if (!value) return null;
@@ -2043,6 +2238,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     configEndDate.value = toInputDateValue(PROGRESSION_PDF_END);
     configPdfEnabled.checked = progressionPdfEnabled;
     configFsjLimit3Days.checked = fsjLimit3Days;
+    PERMANENCE_TEL_KEYS.forEach(function (k) { configPermTel[k].value = permanencesConfig.tel[k]; });
+    configPermTelColumn.value = permanencesConfig.telColumn;
     fillAbsencesSettingsForm();
     fillReglagesSettingsForm();
     updateAllConfigTabBadges();
@@ -2066,6 +2263,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }
     var enabled = configPdfEnabled.checked;
     var fsjLimit = configFsjLimit3Days.checked;
+    var newPermCfg = permanencesConfigFromForm();
     var newAbsCfg = absencesConfigFromForm();
     var newGenCfg = genColumnsConfigFromForm();
     var newReglagesCfg = reglagesConfigFromForm();
@@ -2076,6 +2274,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     applyProgressionPdfEnabledState();
     fsjLimit3Days = fsjLimit;
     applyFsjDateLimit();
+    if (newPermCfg.telColumn !== permanencesConfig.telColumn) encadrementInfoCol = null; // recharge les numéros personnels
+    permanencesConfig = newPermCfg;
     absencesConfig = newAbsCfg;
     genColumnsConfig = newGenCfg;
     refreshEncadrementInfo();
@@ -2096,6 +2296,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       grist.setOption('progressionPdfEnd', toInputDateValue(end)),
       grist.setOption('progressionPdfEnabled', enabled),
       grist.setOption('fsjLimit3Days', fsjLimit),
+      grist.setOption('permanencesConfig', newPermCfg),
       grist.setOption('absencesConfig', newAbsCfg),
       grist.setOption('genColumnsConfig', newGenCfg),
       grist.setOption('reglagesConfig', newReglagesCfg)
@@ -2142,6 +2343,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     applyProgressionPdfEnabledState();
 
     fsjLimit3Days = (opts.fsjLimit3Days !== false);
+    var loadedPermCfg = normalizePermanencesConfig(opts.permanencesConfig);
+    if (loadedPermCfg.telColumn !== permanencesConfig.telColumn) encadrementInfoCol = null;
+    permanencesConfig = loadedPermCfg;
     applyFsjDateLimit();
 
     genColumnsConfig = normalizeGenColumnsConfig(opts.genColumnsConfig);
@@ -2241,7 +2445,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // ou null si la colonne est d'un autre type, introuvable, ou si les
   // métadonnées n'ont pas pu être lues (le comportement historique — liste
   // des valeurs déjà vues — prend alors le relais chez l'appelant).
-  function loadColumnChoicesInfo(tableId, colId) {
+  function loadColumnChoicesInfo(tableId, colId, phoneColHint) {
     if (!tableId || !colId) return Promise.resolve(null);
     return Promise.all([
       grist.docApi.fetchTable('_grist_Tables'),
@@ -2273,17 +2477,40 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var refTableId = col.type.slice(refPrefix.length);
       var visible = col.visibleCol ? cols.filter(function (c) { return c.id === col.visibleCol; })[0] : null;
       var labelColId = visible ? visible.colId : null;
+      // Colonne du numéro de téléphone personnel dans la table référencée :
+      // celle désignée dans le backoffice (nom ou identifiant), sinon
+      // détectée par son nom ("Tél", "Téléphone", "Portable"…). Grist
+      // transforme "Tél" en identifiant "T_l" : on teste donc aussi le libellé.
+      var refTableRow = tables.filter(function (t) { return t.tableId === refTableId; })[0];
+      var refCols = refTableRow ? cols.filter(function (c) { return c.parentId === refTableRow.id; }) : [];
+      var phoneColId = null;
+      var hint = normalizeNameKey(phoneColHint || '');
+      if (hint) {
+        var hinted = refCols.filter(function (c) { return normalizeNameKey(c.colId) === hint || normalizeNameKey(c.label) === hint; })[0];
+        if (hinted) phoneColId = hinted.colId;
+      }
+      if (!phoneColId) {
+        var phoneRe = /^(TEL|T_L|TELEPHONE|PORTABLE|MOBILE|GSM)/;
+        var candidates = refCols.filter(function (c) {
+          return phoneRe.test(normalizeNameKey(c.label)) || phoneRe.test(normalizeNameKey(c.colId));
+        });
+        var exact = candidates.filter(function (c) { return normalizeNameKey(c.label) === 'TEL'; })[0];
+        var pick = exact || candidates[0];
+        if (pick) phoneColId = pick.colId;
+      }
       return grist.docApi.fetchTable(refTableId).then(function (refTable) {
         var labels = {};
+        var phones = {};
         var options = [];
         columnarToRows(refTable).forEach(function (r) {
           var label = labelColId ? textOf(r[labelColId]) : '';
           if (!label) label = '#' + r.id;
           labels[r.id] = label;
+          if (phoneColId) phones[r.id] = textOf(r[phoneColId]);
           options.push({ id: r.id, value: String(r.id), label: label });
         });
         options.sort(function (a, b) { return a.label.localeCompare(b.label, 'fr'); });
-        return { kind: refPrefix === 'Ref:' ? 'ref' : 'reflist', table: refTableId, options: options, labels: labels };
+        return { kind: refPrefix === 'Ref:' ? 'ref' : 'reflist', table: refTableId, options: options, labels: labels, phones: phones };
       });
     }).catch(function (e) {
       if (window.console && console.warn) console.warn('Chargement des valeurs possibles de la colonne ' + colId + ' impossible :', e);
@@ -2972,16 +3199,18 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // Référence/Liste de références/Choix/Liste de choix, on propose TOUTES
   // ses valeurs possibles ; sinon (colonne texte, ou métadonnées
   // indisponibles) on retombe sur les noms déjà rencontrés ci-dessus.
-  function buildCadreCheckboxGroup(containerEl, checkboxName, selectedNames, info) {
+  function buildCadreCheckboxGroup(containerEl, checkboxName, selectedNames, info, extraNames) {
     var entries = [];
+    var fallback = false;
     if (info && info.options && info.options.length) {
       entries = info.options.map(function (o) { return { value: o.value, label: o.label }; });
     } else {
+      fallback = true;
       var seen = {};
       var names = [];
-      getAllCadreNames().forEach(function (n) {
+      getAllCadreNames().concat(extraNames || []).forEach(function (n) {
         var k = normalizeNameKey(n);
-        if (!seen[k]) { seen[k] = true; names.push(n); }
+        if (n && !seen[k]) { seen[k] = true; names.push(n); }
       });
       (selectedNames || []).forEach(function (n) {
         var k = normalizeNameKey(n);
@@ -3022,6 +3251,31 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       wrap.appendChild(group);
       containerEl.appendChild(wrap);
     });
+    if (fallback) {
+      // Indique clairement pourquoi la liste peut sembler incomplète.
+      var note = document.createElement('p');
+      note.className = 'fr-hint-text';
+      note.textContent = 'Liste limitée aux cadres déjà présents dans les données : la colonne n\'a pas été reconnue comme un choix ou une référence (ou ses valeurs n\'ont pas pu être lues).';
+      containerEl.appendChild(note);
+    }
+  }
+  // Coche exactement les cases dont le libellé figure dans `names`
+  // (comparaison insensible à la casse et aux accents).
+  function setCheckedCadresByLabel(containerEl, checkboxName, names) {
+    var wanted = {};
+    (names || []).forEach(function (n) { wanted[normalizeNameKey(n)] = true; });
+    Array.prototype.slice.call(containerEl.querySelectorAll('input[name="' + checkboxName + '"]')).forEach(function (cb) {
+      var label = cb.parentNode && cb.parentNode.querySelector('label');
+      cb.checked = !!(label && wanted[normalizeNameKey(label.textContent)]);
+    });
+  }
+  function checkedCadreLabels(containerEl, checkboxName) {
+    return Array.prototype.slice.call(containerEl.querySelectorAll('input[name="' + checkboxName + '"]'))
+      .filter(function (cb) { return cb.checked; })
+      .map(function (cb) {
+        var label = cb.parentNode && cb.parentNode.querySelector('label');
+        return label ? label.textContent : cb.value;
+      });
   }
   function checkedCadreNames(containerEl, checkboxName) {
     return Array.prototype.slice.call(containerEl.querySelectorAll('input[name="' + checkboxName + '"]'))
@@ -3063,12 +3317,166 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return null;
   }
 
+  // ---- Modes de création : occurrence / récurrence / permanence -----------
+  //
+  // À la création uniquement (jamais en modification d'une occurrence
+  // existante), le contrôle segmenté #occModeToggle permet de choisir :
+  //   - "occurrence"  : une seule ligne (comportement historique) ;
+  //   - "recurrence"  : mêmes champs, répétés chaque jour du/au (une ligne
+  //                     Grist par jour, aux heures de début/fin saisies) ;
+  //   - "permanence"  : CDT / AE / SAN / SOP, à une date (07:30), pour un
+  //                     militaire choisi.
+  var occMode = 'occurrence';
+  var occModeToggle = document.getElementById('occModeToggle');
+  var occModeRadios = Array.prototype.slice.call(document.querySelectorAll('input[name="occMode"]'));
+  var occGroupCode = document.getElementById('occGroupCode');
+  var occGroupDatetime = document.getElementById('occGroupDatetime');
+  var occGroupRecurrence = document.getElementById('occGroupRecurrence');
+  var occGroupPermanence = document.getElementById('occGroupPermanence');
+  var occGroupRest = document.getElementById('occGroupRest');
+  var occRecFrom = document.getElementById('occRecFrom');
+  var occRecTo = document.getElementById('occRecTo');
+  var occRecTimeStart = document.getElementById('occRecTimeStart');
+  var occRecTimeEnd = document.getElementById('occRecTimeEnd');
+  var occPermRadios = Array.prototype.slice.call(document.querySelectorAll('input[name="occPermType"]'));
+  var occPermDate = document.getElementById('occPermDate');
+  var occPermMilitaire = document.getElementById('occPermMilitaire');
+
+  // Une récurrence produit une ligne par jour : garde-fou contre une saisie
+  // manifestement erronée (année fausse, par exemple).
+  var OCC_RECURRENCE_MAX_DAYS = 366;
+  var OCC_PERMANENCE_START_HOUR = 7;
+  var OCC_PERMANENCE_START_MINUTE = 30;
+
+  function setOccMode(mode) {
+    occMode = mode;
+    occGroupCode.hidden = (mode === 'permanence');
+    occGroupDatetime.hidden = (mode !== 'occurrence');
+    occGroupRecurrence.hidden = (mode !== 'recurrence');
+    occGroupPermanence.hidden = (mode !== 'permanence');
+    occGroupRest.hidden = (mode === 'permanence');
+    occEditModalTitle.textContent = mode === 'recurrence' ? 'Nouvelle récurrence'
+      : (mode === 'permanence' ? 'Nouvelle permanence' : 'Nouvelle occurrence');
+    occEditStatusZone.innerHTML = '';
+  }
+  occModeRadios.forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      if (radio.checked) setOccMode(radio.value);
+    });
+  });
+
+  // Liste des militaires proposés pour une permanence : mêmes valeurs
+  // possibles que la colonne Encadrement (tous les cadres si la colonne est
+  // un choix/une référence, sinon ceux déjà vus dans les données).
+  function fillPermMilitaireSelect() {
+    var previous = occPermMilitaire.value;
+    var entries = [];
+    if (encadrementInfo && encadrementInfo.options && encadrementInfo.options.length) {
+      entries = encadrementInfo.options.map(function (o) { return { value: o.value, label: o.label }; });
+    } else {
+      var seen = {};
+      getAllCadreNames().concat(catalogCadreNames()).forEach(function (n) {
+        var k = normalizeNameKey(n);
+        if (n && !seen[k]) { seen[k] = true; entries.push({ value: n, label: n }); }
+      });
+      entries.sort(function (a, b) { return a.label.localeCompare(b.label, 'fr'); });
+    }
+    occPermMilitaire.innerHTML = '';
+    var placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choisir un militaire…';
+    occPermMilitaire.appendChild(placeholder);
+    entries.forEach(function (e) {
+      var opt = document.createElement('option');
+      opt.value = e.value;
+      opt.textContent = e.label;
+      occPermMilitaire.appendChild(opt);
+    });
+    occPermMilitaire.value = previous;
+    if (occPermMilitaire.value !== previous) occPermMilitaire.value = '';
+  }
+
+  function resetOccCreationModes() {
+    occModeRadios.forEach(function (r) { r.checked = (r.value === 'occurrence'); });
+    occRecFrom.value = '';
+    occRecTo.value = '';
+    occRecTimeStart.value = '';
+    occRecTimeEnd.value = '';
+    occPermRadios.forEach(function (r) { r.checked = false; });
+    occPermDate.value = '';
+    occPermMilitaire.value = '';
+    setOccMode('occurrence');
+  }
+
+  // "HH:mm" -> { h, m } ou null.
+  function parseHm(value) {
+    var m = String(value || '').match(/^(\d{1,2}):(\d{2})/);
+    return m ? { h: Number(m[1]), m: Number(m[2]) } : null;
+  }
+
+  // Envoie une ou plusieurs nouvelles lignes vers la table liée (une seule
+  // requête pour l'ensemble), puis ferme la modale et affiche la semaine de
+  // la première date créée pour que le résultat soit immédiatement visible.
+  function submitNewOccurrenceRows(patches, firstDate) {
+    occEditSaveBtn.disabled = true;
+    var records = patches.map(function (p) { return { fields: p }; });
+    Promise.resolve(grist.selectedTable.create(records.length === 1 ? records[0] : records)).then(function () {
+      occEditSaveBtn.disabled = false;
+      closeOccEditModal();
+      if (firstDate) {
+        weekReferenceDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+        weekReferenceDateIsDefault = false;
+      }
+      if (!panelProgression.hidden) renderWeekView();
+    }).catch(function (e) {
+      occEditSaveBtn.disabled = false;
+      renderAlert(occEditStatusZone, 'error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  function savePermanence() {
+    var cfg = genColumnsConfig;
+    var typeInput = occPermRadios.filter(function (r) { return r.checked; })[0];
+    var day = parseYmd(occPermDate.value);
+    var militaireValue = occPermMilitaire.value;
+    if (!typeInput || !day || !militaireValue) {
+      renderAlert(occEditStatusZone, 'error', 'Merci de choisir la permanence, sa date et le militaire.');
+      return;
+    }
+    if (!cfg.Code) {
+      renderAlert(occEditStatusZone, 'error', 'La colonne Code n\'est pas associée dans les paramètres (onglet Données) : impossible de créer une permanence.');
+      return;
+    }
+    var typeLabelEl = document.querySelector('label[for="' + typeInput.id + '"]');
+    var typeLabel = typeLabelEl ? typeLabelEl.textContent.trim() : typeInput.value;
+    var militaireLabel = occPermMilitaire.options[occPermMilitaire.selectedIndex].textContent;
+    // Numéro : celui de la permanence (backoffice) ; à défaut, le numéro
+    // personnel du militaire (colonne "Tél" de la table des cadres).
+    var tel = permanencesConfig.tel[typeInput.value] || '';
+    if (!tel && encadrementInfo && encadrementInfo.phones) tel = encadrementInfo.phones[militaireValue] || '';
+    var text = typeLabel + ' : ' + militaireLabel + (tel ? ' (' + tel + ')' : '');
+    var debut = new Date(day.getFullYear(), day.getMonth(), day.getDate(), OCC_PERMANENCE_START_HOUR, OCC_PERMANENCE_START_MINUTE);
+
+    // Comme pour les permanences existantes : le texte affiché en FSJ est la
+    // colonne Occurrence, le cadre qui l'assure est porté par Encadrement.
+    var patch = {};
+    patch[cfg.Code] = typeInput.value;
+    patch[cfg.Debut] = Math.round(debut.getTime() / 1000);
+    if (cfg.Occurrence) patch[cfg.Occurrence] = text;
+    patch[cfg.Intitule] = text;
+    if (cfg.Encadrement) patch[cfg.Encadrement] = encodeListForWrite([militaireValue], encadrementInfo);
+    submitNewOccurrenceRows([patch], debut);
+  }
+
   function openOccEditForm(rowId) {
     try {
       var row = (rowId !== null && rowId !== undefined) ? findGenRecordById(rowId) : null;
       occEditingRowId = row ? row.id : null;
-      occEditModalTitle.textContent = row ? 'Modifier l\'occurrence' : 'Nouvelle occurrence';
       occEditStatusZone.innerHTML = '';
+      // Contrôle segmenté (occurrence / récurrence / permanence) : création uniquement.
+      resetOccCreationModes();
+      occModeToggle.hidden = !!row;
+      if (row) occEditModalTitle.textContent = 'Modifier l\'occurrence';
 
       occEditFields.code.value = row ? textOf(row.Code) : '';
       var debut = row ? parseGristDateTime(row.Debut) : null;
@@ -3077,7 +3485,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       occEditFields.dateFin.value = fin ? toDatetimeLocalValue(fin) : '';
 
       occEditSetCheckedApprenants(row ? normalizeApprenants(row.Apprenants) : []);
-      buildCadreCheckboxGroup(occEditEncadrementList, 'occEditEncadrement', row ? splitCadreNames(textOf(row.Encadrement)) : [], encadrementInfo);
+      buildCadreCheckboxGroup(occEditEncadrementList, 'occEditEncadrement', row ? splitCadreNames(textOf(row.Encadrement)) : [], encadrementInfo, catalogCadreNames());
 
       occEditFields.lieu.value = row ? textOf(row.Lieu) : '';
       occEditFields.intitule.value = row ? textOf(row.Intitule) : '';
@@ -3086,6 +3494,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       // Bouton de suppression : uniquement en modification d'une occurrence
       // existante, jamais à la création.
       occEditDeleteBtn.hidden = !row;
+
+      fillPermMilitaireSelect();
+      occLastCodeProcessed = row ? textOf(row.Code) : '';
+      occAuto = { intitule: '', consignes: '', cadres: [] };
+      loadReglagesCatalog().then(function () {
+        // Colonne Encadrement sans valeurs possibles connues : on complète la
+        // liste avec les cadres du catalogue, en conservant les cases cochées.
+        if (!encadrementInfo) {
+          buildCadreCheckboxGroup(occEditEncadrementList, 'occEditEncadrement', checkedCadreLabels(occEditEncadrementList, 'occEditEncadrement'), null, catalogCadreNames());
+        }
+        fillPermMilitaireSelect();
+        // Édition : jamais de pré-remplissage à l'ouverture (seulement si le code change).
+        if (occEditingRowId === null) applyCatalogFromCode();
+      });
 
       occModalDisclose();
     } catch (e) {
@@ -3104,46 +3526,93 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       renderAlert(occEditStatusZone, 'error', 'Cette version de Grist ne permet pas l\'écriture directe dans cette table depuis le widget.');
       return;
     }
+    var creating = (occEditingRowId === null);
+    if (creating && occMode === 'permanence') {
+      savePermanence();
+      return;
+    }
+    var recurrence = creating && occMode === 'recurrence';
+
     var code = occEditFields.code.value.trim();
-    var debut = fromDatetimeLocalValue(occEditFields.dateDebut.value);
-    var fin = fromDatetimeLocalValue(occEditFields.dateFin.value);
     var apprenants = occEditCheckedApprenants();
     var encadrement = checkedCadreNames(occEditEncadrementList, 'occEditEncadrement');
     var lieu = occEditFields.lieu.value.trim();
     var intitule = occEditFields.intitule.value.trim();
     var consignes = occEditFields.consignes.value.trim();
 
-    if (!debut || !intitule) {
-      renderAlert(occEditStatusZone, 'error', 'Merci de renseigner au moins la date de début et l\'intitulé.');
-      return;
-    }
-    if (fin && fin < debut) {
-      renderAlert(occEditStatusZone, 'error', 'La date de fin doit être postérieure ou égale à la date de début.');
-      return;
+    // Périodes [début, fin] à créer : une seule en occurrence simple, une par
+    // jour du/au en récurrence.
+    var periods = [];
+    if (recurrence) {
+      var from = parseYmd(occRecFrom.value);
+      var to = parseYmd(occRecTo.value);
+      var tStart = parseHm(occRecTimeStart.value);
+      var tEnd = parseHm(occRecTimeEnd.value);
+      if (!from || !to || !tStart || !intitule) {
+        renderAlert(occEditStatusZone, 'error', 'Merci de renseigner au moins la période (du/au), l\'heure de début et l\'intitulé.');
+        return;
+      }
+      if (to < from) {
+        renderAlert(occEditStatusZone, 'error', 'La fin de la période doit être postérieure ou égale à son début.');
+        return;
+      }
+      if (tEnd && (tEnd.h * 60 + tEnd.m) < (tStart.h * 60 + tStart.m)) {
+        renderAlert(occEditStatusZone, 'error', 'L\'heure de fin doit être postérieure ou égale à l\'heure de début.');
+        return;
+      }
+      var days = Math.round((to - from) / 86400000) + 1;
+      if (days > OCC_RECURRENCE_MAX_DAYS) {
+        renderAlert(occEditStatusZone, 'error', 'La période est trop longue (' + days + ' jours, maximum ' + OCC_RECURRENCE_MAX_DAYS + ').');
+        return;
+      }
+      for (var i = 0; i < days; i++) {
+        var d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i);
+        periods.push([
+          new Date(d.getFullYear(), d.getMonth(), d.getDate(), tStart.h, tStart.m),
+          tEnd ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), tEnd.h, tEnd.m) : null
+        ]);
+      }
+      if (!window.confirm('Créer ' + periods.length + ' occurrence(s), du ' + fmtDayTitle(from) + ' au ' + fmtDayTitle(to) + ' ?')) return;
+    } else {
+      var debut = fromDatetimeLocalValue(occEditFields.dateDebut.value);
+      var fin = fromDatetimeLocalValue(occEditFields.dateFin.value);
+      if (!debut || !intitule) {
+        renderAlert(occEditStatusZone, 'error', 'Merci de renseigner au moins la date de début et l\'intitulé.');
+        return;
+      }
+      if (fin && fin < debut) {
+        renderAlert(occEditStatusZone, 'error', 'La date de fin doit être postérieure ou égale à la date de début.');
+        return;
+      }
+      periods.push([debut, fin]);
     }
 
     var cfg = genColumnsConfig;
-    var patch = {};
-    if (cfg.Code) patch[cfg.Code] = code;
-    patch[cfg.Debut] = Math.round(debut.getTime() / 1000);
-    if (cfg.Fin) patch[cfg.Fin] = fin ? Math.round(fin.getTime() / 1000) : null;
-    // Apprenants : colonne Liste dans Grist (voir normalizeApprenants), donc
-    // réécrite au format wire attendu (tag 'L' en tête du tableau).
-    if (cfg.Apprenants) patch[cfg.Apprenants] = ['L'].concat(apprenants);
-    // Encadrement : Liste de choix/références (format wire, tag 'L') ou, à
-    // défaut d'information sur la colonne, texte simple joint par des
-    // virgules (voir encodeListForWrite).
-    if (cfg.Encadrement) patch[cfg.Encadrement] = encodeListForWrite(encadrement, encadrementInfo);
-    if (cfg.Lieu) patch[cfg.Lieu] = lieu;
-    patch[cfg.Intitule] = intitule;
-    if (cfg.Consignes) patch[cfg.Consignes] = consignes;
+    var patches = periods.map(function (period) {
+      var patch = {};
+      if (cfg.Code) patch[cfg.Code] = code;
+      patch[cfg.Debut] = Math.round(period[0].getTime() / 1000);
+      if (cfg.Fin) patch[cfg.Fin] = period[1] ? Math.round(period[1].getTime() / 1000) : null;
+      // Apprenants : colonne Liste dans Grist (voir normalizeApprenants), donc
+      // réécrite au format wire attendu (tag 'L' en tête du tableau).
+      if (cfg.Apprenants) patch[cfg.Apprenants] = ['L'].concat(apprenants);
+      // Encadrement : Liste de choix/références (format wire, tag 'L') ou, à
+      // défaut d'information sur la colonne, texte simple joint par des
+      // virgules (voir encodeListForWrite).
+      if (cfg.Encadrement) patch[cfg.Encadrement] = encodeListForWrite(encadrement, encadrementInfo);
+      if (cfg.Lieu) patch[cfg.Lieu] = lieu;
+      patch[cfg.Intitule] = intitule;
+      if (cfg.Consignes) patch[cfg.Consignes] = consignes;
+      return patch;
+    });
 
+    if (creating) {
+      submitNewOccurrenceRows(patches, periods[0][0]);
+      return;
+    }
     var editingRowId = occEditingRowId;
     occEditSaveBtn.disabled = true;
-    var action = editingRowId
-      ? grist.selectedTable.update({ id: editingRowId, fields: patch })
-      : grist.selectedTable.create({ fields: patch });
-    Promise.resolve(action).then(function () {
+    Promise.resolve(grist.selectedTable.update({ id: editingRowId, fields: patches[0] })).then(function () {
       occEditSaveBtn.disabled = false;
       closeOccEditModal();
       if (!panelProgression.hidden) renderWeekView();
@@ -3177,6 +3646,98 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       renderAlert(occEditStatusZone, 'error', 'Suppression impossible : ' + friendlyErrorMessage(e));
     });
   }
+
+  // ---- Pré-remplissage d'après le code activité --------------------------
+  //
+  // Le catalogue "Réglages des activités" (table choisie dans le
+  // backoffice, voir reglagesConfig) associe à chaque code un intitulé, des
+  // cadres désignés et des consignes : dès que le code saisi correspond
+  // exactement (casse et accents ignorés) à l'un d'eux, ces trois champs
+  // sont pré-remplis. Ils restent librement modifiables : un changement de
+  // code ne les remplace que s'ils sont vides ou n'ont pas été retouchés
+  // (c'est-à-dire valent encore la dernière valeur automatique, ou celle du
+  // catalogue pour le code précédent).
+  var reglagesCatalog = []; // [{ code, intitule, cadres: [noms], consignes }]
+  var occLastCodeProcessed = '';
+  var occAuto = { intitule: '', consignes: '', cadres: [] };
+
+  function loadReglagesCatalog() {
+    var cfg = reglagesConfig;
+    if (!isReglagesConfigComplete(cfg)) {
+      reglagesCatalog = [];
+      return Promise.resolve();
+    }
+    var infoPromise = cfg.col.cadresDesignes
+      ? loadColumnChoicesInfo(cfg.table, cfg.col.cadresDesignes)
+      : Promise.resolve(null);
+    return infoPromise.then(function (info) {
+      return grist.docApi.fetchTable(cfg.table).then(function (table) {
+        reglagesCatalog = columnarToRows(table).map(function (r) {
+          return {
+            code: textOf(r[cfg.col.code]),
+            intitule: textOf(r[cfg.col.intitule]),
+            cadres: cfg.col.cadresDesignes ? listValueToNames(r[cfg.col.cadresDesignes], info) : [],
+            consignes: cfg.col.consignes ? textOf(r[cfg.col.consignes]) : ''
+          };
+        });
+      });
+    }).catch(function (e) {
+      if (window.console && console.warn) console.warn('Chargement du catalogue des réglages impossible :', e);
+    });
+  }
+
+  function catalogEntryFor(code) {
+    var key = normalizeNameKey(code);
+    if (!key) return null;
+    for (var i = 0; i < reglagesCatalog.length; i++) {
+      if (normalizeNameKey(reglagesCatalog[i].code) === key) return reglagesCatalog[i];
+    }
+    return null;
+  }
+
+  // Tous les cadres nommés dans le catalogue (pour compléter la liste
+  // d'Encadrement quand la colonne n'expose pas ses valeurs possibles).
+  function catalogCadreNames() {
+    var all = [];
+    reglagesCatalog.forEach(function (e) { all = all.concat(e.cadres); });
+    return all;
+  }
+
+  function sameNameSet(a, b) {
+    var ka = (a || []).map(normalizeNameKey).sort().join('|');
+    var kb = (b || []).map(normalizeNameKey).sort().join('|');
+    return ka === kb;
+  }
+
+  function applyCatalogFromCode() {
+    var code = occEditFields.code.value;
+    var entry = catalogEntryFor(code);
+    var prev = catalogEntryFor(occLastCodeProcessed);
+    occLastCodeProcessed = code;
+    if (!entry) return;
+
+    var curIntitule = occEditFields.intitule.value.trim();
+    if (entry.intitule && (!curIntitule || curIntitule === occAuto.intitule || (prev && curIntitule === prev.intitule))) {
+      occEditFields.intitule.value = entry.intitule;
+      occAuto.intitule = entry.intitule;
+    }
+
+    var curConsignes = occEditFields.consignes.value.trim();
+    if (entry.consignes && (!curConsignes || curConsignes === occAuto.consignes || (prev && curConsignes === prev.consignes))) {
+      occEditFields.consignes.value = entry.consignes;
+      occAuto.consignes = entry.consignes;
+    }
+
+    if (entry.cadres.length) {
+      var checked = checkedCadreLabels(occEditEncadrementList, 'occEditEncadrement');
+      if (!checked.length || sameNameSet(checked, occAuto.cadres) || (prev && sameNameSet(checked, prev.cadres))) {
+        setCheckedCadresByLabel(occEditEncadrementList, 'occEditEncadrement', entry.cadres);
+        occAuto.cadres = entry.cadres;
+      }
+    }
+  }
+  occEditFields.code.addEventListener('input', applyCatalogFromCode);
+  occEditFields.code.addEventListener('change', applyCatalogFromCode);
 
   progressionAddBtn.addEventListener('click', function () { openOccEditForm(null); });
   occEditModalCloseBtn.addEventListener('click', closeOccEditModal);
@@ -3372,7 +3933,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       reglageEditFields.duree.value = row ? row.duree : '';
       reglageEditFields.intitule.value = row ? row.intitule : '';
       reglageEditFields.consignes.value = row ? row.consignes : '';
-      buildCadreCheckboxGroup(reglageEditCadresList, 'reglageEditCadres', row ? row.cadresDesignes : [], reglagesCadresInfo);
+      var reglagesKnownCadres = [];
+      reglagesData.forEach(function (r) { reglagesKnownCadres = reglagesKnownCadres.concat(r.cadresDesignes); });
+      buildCadreCheckboxGroup(reglageEditCadresList, 'reglageEditCadres', row ? row.cadresDesignes : [], reglagesCadresInfo, reglagesKnownCadres);
 
       // Bouton de suppression : uniquement en modification d'un réglage
       // existant, jamais à la création.
