@@ -3351,8 +3351,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var typeLabelEl = document.querySelector('label[for="' + typeInput.id + '"]');
     var typeLabel = typeLabelEl ? typeLabelEl.textContent.trim() : typeInput.value;
     var militaireLabel = occPermMilitaire.options[occPermMilitaire.selectedIndex].textContent;
+    // La permanence débute à 07:30 à la date choisie.
+    var debut = new Date(day.getFullYear(), day.getMonth(), day.getDate(), OCC_PERMANENCE_START_HOUR, OCC_PERMANENCE_START_MINUTE);
     // Numéro : celui de la permanence (backoffice) ; à défaut, le numéro
-    // personnel du militaire (table et colonne choisies dans le backoffice).
+    // personnel du militaire (table Encadrement, colonne Telephone).
     var configuredTel = permanencesConfig.tel[typeInput.value] || '';
     occEditSaveBtn.disabled = true;
     var telPromise = configuredTel ? Promise.resolve(configuredTel) : lookupPersonalPhone(militaireValue, militaireLabel);
@@ -3368,6 +3370,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       patch[cfg.Intitule] = text;
       if (cfg.Encadrement) patch[cfg.Encadrement] = encodeListForWrite([militaireValue], encadrementInfo);
       submitNewOccurrenceRows([patch], debut);
+    }).catch(function (e) {
+      // Toute erreur imprévue est affichée (au lieu d'un enregistrement muet).
+      occEditSaveBtn.disabled = false;
+      if (window.console && console.error) console.error('savePermanence a échoué :', e);
+      renderAlert(occEditStatusZone, 'error', 'Création de la permanence impossible : ' + friendlyErrorMessage(e));
     });
   }
 
