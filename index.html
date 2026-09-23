@@ -108,6 +108,9 @@
   }
   /* Bouton de téléchargement : en haut à droite de la FSJ */
   .fsj-preview__actions { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+  /* Titre de l'option + icône sur une même ligne (le label DSFR empile ses enfants) */
+  .fsj-radio-title { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+  .fsj-radio-title .code-hidden-icon { margin-left: 0; }
   /* Champ date réduit */
   .fsj-date-group { max-width: 13rem; }
   #fsjFieldset .fr-radio-group label .fr-hint-text {
@@ -359,6 +362,47 @@
      rapprochés).
      #panelAbsences, elle, est une page normale, visible dans le menu. */
 
+  /* ---- Backoffice (page Paramètres du widget) ---- */
+  .config-header { margin-bottom: 1.5rem; }
+  .config-header__title { margin: 0.5rem 0 0.25rem; }
+  .config-header__lead { margin: 0; color: var(--text-mention-grey); }
+  .config-section__title { margin: 0 0 0.25rem; }
+  .config-section__lead { margin: 0 0 1.5rem; color: var(--text-mention-grey); }
+  .config-card {
+    background: #fff;
+    border: 1px solid var(--border-default-grey);
+    border-radius: 0.5rem;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .config-card__title {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .config-card .fr-input-group:last-child { margin-bottom: 0; }
+  .config-note { margin-top: 1rem; }
+  .config-sources td:first-child { font-weight: 700; white-space: nowrap; }
+  .config-sources td { vertical-align: top; }
+  /* Barre d'actions collée en bas de la page pendant le défilement */
+  .config-actionbar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+    padding: 0.75rem 0;
+    background: #fff;
+    border-top: 1px solid var(--border-default-grey);
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.06);
+  }
+  .config-actionbar__status { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; min-width: 0; }
+  .config-actionbar__status .fr-alert { margin: 0; }
+  .config-actionbar__buttons { margin: 0; }
   .config-section-title {
     margin: 1.5rem 0 0.75rem;
     padding-top: 1rem;
@@ -757,7 +801,7 @@
         <div class="fr-radio-group">
           <input type="radio" id="fsjCadres" name="fsjType" value="cadres" checked>
           <label class="fr-label" for="fsjCadres">
-            Feuille de service encadrement <span title="Inclut les occurrences masquées dans la FSJ stagiaires"><span class="fr-icon-eye-off-line fr-icon--sm code-hidden-icon" aria-hidden="true"></span><span class="fr-sr-only">Inclut les occurrences masquées dans la FSJ stagiaires</span></span>
+            <span class="fsj-radio-title">Feuille de service encadrement<span class="fsj-radio-title__icon" title="Inclut les occurrences masquées dans la FSJ stagiaires"><span class="fr-icon-eye-off-line fr-icon--sm code-hidden-icon" aria-hidden="true"></span><span class="fr-sr-only">Inclut les occurrences masquées dans la FSJ stagiaires</span></span></span>
             <span class="fr-hint-text">Cette version ne doit en aucun cas être diffusée aux stagiaires. Elle inclut les occurrences masquées dans la FSJ stagiaires.</span>
           </label>
         </div>
@@ -903,133 +947,201 @@
 
   <div id="panelConfig" hidden>
 
-    <h2 class="fr-h6">Paramètres du widget</h2>
-    <div class="fr-alert fr-alert--info fr-alert--sm fr-mb-3w">
-      <p>Ces réglages sont enregistrés dans ce document Grist : ils s'appliquent donc pour tous les utilisateurs du widget, sans jamais toucher au code. Le badge à côté de chaque onglet ci-dessous indique en un coup d'œil son état actuel.</p>
+    <div class="config-header">
+      <button class="fr-btn fr-btn--tertiary-no-outline fr-btn--sm fr-icon-arrow-left-s-line fr-btn--icon-left" id="configBackBtn" type="button">Retour</button>
+      <h2 class="fr-h4 config-header__title">Paramètres du widget</h2>
+      <p class="fr-text--sm config-header__lead">
+        Ces réglages sont enregistrés dans le document Grist et s'appliquent à tous les utilisateurs du widget.
+      </p>
     </div>
 
-    <form id="configForm">
+    <form id="configForm" novalidate>
 
-      <div class="fr-segmented fr-segmented--sm fr-mb-3w" id="configSectionToggle">
+      <div class="fr-segmented fr-segmented--sm fr-mb-4w" id="configSectionToggle">
         <fieldset class="fr-segmented__fieldset">
-          <legend class="fr-segmented__legend">Réglages par page</legend>
+          <legend class="fr-segmented__legend">Rubriques de paramétrage</legend>
           <div class="fr-segmented__elements">
             <div class="fr-segmented__element">
-              <input value="general" type="radio" id="configSectionRadio_general" name="configSection" data-section="general" checked>
-              <label class="fr-label" for="configSectionRadio_general">Général</label>
+              <input value="progression" type="radio" id="configSectionRadio_progression" name="configSection" data-section="progression" checked>
+              <label class="fr-label" for="configSectionRadio_progression">Progression <span class="fr-badge fr-badge--sm" id="configTabStatus_progression"></span></label>
+            </div>
+            <div class="fr-segmented__element">
+              <input value="permanences" type="radio" id="configSectionRadio_permanences" name="configSection" data-section="permanences">
+              <label class="fr-label" for="configSectionRadio_permanences">Permanences <span class="fr-badge fr-badge--sm" id="configTabStatus_permanences"></span></label>
+            </div>
+            <div class="fr-segmented__element">
+              <input value="fsj" type="radio" id="configSectionRadio_fsj" name="configSection" data-section="fsj">
+              <label class="fr-label" for="configSectionRadio_fsj">Feuille de service <span class="fr-badge fr-badge--sm" id="configTabStatus_fsj"></span></label>
             </div>
             <div class="fr-segmented__element">
               <input value="absences" type="radio" id="configSectionRadio_absences" name="configSection" data-section="absences">
               <label class="fr-label" for="configSectionRadio_absences">Absences <span class="fr-badge fr-badge--sm" id="configTabStatus_absences"></span></label>
             </div>
+            <div class="fr-segmented__element">
+              <input value="sources" type="radio" id="configSectionRadio_sources" name="configSection" data-section="sources">
+              <label class="fr-label" for="configSectionRadio_sources">Sources de données</label>
+            </div>
           </div>
         </fieldset>
       </div>
 
-      <div id="configSectionGeneral">
-        <h3 class="fr-text--lead config-section-title">Général</h3>
-        <p class="fr-hint-text fr-mb-2w">
-          Réglages de la Progression, des permanences et de la Feuille de service journalier. Cliquez sur une section pour la déplier ; le badge indique son état actuel.
+      <!-- ===== Progression ===== -->
+      <section id="configSectionProgression" class="config-section" aria-labelledby="cfgTitleProgression">
+        <h3 class="fr-h5 config-section__title" id="cfgTitleProgression">Progression</h3>
+        <p class="config-section__lead">Période du stage et export PDF de la vue Progression.</p>
+
+        <div class="config-card">
+          <h4 class="config-card__title">Période du stage</h4>
+          <div class="config-grid-2col">
+            <div class="fr-input-group">
+              <label class="fr-label" for="configStartDate">Date de début</label>
+              <input class="fr-input" type="date" id="configStartDate" name="configStartDate">
+              <span class="fr-hint-text">Si elle est postérieure à aujourd'hui, la vue Progression s'ouvre sur cette date plutôt que sur une semaine vide.</span>
+            </div>
+            <div class="fr-input-group">
+              <label class="fr-label" for="configEndDate">Date de fin</label>
+              <input class="fr-input" type="date" id="configEndDate" name="configEndDate">
+              <span class="fr-hint-text">Doit être postérieure ou égale à la date de début.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-card">
+          <h4 class="config-card__title">Export PDF</h4>
+          <div class="fr-checkbox-group">
+            <input type="checkbox" id="configPdfEnabled" name="configPdfEnabled" checked>
+            <label class="fr-label" for="configPdfEnabled">
+              Autoriser la génération de la Progression en PDF
+              <span class="fr-hint-text">Décochez pour bloquer temporairement le bouton « Progression en PDF ». Le reste du widget continue de fonctionner normalement.</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Permanences ===== -->
+      <section id="configSectionPermanences" class="config-section" aria-labelledby="cfgTitlePermanences" hidden>
+        <h3 class="fr-h5 config-section__title" id="cfgTitlePermanences">Permanences</h3>
+        <p class="config-section__lead">
+          Numéros de téléphone affichés à la création d'une permanence, sous la forme « Commandement : Identité complète (numéro) ».
         </p>
 
-        <div class="fr-accordions-group">
-          <section class="fr-accordion">
-            <h4 class="fr-accordion__title">
-              <button type="button" class="fr-accordion__btn" aria-expanded="true" aria-controls="accGenProgression">Progression <span class="fr-badge fr-badge--sm" id="configTabStatus_progression"></span></button>
-            </h4>
-            <div class="fr-collapse fr-collapse--expanded" id="accGenProgression">
-
-            <div class="config-grid-2col">
-              <div class="fr-input-group">
-                <label class="fr-label" for="configStartDate">Date de début du stage</label>
-                <input class="fr-input" type="date" id="configStartDate" name="configStartDate">
-                <span class="fr-hint-text">Si cette date est postérieure à aujourd'hui, la vue Progression l'affiche par défaut au lieu d'une semaine vide.</span>
-              </div>
-              <div class="fr-input-group">
-                <label class="fr-label" for="configEndDate">Date de fin du stage</label>
-                <input class="fr-input" type="date" id="configEndDate" name="configEndDate">
-              </div>
+        <div class="config-card">
+          <h4 class="config-card__title">Numéros de permanence</h4>
+          <div class="config-grid-2col">
+            <div class="fr-input-group">
+              <label class="fr-label" for="configPermTel_CDT">Commandement (CDT) <span class="fr-hint-text">(optionnel)</span></label>
+              <input class="fr-input" type="text" id="configPermTel_CDT" name="configPermTel_CDT" placeholder="Ex. : 06 00 00 00 00" autocomplete="off">
             </div>
-
-            <div class="fr-checkbox-group fr-mt-2w">
-              <input type="checkbox" id="configPdfEnabled" name="configPdfEnabled" checked>
-              <label class="fr-label" for="configPdfEnabled">
-                Autoriser la génération de la Progression en PDF
-                <span class="fr-hint-text">Décochez pour bloquer temporairement le bouton « Progression en PDF » (le reste du widget continue de fonctionner normalement).</span>
-              </label>
+            <div class="fr-input-group">
+              <label class="fr-label" for="configPermTel_AE">Adjudant d'escadron (AE) <span class="fr-hint-text">(optionnel)</span></label>
+              <input class="fr-input" type="text" id="configPermTel_AE" name="configPermTel_AE" autocomplete="off">
             </div>
+            <div class="fr-input-group">
+              <label class="fr-label" for="configPermTel_SAN">Soutien sanitaire (SAN) <span class="fr-hint-text">(optionnel)</span></label>
+              <input class="fr-input" type="text" id="configPermTel_SAN" name="configPermTel_SAN" autocomplete="off">
             </div>
-          </section>
-
-          <section class="fr-accordion">
-            <h4 class="fr-accordion__title">
-              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accGenPermanences">Permanences</button>
-            </h4>
-            <div class="fr-collapse" id="accGenPermanences">
-            <p class="fr-hint-text fr-mb-2w">
-              Numéro de téléphone de permanence, affiché entre parenthèses après l'identité du militaire lors de la création d'une permanence (« Commandement : Identité complète (numéro) »). En l'absence de téléphone de permanence renseigné ci-dessous, c'est le numéro de téléphone du militaire (colonne Telephone de la table Encadrement) qui est utilisé.
+            <div class="fr-input-group">
+              <label class="fr-label" for="configPermTel_SOP">SOP <span class="fr-hint-text">(optionnel)</span></label>
+              <input class="fr-input" type="text" id="configPermTel_SOP" name="configPermTel_SOP" autocomplete="off">
+            </div>
+          </div>
+          <div class="fr-callout fr-callout--sm config-note">
+            <p class="fr-callout__text">
+              En l'absence de téléphone de permanence renseigné ici, c'est le numéro de téléphone du militaire (colonne Telephone de la table Encadrement) qui est utilisé.
             </p>
-            <div class="config-grid-2col">
-              <div class="fr-input-group">
-                <label class="fr-label" for="configPermTel_CDT">Commandement (CDT) <span class="fr-hint-text">(optionnel)</span></label>
-                <input class="fr-input" type="text" id="configPermTel_CDT" name="configPermTel_CDT" placeholder="Ex. : 06 00 00 00 00">
-              </div>
-              <div class="fr-input-group">
-                <label class="fr-label" for="configPermTel_AE">Adjudant d'escadron (AE) <span class="fr-hint-text">(optionnel)</span></label>
-                <input class="fr-input" type="text" id="configPermTel_AE" name="configPermTel_AE">
-              </div>
-              <div class="fr-input-group">
-                <label class="fr-label" for="configPermTel_SAN">Soutien sanitaire (SAN) <span class="fr-hint-text">(optionnel)</span></label>
-                <input class="fr-input" type="text" id="configPermTel_SAN" name="configPermTel_SAN">
-              </div>
-              <div class="fr-input-group">
-                <label class="fr-label" for="configPermTel_SOP">SOP <span class="fr-hint-text">(optionnel)</span></label>
-                <input class="fr-input" type="text" id="configPermTel_SOP" name="configPermTel_SOP">
-              </div>
-            </div>
-            </div>
-          </section>
-
-          <section class="fr-accordion">
-            <h4 class="fr-accordion__title">
-              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accGenFsj">Feuille de service journalier (FSJ) <span class="fr-badge fr-badge--sm" id="configTabStatus_fsj"></span></button>
-            </h4>
-            <div class="fr-collapse" id="accGenFsj">
-
-            <div class="fr-checkbox-group fr-mt-2w">
-              <input type="checkbox" id="configFsjLimit3Days" name="configFsjLimit3Days" checked>
-              <label class="fr-label" for="configFsjLimit3Days">
-                Interdire la génération de la FSJ au-delà de J+3
-                <span class="fr-hint-text">Le bouton « Générer la FSJ » devient inopérant si la date sélectionnée est postérieure à J+3 (J = aujourd'hui). Les dates passées restent toujours accessibles.</span>
-              </label>
-            </div>
-            </div>
-          </section>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div id="configSectionAbsences" hidden>
-        <h3 class="fr-text--lead config-section-title">Gestion des absences</h3>
-        <p class="fr-hint-text fr-mb-2w">
-          La table (Gestion_des_absences), ses colonnes et les libellés de décision (« En attente », « Validée », « Refusée ») sont fixés dans le widget.
+      <!-- ===== Feuille de service journalier ===== -->
+      <section id="configSectionFsj" class="config-section" aria-labelledby="cfgTitleFsj" hidden>
+        <h3 class="fr-h5 config-section__title" id="cfgTitleFsj">Feuille de service journalier</h3>
+        <p class="config-section__lead">Règles applicables à la génération de la FSJ.</p>
+
+        <div class="config-card">
+          <h4 class="config-card__title">Délai de génération</h4>
+          <div class="fr-checkbox-group">
+            <input type="checkbox" id="configFsjLimit3Days" name="configFsjLimit3Days" checked>
+            <label class="fr-label" for="configFsjLimit3Days">
+              Interdire la génération de la FSJ au-delà de J+3
+              <span class="fr-hint-text">Le bouton « Générer la FSJ » devient inopérant si la date sélectionnée est postérieure à J+3 (J = aujourd'hui). Les dates passées restent accessibles.</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Absences ===== -->
+      <section id="configSectionAbsences" class="config-section" aria-labelledby="cfgTitleAbsences" hidden>
+        <h3 class="fr-h5 config-section__title" id="cfgTitleAbsences">Gestion des absences</h3>
+        <p class="config-section__lead">Informations imprimées sur l'autorisation d'absence.</p>
+
+        <div class="config-card">
+          <h4 class="config-card__title">Signataire</h4>
+          <div class="fr-input-group">
+            <label class="fr-label" for="absSignataire">
+              Nom, grade et qualité du signataire
+              <span class="fr-hint-text">Imprimés sur le PDF « Autorisation d'absence » (ex. : « ADJ DELAIT Kary, directrice de stage »).</span>
+            </label>
+            <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : ADJ DELAIT Kary, directrice de stage" autocomplete="off">
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Sources de données (lecture seule) ===== -->
+      <section id="configSectionSources" class="config-section" aria-labelledby="cfgTitleSources" hidden>
+        <h3 class="fr-h5 config-section__title" id="cfgTitleSources">Sources de données</h3>
+        <p class="config-section__lead">
+          Tables et colonnes utilisées par le widget. Elles sont fixées dans le widget (lecture seule) : les colonnes de votre document Grist doivent porter exactement ces identifiants.
         </p>
 
-        <div class="fr-input-group">
-          <label class="fr-label" for="absSignataire">
-            Signataire de l'autorisation d'absence
-            <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « ADJ DELAIT Kary, directrice de stage »).</span>
-          </label>
-          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : ADJ DELAIT Kary, directrice de stage">
+        <div class="req-table-wrap">
+          <table class="req-table req-table--wrap config-sources">
+            <thead>
+              <tr><th>Usage</th><th>Table</th><th>Colonnes</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Progression et FSJ</td>
+                <td>Table liée au widget</td>
+                <td>Debut, Fin, Occurrence, Intitule, Code, Lieu, Encadrement, Consignes, Apprenants, Type</td>
+              </tr>
+              <tr>
+                <td>Demandes d'absence</td>
+                <td>Gestion_des_absences</td>
+                <td>Militaire_affiche, Decision, Date_de_debut, Date_de_fin, Type_de_demande, Adresse, Observations, Cree_le, Derniere_mise_a_jour, Droits_repos, Conflit (la colonne Référence du militaire est détectée automatiquement)</td>
+              </tr>
+              <tr>
+                <td>Libellés de décision</td>
+                <td>Gestion_des_absences</td>
+                <td>Decision : « En attente », « Validée », « Refusée »</td>
+              </tr>
+              <tr>
+                <td>Réglages des activités</td>
+                <td>Repartition_cours</td>
+                <td>Code_activite, Type, Intitule, Numerotation, Nb_heures, Cadres_designes, Consignes_stagiaires</td>
+              </tr>
+              <tr>
+                <td>Numéro personnel des militaires</td>
+                <td>Encadrement</td>
+                <td>Telephone</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </section>
+
+      <!-- ===== Barre d'actions ===== -->
+      <div class="config-actionbar" id="configActionBar">
+        <div class="config-actionbar__status">
+          <span class="fr-badge fr-badge--sm fr-badge--warning" id="configDirtyNote" hidden>Modifications non enregistrées</span>
+          <div id="configStatusZone" aria-live="polite"></div>
+        </div>
+        <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--sm config-actionbar__buttons">
+          <li><button class="fr-btn fr-btn--secondary" id="configCancelBtn" type="button">Fermer sans enregistrer</button></li>
+          <li><button class="fr-btn" id="configSaveBtn" type="button">Enregistrer les paramètres</button></li>
+        </ul>
       </div>
-
-      <ul class="fr-btns-group fr-btns-group--inline-md fr-mt-4w">
-        <li><button class="fr-btn" id="configSaveBtn" type="button">Enregistrer les paramètres</button></li>
-        <li><button class="fr-btn fr-btn--secondary" id="configCancelBtn" type="button">Fermer sans enregistrer</button></li>
-      </ul>
     </form>
-
-    <div id="configStatusZone" class="fr-mt-3w" aria-live="polite"></div>
 
   </div>
 
@@ -1476,12 +1588,18 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // radio par élément) plutôt qu'à l'imitation par boutons utilisée pour la
   // bascule Semaine/Jour de la vue Progression.
   var configSectionPanels = {
-    general: document.getElementById('configSectionGeneral'),
-    absences: document.getElementById('configSectionAbsences')
+    progression: document.getElementById('configSectionProgression'),
+    permanences: document.getElementById('configSectionPermanences'),
+    fsj: document.getElementById('configSectionFsj'),
+    absences: document.getElementById('configSectionAbsences'),
+    sources: document.getElementById('configSectionSources')
   };
   var configSectionRadios = {
-    general: document.getElementById('configSectionRadio_general'),
-    absences: document.getElementById('configSectionRadio_absences')
+    progression: document.getElementById('configSectionRadio_progression'),
+    permanences: document.getElementById('configSectionRadio_permanences'),
+    fsj: document.getElementById('configSectionRadio_fsj'),
+    absences: document.getElementById('configSectionRadio_absences'),
+    sources: document.getElementById('configSectionRadio_sources')
   };
   var configFsjLimit3Days = document.getElementById('configFsjLimit3Days');
   var configPermTel = {};
@@ -1969,7 +2087,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
 
   // Contrôle segmenté du backoffice : une section visible à la fois.
-  var configActiveSection = 'general';
+  var configActiveSection = 'progression';
 
   function setConfigSection(section) {
     if (!configSectionPanels[section]) return;
@@ -2013,20 +2131,36 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
   function updateFsjTabBadge() {
     var limited = configFsjLimit3Days.checked;
-    paintConfigBadge(document.getElementById('configTabStatus_fsj'), limited ? 'Limitée à J+3' : 'Sans limite');
+    paintConfigBadge(document.getElementById('configTabStatus_fsj'), limited ? 'Limitée à J+3' : 'Sans limite', limited ? 'info' : null);
   }
   function updateAbsencesTabBadge() {
     var hasSignataire = !!absSignataire.value.trim();
     paintConfigBadge(document.getElementById('configTabStatus_absences'), hasSignataire ? 'Signataire renseigné' : 'Signataire à renseigner', hasSignataire ? 'success' : 'warning');
   }
+  function updatePermanencesTabBadge() {
+    var filled = PERMANENCE_TEL_KEYS.filter(function (k) { return !!configPermTel[k].value.trim(); }).length;
+    paintConfigBadge(document.getElementById('configTabStatus_permanences'), filled + '/' + PERMANENCE_TEL_KEYS.length + ' numéros', filled === PERMANENCE_TEL_KEYS.length ? 'success' : null);
+  }
   function updateAllConfigTabBadges() {
     updateProgressionTabBadge();
+    updatePermanencesTabBadge();
     updateFsjTabBadge();
     updateAbsencesTabBadge();
   }
   // Écouteur unique, délégué sur le formulaire entier (plutôt qu'un par
   // champ), pour couvrir aussi les futurs champs sans y penser.
   configForm.addEventListener('change', updateAllConfigTabBadges);
+
+  // Suivi des modifications non enregistrées : pastille dans la barre
+  // d'actions, et confirmation avant de quitter la page.
+  var configDirty = false;
+  var configDirtyNote = document.getElementById('configDirtyNote');
+  function setConfigDirty(value) {
+    configDirty = value;
+    configDirtyNote.hidden = !value;
+  }
+  configForm.addEventListener('input', function () { setConfigDirty(true); });
+  configForm.addEventListener('change', function () { setConfigDirty(true); });
 
   var viewBeforeConfig = null;
 
@@ -2053,9 +2187,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     PERMANENCE_TEL_KEYS.forEach(function (k) { configPermTel[k].value = permanencesConfig.tel[k]; });
     fillAbsencesSettingsForm();
     updateAllConfigTabBadges();
+    setConfigDirty(false);
   }
 
   function closeConfigPanel() {
+    if (configDirty && !window.confirm('Fermer sans enregistrer ? Les modifications apportées aux paramètres seront perdues.')) return;
+    setConfigDirty(false);
     panelConfig.hidden = true;
     setView(viewBeforeConfig || 'progression');
   }
@@ -2104,7 +2241,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       grist.setOption('permanencesConfig', newPermCfg),
       grist.setOption('absencesConfig', newAbsCfg)
     ]).then(function () {
-      showConfigStatus('success', 'Paramètres enregistrés : période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', FSJ ' + (fsjLimit ? 'bloquée au-delà de J+3' : 'sans limite de date') + '.');
+      setConfigDirty(false);
+      showConfigStatus('success', 'Paramètres enregistrés pour tous les utilisateurs.');
     }).catch(function (e) {
       showConfigStatus('error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
     });
@@ -2112,6 +2250,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   configSaveBtn.addEventListener('click', saveConfigPanel);
   configCancelBtn.addEventListener('click', closeConfigPanel);
+  document.getElementById('configBackBtn').addEventListener('click', closeConfigPanel);
 
   // Déclencheur unique et caché des paramètres : 5 clics rapprochés
   // (moins de 1,5 seconde) sur le bloc marque du header (logo + intitulé
