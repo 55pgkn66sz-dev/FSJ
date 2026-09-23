@@ -4013,7 +4013,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         REGLAGES_SORT_LABELS[key] + ' <span class="req-sort__arrow" aria-hidden="true">' + arrow + '</span></button></th>';
     }
     var COLS = 7;
-    var head = '<tr>' + sortHeader('code', 'col-code') + sortHeader('numero', 'col-num') + sortHeader('duree', 'col-duree') +
+    // Largeur de la colonne Code activité : celle du code le plus long (toutes
+    // les valeurs, pas seulement celles affichées, pour ne pas varier avec la
+    // recherche), plus la marge de la cellule et la place de l'icône éventuelle
+    // "masqué FSJ" ; les codes étant en capitales grasses, ~1.3ch par caractère.
+    var maxCodeLen = reglagesData.reduce(function (m, r) { return Math.max(m, String(r.code).length); }, 4);
+    var codeColWidth = 'max(6.5rem, calc(' + maxCodeLen + ' * 1.3ch + 2.75rem))';
+    var head = '<tr>' + sortHeader('code', 'col-code').replace('class="col-code"', 'class="col-code" style="width:' + codeColWidth + '"') + sortHeader('numero', 'col-num') + sortHeader('duree', 'col-duree') +
       sortHeader('intitule', 'col-intitule') + '<th class="col-cadres">Cadres désignés</th><th>Consignes</th><th class="col-actions"><span class="fr-sr-only">Supprimer</span></th></tr>';
 
     // Regroupement par Type (ordre alphabétique, "Sans type" en dernier) ;
