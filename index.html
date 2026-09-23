@@ -446,6 +446,28 @@
   .code-help__panel[hidden] { display: none; }
   .code-help-list { margin: 0.35rem 0 0; padding: 0; list-style: none; }
   .code-help-list li { margin: 0 0 0.2rem; }
+
+  /* Champ Code activité : suggestions filtrées (code + détail), la valeur
+     insérée dans le champ étant le seul code. */
+  .code-combobox { position: relative; }
+  .code-suggest {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    max-height: 14rem;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid var(--border-default-grey);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    font-size: 0.9rem;
+  }
+  .code-suggest[hidden] { display: none; }
+  .code-suggest__item { padding: 0.4rem 0.75rem; cursor: pointer; line-height: 1.3; }
+  .code-suggest__item[aria-selected="true"], .code-suggest__item:hover { background: #f0f0f5; }
+  .code-suggest__detail { color: var(--text-mention-grey); }
+  .code-suggest__empty { padding: 0.4rem 0.75rem; color: var(--text-mention-grey); font-style: italic; }
   /* Groupe d'icônes d'action façon "Gérer la demande" du widget
      Réservations (repris à l'identique de son CSS .req-actions) : boutons
      DSFR tertiaires standards (pas de contour permanent) ; seul le
@@ -703,30 +725,20 @@
 
   <div id="panelProgression">
 
-    <div class="week-nav fr-mb-2w">
-      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-left-s-line fr-btn--icon-left" id="weekPrevBtn" type="button">
-        Semaine précédente
-      </button>
-      <p class="week-label fr-text--bold" id="weekLabel"></p>
-      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-right-s-line fr-btn--icon-right" id="weekNextBtn" type="button">
-        Semaine suivante
-      </button>
-    </div>
-
     <div class="week-filter-row fr-mb-2w">
       <button class="fr-btn fr-btn--sm fr-icon-add-line fr-btn--icon-left" id="progressionAddBtn" type="button">
         Ajouter une occurrence
-      </button>
-      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-settings-5-line" id="progressionSettingsBtn" type="button" title="Réglages des activités">
-        <span class="fr-sr-only">Réglages des activités</span>
       </button>
       <button class="fr-btn fr-btn--secondary fr-btn--sm fr-icon-download-line fr-btn--icon-left" id="generateProgressionPdfBtn" type="button" disabled>
         Progression en PDF
       </button>
       <span class="fr-tooltip fr-placement" id="progressionPdfTooltip" role="tooltip"><strong>Impossible de générer ce PDF.</strong><br>Les données ne sont pas encore chargées.</span>
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-settings-5-line" id="progressionSettingsBtn" type="button" title="Réglages des activités">
+        <span class="fr-sr-only">Réglages des activités</span>
+      </button>
     </div>
 
-    <div class="week-filter-row fr-mb-2w">
+    <div class="week-filter-row fr-mb-4w">
       <div class="fr-search-bar progression-search-bar" id="progressionSearchBar" role="search">
         <label class="fr-label fr-sr-only" for="progressionSearchInput">Rechercher une occurrence (code ou intitulé)</label>
         <input class="fr-input" type="search" id="progressionSearchInput" name="progressionSearchInput" placeholder="Rechercher (code ou intitulé)…">
@@ -740,6 +752,16 @@
       </div>
       <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-close-line fr-btn--icon-left" id="progressionResetFiltersBtn" type="button">
         Réinitialiser le(s) filtre(s)
+      </button>
+    </div>
+
+    <div class="week-nav fr-mb-2w">
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-left-s-line fr-btn--icon-left" id="weekPrevBtn" type="button">
+        Semaine précédente
+      </button>
+      <p class="week-label fr-text--bold" id="weekLabel"></p>
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-right-s-line fr-btn--icon-right" id="weekNextBtn" type="button">
+        Semaine suivante
       </button>
     </div>
 
@@ -1126,7 +1148,10 @@
                       <div class="code-help__panel" id="occCodeHelpPanel" role="region" aria-label="Codes d'activité existants" hidden></div>
                     </span>
                   </div>
-                  <input class="fr-input" type="text" id="occEditField_code" name="occEditField_code">
+                  <div class="code-combobox">
+                    <input class="fr-input" type="text" id="occEditField_code" name="occEditField_code" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="occCodeSuggest" placeholder="Rechercher ou saisir un code…">
+                    <div class="code-suggest" id="occCodeSuggest" role="listbox" aria-label="Codes d'activité" hidden></div>
+                  </div>
                 </div>
                 </div>
                 <div id="occGroupDatetime">
@@ -3388,6 +3413,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       fillPermMilitaireSelect();
       updateCodeHelpTooltip();
       document.getElementById('occCodeHelpPanel').hidden = true;
+      if (occEditFields.code.closeSuggest) occEditFields.code.closeSuggest();
       occLastCodeProcessed = row ? textOf(row.Code) : '';
       occAuto = { intitule: '', consignes: '', cadres: [] };
       loadReglagesCatalog().then(function () {
@@ -3605,9 +3631,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // Contenu de l'info-bulle d'aide du champ "Code activité" : les codes du
   // catalogue "Réglages des activités" (avec leur intitulé), complétés des
   // codes déjà utilisés par des occurrences mais absents du catalogue.
-  function updateCodeHelpTooltip() {
-    var tooltip = document.getElementById('occCodeHelpPanel');
-    if (!tooltip) return;
+  // Codes connus : ceux du catalogue "Réglages des activités" (avec leur
+  // intitulé), puis ceux déjà utilisés par des occurrences mais absents du
+  // catalogue ; triés.
+  function getCodeItems() {
     var seen = {};
     var items = [];
     reglagesCatalog.forEach(function (e) {
@@ -3626,12 +3653,121 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       });
     });
     items.sort(function (a, b) { return a.code.localeCompare(b.code, 'fr', { numeric: true }); });
+    return items;
+  }
+
+  function updateCodeHelpTooltip() {
+    var tooltip = document.getElementById('occCodeHelpPanel');
+    if (!tooltip) return;
+    var items = getCodeItems();
     tooltip.innerHTML = items.length
       ? '<strong>Codes existants</strong><ul class="code-help-list">' + items.map(function (it) {
           return '<li><strong>' + escapeHtml(it.code) + '</strong>' + (it.intitule ? ' — ' + escapeHtml(it.intitule) : '') + '</li>';
         }).join('') + '</ul>'
       : 'Aucun code n\'existe pour l\'instant.';
   }
+
+  // Champ "Code activité" avec recherche : en tapant, la liste se filtre
+  // (sur le code OU son détail) et affiche chaque code avec son intitulé ;
+  // choisir une proposition ne renvoie dans le champ que le code, sans le
+  // détail. La saisie libre reste possible (le code est optionnel, et un
+  // code peut ne pas encore exister).
+  (function setupCodeCombobox() {
+    var input = occEditFields.code;
+    var list = document.getElementById('occCodeSuggest');
+    var activeIndex = -1;
+    var current = [];
+    var hideTimer = null;
+
+    function isOpen() { return !list.hidden; }
+    function close() {
+      list.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      activeIndex = -1;
+    }
+    function setActive(i) {
+      var nodes = list.querySelectorAll('.code-suggest__item');
+      if (!nodes.length) { activeIndex = -1; return; }
+      activeIndex = (i + nodes.length) % nodes.length;
+      nodes.forEach(function (n, k) { n.setAttribute('aria-selected', k === activeIndex ? 'true' : 'false'); });
+      var el = nodes[activeIndex];
+      input.setAttribute('aria-activedescendant', el.id);
+      if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+    }
+    function choose(code) {
+      input.value = code; // seulement le code, sans le détail
+      close();
+      applyCatalogFromCode(); // pré-remplit intitulé/cadres/consignes d'après ce code
+      input.focus();
+    }
+    function render() {
+      var q = normalizeNameKey(input.value);
+      current = getCodeItems().filter(function (it) {
+        return !q || normalizeNameKey(it.code).indexOf(q) !== -1 || normalizeNameKey(it.intitule).indexOf(q) !== -1;
+      });
+      // Codes commençant par la saisie en premier.
+      if (q) {
+        current.sort(function (a, b) {
+          var pa = normalizeNameKey(a.code).indexOf(q) === 0 ? 0 : 1;
+          var pb = normalizeNameKey(b.code).indexOf(q) === 0 ? 0 : 1;
+          return pa - pb;
+        });
+      }
+      activeIndex = -1;
+      if (!current.length) {
+        list.innerHTML = q ? '<div class="code-suggest__empty">Aucun code existant ne correspond : la saisie sera utilisée telle quelle.</div>' : '';
+        list.hidden = !q;
+        input.setAttribute('aria-expanded', q ? 'true' : 'false');
+        return;
+      }
+      list.innerHTML = current.map(function (it, i) {
+        return '<div class="code-suggest__item" role="option" id="occCodeSuggest_' + i + '" data-code="' + escapeHtml(it.code) + '" aria-selected="false">' +
+          '<strong>' + escapeHtml(it.code) + '</strong>' +
+          (it.intitule ? ' <span class="code-suggest__detail">— ' + escapeHtml(it.intitule) + '</span>' : '') + '</div>';
+      }).join('');
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+    }
+
+    input.addEventListener('input', render);
+    // Ouverture au clic dans le champ (et non au simple focus : la modale
+    // peut y placer le curseur à son ouverture sans que l'utilisateur l'ait demandé).
+    input.addEventListener('click', function () { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } render(); });
+    input.addEventListener('focus', function () { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } });
+    input.addEventListener('blur', function () { hideTimer = setTimeout(close, 150); });
+    // mousedown (et non click) : évite que le champ perde le focus avant la sélection.
+    list.addEventListener('mousedown', function (e) {
+      var item = e.target.closest ? e.target.closest('.code-suggest__item') : null;
+      if (!item) return;
+      e.preventDefault();
+      choose(item.getAttribute('data-code'));
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!isOpen()) render();
+        setActive(activeIndex + 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!isOpen()) render();
+        setActive(activeIndex < 0 ? -1 : activeIndex - 1);
+      } else if (e.key === 'Enter') {
+        if (isOpen() && activeIndex >= 0 && current[activeIndex]) {
+          e.preventDefault();
+          choose(current[activeIndex].code);
+        }
+      } else if (e.key === 'Escape' && isOpen()) {
+        e.stopPropagation(); // referme la liste sans fermer la modale
+        close();
+      } else if (e.key === 'Tab') {
+        close();
+      }
+    });
+    // Liste refermée à chaque ouverture de la modale.
+    occEditModal.addEventListener('click', function (e) { if (!input.parentNode.contains(e.target)) close(); });
+    input.closeSuggest = close;
+  })();
 
   // Ouverture/fermeture du panneau d'aide : survol (avec un court délai à la
   // sortie pour pouvoir atteindre et faire défiler le panneau), focus
