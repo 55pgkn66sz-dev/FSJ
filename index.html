@@ -409,12 +409,41 @@
   /* Consignes : au plus 2 lignes dans le tableau (texte complet en infobulle) */
   .req-cell-clamp {
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    white-space: normal;
-    max-width: 28rem;
   }
+  /* Tableau des réglages : tient toujours dans la largeur du widget (pas de
+     défilement horizontal) — colonnes de largeur répartie, texte à la ligne. */
+  .req-table--fit { table-layout: fixed; width: 100%; }
+  .req-table--fit th, .req-table--fit td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding: 0.5rem 0.5rem;
+  }
+  .req-table--fit .col-actions { width: 5.5rem; }
+  .req-table--fit .col-code { width: 7rem; }
+  .req-table--fit .col-num { width: 5.5rem; }
+  .req-table--fit .col-duree { width: 5rem; }
+  .req-table--fit .col-intitule { width: 22%; }
+  .req-table--fit .col-cadres { width: 20%; }
+  .req-table--fit .req-actions { flex-wrap: nowrap; }
+  /* Regroupement par Type */
+  .req-group-row th { background: #f0f0f8; text-align: left; padding: 0.35rem 0.5rem; }
+  .req-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: var(--bleu-france);
+    cursor: pointer;
+  }
+  .req-group-heading { grid-column: 1 / -1; margin: 0.5rem 0 0; }
+  .req-group-heading .req-group-toggle { padding: 0.25rem 0; }
   .reglage-cadres-tools { display: flex; gap: 0.5rem; margin: 0 0 0.5rem; }
 
   /* Libellé "Code activité" + icône d'aide (liste des codes existants). */
@@ -441,6 +470,9 @@
   .code-suggest__item { padding: 0.4rem 0.75rem; cursor: pointer; line-height: 1.3; }
   .code-suggest__item[aria-selected="true"], .code-suggest__item:hover { background: #f0f0f5; }
   .code-suggest__detail { color: var(--text-mention-grey); }
+  .code-suggest__item--excluded strong { color: #ce0500; }
+  .code-suggest__excluded { color: #ce0500; font-size: 0.85em; }
+  .code-excluded-note { color: #ce0500; margin-top: 0.35rem; }
   .code-suggest__empty { padding: 0.4rem 0.75rem; color: var(--text-mention-grey); font-style: italic; }
   /* Groupe d'icônes d'action façon "Gérer la demande" du widget
      Réservations (repris à l'identique de son CSS .req-actions) : boutons
@@ -1059,12 +1091,13 @@
                 <div id="occGroupCode">
                 <div class="fr-input-group">
                   <div class="occ-code-label-row">
-                    <label class="fr-label" for="occEditField_code">Code activité <span class="fr-hint-text">(optionnel)</span></label>
+                    <label class="fr-label" for="occEditField_code">Code activité <span class="fr-hint-text">(optionnel — les codes en rouge ne s'affichent pas dans la FSJ stagiaires)</span></label>
                   </div>
                   <div class="code-combobox">
                     <input class="fr-input" type="text" id="occEditField_code" name="occEditField_code" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="occCodeSuggest" placeholder="Rechercher ou saisir un code…">
                     <div class="code-suggest" id="occCodeSuggest" role="listbox" aria-label="Codes d'activité" hidden></div>
                   </div>
+                  <p class="fr-hint-text code-excluded-note" id="occCodeExcludedNote" hidden>Ce code n'est pas affiché dans la FSJ stagiaires.</p>
                 </div>
                 </div>
                 <div id="occGroupDatetime">
@@ -1236,6 +1269,15 @@
                 <div class="fr-input-group">
                   <label class="fr-label" for="reglageEditField_code">Code activité</label>
                   <input class="fr-input" type="text" id="reglageEditField_code" name="reglageEditField_code">
+                </div>
+                <div class="fr-select-group" id="reglageTypeSelectGroup" hidden>
+                  <label class="fr-label" for="reglageEditField_typeSelect">Type <span class="fr-hint-text">(optionnel)</span></label>
+                  <select class="fr-select" id="reglageEditField_typeSelect" name="reglageEditField_typeSelect"></select>
+                </div>
+                <div class="fr-input-group" id="reglageTypeInputGroup" hidden>
+                  <label class="fr-label" for="reglageEditField_typeInput">Type <span class="fr-hint-text">(optionnel)</span></label>
+                  <input class="fr-input" type="text" id="reglageEditField_typeInput" name="reglageEditField_typeInput" list="reglageTypesDatalist" autocomplete="off">
+                  <datalist id="reglageTypesDatalist"></datalist>
                 </div>
                 <div class="config-grid-2col">
                   <div class="fr-input-group">
@@ -1823,13 +1865,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // les réglages d'activité sont un catalogue de référence indépendant des
   // occurrences elles-mêmes, qui n'a pas vocation à être "la" table
   // affichée par le widget dans Grist.
-  var REGLAGES_ROLES = ['code', 'numero', 'duree', 'intitule', 'cadresDesignes', 'consignes'];
+  var REGLAGES_ROLES = ['code', 'type', 'numero', 'duree', 'intitule', 'cadresDesignes', 'consignes'];
 
   // Table et colonnes du catalogue : codées en dur (plus d'association dans
   // le backoffice).
   var REGLAGES_TABLE = 'Repartition_cours';
   var REGLAGES_COLUMNS = {
     code: 'Code_activite',
+    type: 'Type',
     intitule: 'Intitule',
     numero: 'Numerotation',
     duree: 'Nb_heures',
@@ -3222,6 +3265,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
       fillPermMilitaireSelect();
       if (occEditFields.code.closeSuggest) occEditFields.code.closeSuggest();
+      if (occEditFields.code.updateExcludedNote) occEditFields.code.updateExcludedNote();
       occLastCodeProcessed = row ? textOf(row.Code) : '';
       occAuto = { intitule: '', consignes: '', cadres: [] };
       loadReglagesCatalog().then(function () {
@@ -3494,12 +3538,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     function choose(code) {
       input.value = code; // seulement le code, sans le détail
       close();
+      updateExcludedNote();
       applyCatalogFromCode(); // pré-remplit intitulé/cadres/consignes d'après ce code
       input.focus();
     }
     function render() {
       var q = normalizeNameKey(input.value);
       current = getCodeItems().filter(function (it) {
+        if (isPermanenceCode(it.code)) return false; // les permanences se créent via l'onglet Permanence
         return !q || normalizeNameKey(it.code).indexOf(q) !== -1 || normalizeNameKey(it.intitule).indexOf(q) !== -1;
       });
       // Codes commençant par la saisie en premier.
@@ -3518,14 +3564,24 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         return;
       }
       list.innerHTML = current.map(function (it, i) {
-        return '<div class="code-suggest__item" role="option" id="occCodeSuggest_' + i + '" data-code="' + escapeHtml(it.code) + '" aria-selected="false">' +
+        var excluded = isExcludedCode(it.code);
+        return '<div class="code-suggest__item' + (excluded ? ' code-suggest__item--excluded' : '') + '" role="option" id="occCodeSuggest_' + i + '" data-code="' + escapeHtml(it.code) + '" aria-selected="false">' +
           '<strong>' + escapeHtml(it.code) + '</strong>' +
-          (it.intitule ? ' <span class="code-suggest__detail">— ' + escapeHtml(it.intitule) + '</span>' : '') + '</div>';
+          (it.intitule ? ' <span class="code-suggest__detail">— ' + escapeHtml(it.intitule) + '</span>' : '') +
+          (excluded ? ' <span class="code-suggest__excluded">(non affiché dans la FSJ stagiaires)</span>' : '') + '</div>';
       }).join('');
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
     }
 
+    // Note en rouge sous le champ si le code saisi est masqué dans la FSJ stagiaires.
+    var excludedNote = document.getElementById('occCodeExcludedNote');
+    function updateExcludedNote() {
+      excludedNote.hidden = !(input.value.trim() && isExcludedCode(input.value.trim()));
+    }
+    input.addEventListener('input', updateExcludedNote);
+    input.addEventListener('change', updateExcludedNote);
+    input.updateExcludedNote = updateExcludedNote;
     input.addEventListener('input', render);
     // Ouverture au clic dans le champ (et non au simple focus : la modale
     // peut y placer le curseur à son ouverture sans que l'utilisateur l'ait demandé).
@@ -3632,6 +3688,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // références), rechargées à chaque affichage de la page ; null si la
   // colonne est du texte simple (voir loadColumnChoicesInfo).
   var reglagesCadresInfo = null;
+  // Valeurs possibles de la colonne "Type" (Choix/Référence) ; null si texte simple.
+  var reglagesTypeInfo = null;
+  // La colonne Type existe-t-elle dans la table ? (sinon ni regroupement ni champ)
+  var reglagesHasType = false;
+  var reglagesCollapsed = {}; // groupes repliés (par nom de type)
 
   function openReglagesPage() {
     viewBeforeReglages = currentView;
@@ -3674,13 +3735,22 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     reglageNewBtn.disabled = false;
     reglageNewBtn.removeAttribute('aria-describedby');
 
-    loadColumnChoicesInfo(cfg.table, cfg.col.cadresDesignes).then(function (info) {
-      reglagesCadresInfo = info;
+    Promise.all([
+      loadColumnChoicesInfo(cfg.table, cfg.col.cadresDesignes),
+      loadColumnChoicesInfo(cfg.table, cfg.col.type)
+    ]).then(function (infos) {
+      reglagesCadresInfo = infos[0];
+      reglagesTypeInfo = (infos[1] && (infos[1].kind === 'choice' || infos[1].kind === 'ref') && infos[1].options.length) ? infos[1] : null;
       return grist.docApi.fetchTable(cfg.table);
     }).then(function (table) {
+      reglagesHasType = !!cfg.col.type && Object.prototype.hasOwnProperty.call(table, cfg.col.type);
       reglagesData = columnarToRows(table).map(function (r) {
+        var typeRaw = reglagesHasType ? r[cfg.col.type] : '';
+        var typeLabel = (typeof typeRaw === 'number' && reglagesTypeInfo && reglagesTypeInfo.labels) ? (reglagesTypeInfo.labels[typeRaw] || '') : textOf(typeRaw);
         return {
           id: r.id,
+          type: typeLabel,
+          typeRaw: typeRaw,
           code: textOf(r[cfg.col.code]),
           numero: cfg.col.numero ? textOf(r[cfg.col.numero]) : '',
           duree: cfg.col.duree ? textOf(r[cfg.col.duree]) : '',
@@ -3709,7 +3779,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   function reglageMatchesSearch(r, queryNorm) {
     if (!queryNorm) return true;
-    var haystack = [r.code, r.numero, r.duree, r.intitule, r.cadresDesignes.join(' '), r.consignes].map(normalizeNameKey).join(' | ');
+    var haystack = [r.code, r.type, r.numero, r.duree, r.intitule, r.cadresDesignes.join(' '), r.consignes].map(normalizeNameKey).join(' | ');
     return haystack.indexOf(queryNorm) !== -1;
   }
 
@@ -3750,46 +3820,84 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return;
     }
 
-    function sortHeader(key) {
+    function sortHeader(key, cls) {
       var active = reglagesSort.key === key;
       var arrow = active ? (reglagesSort.dir === 1 ? '▲' : '▼') : '↕';
-      return '<th aria-sort="' + (active ? (reglagesSort.dir === 1 ? 'ascending' : 'descending') : 'none') + '">' +
+      return '<th class="' + cls + '" aria-sort="' + (active ? (reglagesSort.dir === 1 ? 'ascending' : 'descending') : 'none') + '">' +
         '<button type="button" class="req-sort" data-sort="' + key + '" data-active="' + active + '">' +
         REGLAGES_SORT_LABELS[key] + ' <span class="req-sort__arrow" aria-hidden="true">' + arrow + '</span></button></th>';
     }
-    var head = '<tr><th>Actions</th>' + sortHeader('code') + sortHeader('numero') + sortHeader('duree') + sortHeader('intitule') +
-      '<th>Cadres désignés</th><th>Consignes</th></tr>';
+    var COLS = 7;
+    var head = '<tr><th class="col-actions">Actions</th>' + sortHeader('code', 'col-code') + sortHeader('numero', 'col-num') + sortHeader('duree', 'col-duree') +
+      sortHeader('intitule', 'col-intitule') + '<th class="col-cadres">Cadres désignés</th><th>Consignes</th></tr>';
+
+    // Regroupement par Type (ordre alphabétique, "Sans type" en dernier) ;
+    // sans colonne Type dans la table, un seul groupe sans en-tête.
+    var groups = [];
+    if (reglagesHasType) {
+      var byType = {};
+      list.forEach(function (r) {
+        var key = r.type || '';
+        if (!byType[key]) { byType[key] = { key: key, label: key || 'Sans type', items: [] }; groups.push(byType[key]); }
+        byType[key].items.push(r);
+      });
+      groups.sort(function (a, b) {
+        if (!a.key) return 1;
+        if (!b.key) return -1;
+        return a.label.localeCompare(b.label, 'fr');
+      });
+    } else {
+      groups.push({ key: '', label: '', items: list });
+    }
+
+    function actionsFor(r) {
+      return '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier" data-edit-id="' + r.id + '"></button>' +
+        '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-delete-line" title="Supprimer" data-delete-id="' + r.id + '"></button>';
+    }
+    // Pendant une recherche, tous les groupes sont dépliés pour montrer les résultats.
+    var searching = !!normalizeNameKey(reglagesSearchQuery);
+    function isCollapsed(g) { return reglagesHasType && !searching && !!reglagesCollapsed[g.key]; }
+    function toggleHtml(g, idx) {
+      var collapsed = isCollapsed(g);
+      return '<button type="button" class="req-group-toggle" data-group="' + idx + '" aria-expanded="' + (!collapsed) + '">' +
+        '<span aria-hidden="true">' + (collapsed ? '▸' : '▾') + '</span> ' + escapeHtml(g.label) +
+        ' <span class="fr-badge fr-badge--sm">' + g.items.length + '</span></button>';
+    }
+
     var tableRows = '';
     var cardsHtml = '';
+    groups.forEach(function (g, idx) {
+      if (reglagesHasType) {
+        tableRows += '<tr class="req-group-row"><th colspan="' + COLS + '" scope="colgroup">' + toggleHtml(g, idx) + '</th></tr>';
+        cardsHtml += '<div class="req-group-heading">' + toggleHtml(g, idx) + '</div>';
+      }
+      if (isCollapsed(g)) return;
+      g.items.forEach(function (r) {
+        var actionsHtml = actionsFor(r);
+        tableRows += '<tr data-row-id="' + r.id + '" title="Double-clic pour modifier">' +
+          '<td><div class="req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div></td>' +
+          '<td><strong>' + escapeHtml(r.code) + '</strong></td>' +
+          '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
+          '<td>' + (r.duree ? escapeHtml(r.duree) : '—') + '</td>' +
+          '<td>' + escapeHtml(r.intitule) + '</td>' +
+          '<td>' + (r.cadresDesignes.length ? inlineBadgesHtml(r.cadresDesignes, 'badges') : '—') + '</td>' +
+          '<td>' + (r.consignes ? '<span class="req-cell-clamp" title="' + escapeHtml(r.consignes) + '">' + escapeHtml(r.consignes) + '</span>' : '—') + '</td>' +
+        '</tr>';
 
-    list.forEach(function (r) {
-      var actionsHtml =
-        '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier" data-edit-id="' + r.id + '"></button>' +
-        '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-delete-line" title="Supprimer" data-delete-id="' + r.id + '"></button>';
-
-      tableRows += '<tr data-row-id="' + r.id + '" title="Double-clic pour modifier">' +
-        '<td><div class="req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div></td>' +
-        '<td><strong>' + escapeHtml(r.code) + '</strong></td>' +
-        '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
-        '<td>' + (r.duree ? escapeHtml(r.duree) : '—') + '</td>' +
-        '<td>' + escapeHtml(r.intitule) + '</td>' +
-        '<td>' + (r.cadresDesignes.length ? inlineBadgesHtml(r.cadresDesignes, 'badges') : '—') + '</td>' +
-        '<td>' + (r.consignes ? '<span class="req-cell-clamp" title="' + escapeHtml(r.consignes) + '">' + escapeHtml(r.consignes) + '</span>' : '—') + '</td>' +
-      '</tr>';
-
-      cardsHtml += '<div class="req-card" data-row-id="' + r.id + '">' +
-        '<p class="req-card__line"><span class="req-card__label">Code :</span> <strong>' + escapeHtml(r.code) + '</strong></p>' +
-        (r.numero ? '<p class="req-card__line"><span class="req-card__label">Numéro :</span> ' + escapeHtml(r.numero) + '</p>' : '') +
-        (r.duree ? '<p class="req-card__line"><span class="req-card__label">Durée :</span> ' + escapeHtml(r.duree) + '</p>' : '') +
-        '<p class="req-card__line"><span class="req-card__label">Intitulé :</span> ' + escapeHtml(r.intitule) + '</p>' +
-        (r.cadresDesignes.length ? '<p class="req-card__line"><span class="req-card__label">Cadres désignés :</span> ' + inlineBadgesHtml(r.cadresDesignes, 'badges') + '</p>' : '') +
-        (r.consignes ? '<p class="req-card__line"><span class="req-card__label">Consignes :</span> ' + escapeHtml(r.consignes) + '</p>' : '') +
-        '<div class="req-card__actions req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div>' +
-      '</div>';
+        cardsHtml += '<div class="req-card" data-row-id="' + r.id + '">' +
+          '<p class="req-card__line"><span class="req-card__label">Code :</span> <strong>' + escapeHtml(r.code) + '</strong></p>' +
+          (r.numero ? '<p class="req-card__line"><span class="req-card__label">Numéro :</span> ' + escapeHtml(r.numero) + '</p>' : '') +
+          (r.duree ? '<p class="req-card__line"><span class="req-card__label">Durée :</span> ' + escapeHtml(r.duree) + '</p>' : '') +
+          '<p class="req-card__line"><span class="req-card__label">Intitulé :</span> ' + escapeHtml(r.intitule) + '</p>' +
+          (r.cadresDesignes.length ? '<p class="req-card__line"><span class="req-card__label">Cadres désignés :</span> ' + inlineBadgesHtml(r.cadresDesignes, 'badges') + '</p>' : '') +
+          (r.consignes ? '<p class="req-card__line"><span class="req-card__label">Consignes :</span> ' + escapeHtml(r.consignes) + '</p>' : '') +
+          '<div class="req-card__actions req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div>' +
+        '</div>';
+      });
     });
 
     reglagesZone.innerHTML =
-      '<div class="req-table-wrap req-table-view"><table class="req-table"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
+      '<div class="req-table-wrap req-table-view"><table class="req-table req-table--fit"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
       '<div class="req-cards req-cards-view">' + cardsHtml + '</div>';
 
     reglagesZone.querySelectorAll('button[data-sort]').forEach(function (btn) {
@@ -3797,6 +3905,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         var key = btn.getAttribute('data-sort');
         if (reglagesSort.key === key) reglagesSort.dir = -reglagesSort.dir;
         else reglagesSort = { key: key, dir: 1 };
+        renderReglagesList();
+      });
+    });
+    reglagesZone.querySelectorAll('button[data-group]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var g = groups[Number(btn.getAttribute('data-group'))];
+        if (!g || searching) return;
+        reglagesCollapsed[g.key] = !reglagesCollapsed[g.key];
         renderReglagesList();
       });
     });
@@ -3850,6 +3966,70 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return reglageEditModal.open;
   }
 
+  // Champ Type de la modale : liste déroulante si la colonne est un Choix ou
+  // une Référence (toutes ses valeurs possibles), sinon champ texte avec
+  // suggestion des types déjà utilisés ; masqué si la table n'a pas de
+  // colonne Type.
+  var reglageTypeSelectGroup = document.getElementById('reglageTypeSelectGroup');
+  var reglageTypeInputGroup = document.getElementById('reglageTypeInputGroup');
+  var reglageTypeSelect = document.getElementById('reglageEditField_typeSelect');
+  var reglageTypeInput = document.getElementById('reglageEditField_typeInput');
+
+  function fillReglageTypeField(row) {
+    reglageTypeSelectGroup.hidden = true;
+    reglageTypeInputGroup.hidden = true;
+    if (!reglagesHasType) return;
+    if (reglagesTypeInfo) {
+      reglageTypeSelectGroup.hidden = false;
+      reglageTypeSelect.innerHTML = '';
+      var none = document.createElement('option');
+      none.value = '';
+      none.textContent = '— Aucun —';
+      reglageTypeSelect.appendChild(none);
+      reglagesTypeInfo.options.forEach(function (o) {
+        var opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        reglageTypeSelect.appendChild(opt);
+      });
+      var current = '';
+      if (row) current = reglagesTypeInfo.kind === 'ref' ? (row.typeRaw ? String(row.typeRaw) : '') : row.type;
+      // Valeur courante absente des choix connus : conservée telle quelle.
+      if (current && !reglagesTypeInfo.options.some(function (o) { return o.value === current; })) {
+        var extra = document.createElement('option');
+        extra.value = current;
+        extra.textContent = row.type || current;
+        reglageTypeSelect.appendChild(extra);
+      }
+      reglageTypeSelect.value = current;
+    } else {
+      reglageTypeInputGroup.hidden = false;
+      reglageTypeInput.value = row ? row.type : '';
+      var seen = {};
+      var datalist = document.getElementById('reglageTypesDatalist');
+      datalist.innerHTML = '';
+      reglagesData.forEach(function (r) {
+        var k = normalizeNameKey(r.type);
+        if (!k || seen[k]) return;
+        seen[k] = true;
+        var opt = document.createElement('option');
+        opt.value = r.type;
+        datalist.appendChild(opt);
+      });
+    }
+  }
+
+  // Valeur à écrire dans la colonne Type : identifiant de ligne (Référence)
+  // ou texte (Choix / texte simple).
+  function reglageTypeValueForWrite() {
+    if (reglagesTypeInfo) {
+      var v = reglageTypeSelect.value;
+      if (reglagesTypeInfo.kind === 'ref') return v ? Number(v) : 0;
+      return v;
+    }
+    return reglageTypeInput.value.trim();
+  }
+
   function openReglageEditForm(row) {
     try {
       reglageEditingRowId = row ? row.id : null;
@@ -3861,6 +4041,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       reglageEditFields.duree.value = row ? row.duree : '';
       reglageEditFields.intitule.value = row ? row.intitule : '';
       reglageEditFields.consignes.value = row ? row.consignes : '';
+      fillReglageTypeField(row);
       var reglagesKnownCadres = [];
       reglagesData.forEach(function (r) { reglagesKnownCadres = reglagesKnownCadres.concat(r.cadresDesignes); });
       buildCadreCheckboxGroup(reglageEditCadresList, 'reglageEditCadres', row ? row.cadresDesignes : [], reglagesCadresInfo, reglagesKnownCadres);
@@ -3907,6 +4088,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     var patch = {};
     patch[cfg.col.code] = code;
+    if (reglagesHasType) patch[cfg.col.type] = reglageTypeValueForWrite();
     if (cfg.col.numero) patch[cfg.col.numero] = numero;
     if (cfg.col.duree) patch[cfg.col.duree] = duree;
     patch[cfg.col.intitule] = intitule;
