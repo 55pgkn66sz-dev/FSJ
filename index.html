@@ -407,12 +407,23 @@
   .req-table tbody tr[data-row-id] { cursor: default; }
   .req-table tbody tr[data-row-id]:hover { background: #f5f5fe; }
   /* Consignes : au plus 2 lignes dans le tableau (texte complet en infobulle) */
-  .req-cell-clamp {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+  /* Texte long (consignes) : retours à la ligne saisis conservés, passage à
+     la ligne automatique, mots trop longs coupés. */
+  .req-cell-text { white-space: pre-line; overflow-wrap: anywhere; }
+  /* Cellules éditables directement dans le tableau (Cadres désignés, Consignes) */
+  .cell-editable {
+    min-height: 1.5rem;
+    margin: -0.2rem -0.3rem;
+    padding: 0.2rem 0.3rem;
+    border-radius: 0.25rem;
+    cursor: text;
   }
+  .cell-editable:hover { background: #eef0ff; box-shadow: inset 0 0 0 1px #c5c8f5; }
+  .cell-editable:focus-visible { outline: 2px solid var(--bleu-france); outline-offset: 1px; }
+  .cell-empty { color: var(--text-mention-grey); }
+  .inline-editor textarea { width: 100%; box-sizing: border-box; min-height: 5rem; }
+  .inline-editor .occ-checkbox-row { margin-bottom: 0.25rem; }
+  .req-inline-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
   /* Tableau des réglages : tient toujours dans la largeur du widget (pas de
      défilement horizontal) — colonnes de largeur répartie, texte à la ligne. */
   .req-table--fit { table-layout: fixed; width: 100%; }
@@ -429,6 +440,8 @@
   .req-table--fit .col-cadres { width: 20%; }
   .req-table--fit .req-actions { flex-wrap: nowrap; }
   /* Regroupement par Type */
+  .req-table--fit tbody tr.req-cluster-start td { border-top: 2px solid var(--border-default-grey); }
+  .req-code-cell { vertical-align: top; background: #fafafd; }
   .req-group-row th { background: #f0f0f8; text-align: left; padding: 0.35rem 0.5rem; }
   .req-group-toggle {
     display: inline-flex;
@@ -505,7 +518,8 @@
     background: #fff;
     padding: 1rem;
   }
-  .req-card__line { margin: 0 0 0.5rem; line-height: 1.4; }
+  .req-card__line { margin: 0 0 0.5rem; line-height: 1.4; overflow-wrap: anywhere; }
+  .req-card__line--multiline { white-space: pre-line; }
   .req-card__line:last-of-type { margin-bottom: 0.85rem; }
   .req-card__label { color: var(--text-mention-grey); }
   /* Fond pastel selon la décision, même principe que les boutons d'action
@@ -3456,13 +3470,26 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     });
   }
 
+  // Réglage associé à un code. Si plusieurs activités partagent ce code, on
+  // ne pré-remplit que ce qui leur est commun : intitulé et consignes
+  // uniquement s'ils sont identiques partout, cadres désignés = union.
   function catalogEntryFor(code) {
     var key = normalizeNameKey(code);
     if (!key) return null;
-    for (var i = 0; i < reglagesCatalog.length; i++) {
-      if (normalizeNameKey(reglagesCatalog[i].code) === key) return reglagesCatalog[i];
-    }
-    return null;
+    var matches = reglagesCatalog.filter(function (e) { return normalizeNameKey(e.code) === key; });
+    if (!matches.length) return null;
+    if (matches.length === 1) return matches[0];
+    var merged = { code: matches[0].code, intitule: matches[0].intitule, consignes: matches[0].consignes, cadres: [] };
+    var seenCadres = {};
+    matches.forEach(function (m) {
+      if (normalizeNameKey(m.intitule) !== normalizeNameKey(merged.intitule)) merged.intitule = '';
+      if (normalizeNameKey(m.consignes) !== normalizeNameKey(merged.consignes)) merged.consignes = '';
+      m.cadres.forEach(function (c) {
+        var k = normalizeNameKey(c);
+        if (k && !seenCadres[k]) { seenCadres[k] = true; merged.cadres.push(c); }
+      });
+    });
+    return merged;
   }
 
   // Tous les cadres nommés dans le catalogue (pour compléter la liste
@@ -3492,7 +3519,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var k = normalizeNameKey(e.code);
       if (!k || seen[k]) return;
       seen[k] = true;
-      items.push({ code: e.code, intitule: e.intitule });
+      var entry = catalogEntryFor(e.code);
+      items.push({ code: e.code, intitule: entry ? entry.intitule : e.intitule });
     });
     allRecords.forEach(function (r) {
       codesOf(r.Code).forEach(function (c) {
@@ -3791,7 +3819,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       // numeric: "2" avant "10" pour Numéro/Durée ; à égalité, tri par code puis intitulé.
       var cmp = String(a[key]).localeCompare(String(b[key]), 'fr', { numeric: true, sensitivity: 'base' });
       if (cmp) return cmp * dir;
-      return a.code.localeCompare(b.code, 'fr', { numeric: true }) || a.intitule.localeCompare(b.intitule, 'fr');
+      return a.code.localeCompare(b.code, 'fr', { numeric: true }) ||
+        a.numero.localeCompare(b.numero, 'fr', { numeric: true }) ||
+        a.intitule.localeCompare(b.intitule, 'fr');
     });
   }
 
@@ -3806,6 +3836,103 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // Tableau (écran large) / cartes (mobile), même bascule CSS que la page
   // Absences (.req-table-view/.req-cards-view).
+  // ---- Édition directe dans le tableau : Cadres désignés et Consignes ------
+  //
+  // Un clic (ou Entrée au clavier) sur la cellule la remplace par un
+  // éditeur (cases à cocher pour les cadres, zone de texte pour les
+  // consignes) avec Enregistrer/Annuler (Ctrl+Entrée enregistre, Échap
+  // annule). L'écriture est un simple UpdateRecord sur la ligne.
+  var reglagesInline = null; // { id, field: 'cadres' | 'consignes' } ou null
+
+  function editableCellHtml(r, field, contentHtml) {
+    if (reglagesInline && reglagesInline.id === r.id && reglagesInline.field === field) {
+      return '<div class="inline-editor" data-inline-host="' + r.id + ':' + field + '"></div>';
+    }
+    return '<div class="cell-editable" role="button" tabindex="0" data-edit-row="' + r.id + '" data-edit-field="' + field + '" title="Cliquer pour modifier">' + contentHtml + '</div>';
+  }
+
+  function mountInlineEditor() {
+    if (!reglagesInline) return;
+    var st = reglagesInline;
+    var host = reglagesZone.querySelector('.req-table-view [data-inline-host="' + st.id + ':' + st.field + '"]');
+    var row = reglagesData.filter(function (r) { return r.id === st.id; })[0];
+    if (!host || !row) { reglagesInline = null; return; }
+    var cfg = reglagesConfig;
+    var control;
+    if (st.field === 'consignes') {
+      control = document.createElement('textarea');
+      control.className = 'fr-input';
+      control.value = row.consignes;
+      control.setAttribute('aria-label', 'Consignes');
+      host.appendChild(control);
+    } else {
+      control = document.createElement('div');
+      control.className = 'occ-checkbox-row';
+      control.id = 'reglInlineCadres';
+      host.appendChild(control);
+      var known = [];
+      reglagesData.forEach(function (r) { known = known.concat(r.cadresDesignes); });
+      buildCadreCheckboxGroup(control, 'reglInlineCadres', row.cadresDesignes, reglagesCadresInfo, known);
+    }
+    var actions = document.createElement('div');
+    actions.className = 'req-inline-actions';
+    actions.innerHTML =
+      '<button type="button" class="fr-btn fr-btn--sm" data-inline-save>Enregistrer</button>' +
+      '<button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" data-inline-cancel>Annuler</button>';
+    host.appendChild(actions);
+
+    function cancel() { reglagesInline = null; renderReglagesList(); }
+    function save() {
+      var patch = {};
+      var newCadres = null;
+      var newConsignes = null;
+      if (st.field === 'consignes') {
+        newConsignes = control.value.trim();
+        patch[cfg.col.consignes] = newConsignes;
+      } else {
+        newCadres = checkedCadreLabels(control, 'reglInlineCadres');
+        patch[cfg.col.cadresDesignes] = encodeListForWrite(checkedCadreNames(control, 'reglInlineCadres'), reglagesCadresInfo);
+      }
+      var buttons = actions.querySelectorAll('button');
+      buttons.forEach(function (b) { b.disabled = true; });
+      grist.docApi.applyUserActions([['UpdateRecord', cfg.table, st.id, patch]]).then(function () {
+        if (newConsignes !== null) row.consignes = newConsignes;
+        if (newCadres !== null) row.cadresDesignes = newCadres;
+        reglagesInline = null;
+        renderReglagesList();
+      }).catch(function (e) {
+        buttons.forEach(function (b) { b.disabled = false; });
+        renderAlert(reglagesStatusZone, 'error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
+      });
+    }
+    actions.querySelector('[data-inline-save]').addEventListener('click', save);
+    actions.querySelector('[data-inline-cancel]').addEventListener('click', cancel);
+    host.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.stopPropagation(); cancel(); }
+      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
+    });
+    if (st.field === 'consignes') { control.focus(); control.setSelectionRange(control.value.length, control.value.length); }
+  }
+
+  function startInlineEdit(rowId, field) {
+    reglagesInline = { id: rowId, field: field };
+    reglagesStatusZone.innerHTML = '';
+    renderReglagesList();
+  }
+
+  reglagesZone.addEventListener('click', function (e) {
+    var cell = e.target.closest ? e.target.closest('.cell-editable') : null;
+    if (!cell) return;
+    startInlineEdit(Number(cell.getAttribute('data-edit-row')), cell.getAttribute('data-edit-field'));
+  });
+  reglagesZone.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var cell = e.target.classList && e.target.classList.contains('cell-editable') ? e.target : null;
+    if (!cell) return;
+    e.preventDefault();
+    startInlineEdit(Number(cell.getAttribute('data-edit-row')), cell.getAttribute('data-edit-field'));
+  });
+
   function renderReglagesList() {
     var total = reglagesData.length;
     var list = sortedFilteredReglages();
@@ -3872,16 +3999,27 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         cardsHtml += '<div class="req-group-heading">' + toggleHtml(g, idx) + '</div>';
       }
       if (isCollapsed(g)) return;
+      // Les activités portant le même code sont regroupées : la cellule Code
+      // n'apparaît qu'une fois (fusionnée sur toutes les lignes du code).
+      var clusters = [];
+      var clusterByCode = {};
       g.items.forEach(function (r) {
+        var ck = normalizeNameKey(r.code);
+        if (!clusterByCode[ck]) { clusterByCode[ck] = []; clusters.push(clusterByCode[ck]); }
+        clusterByCode[ck].push(r);
+      });
+      clusters.forEach(function (cluster) { cluster.forEach(function (r, ri) {
         var actionsHtml = actionsFor(r);
-        tableRows += '<tr data-row-id="' + r.id + '" title="Double-clic pour modifier">' +
+        var codeCell = ri > 0 ? '' :
+          '<td class="req-code-cell"' + (cluster.length > 1 ? ' rowspan="' + cluster.length + '"' : '') + '><strong>' + escapeHtml(r.code) + '</strong>' +
+          (cluster.length > 1 ? ' <span class="fr-badge fr-badge--sm" title="' + cluster.length + ' activités pour ce code">' + cluster.length + '</span>' : '') + '</td>';
+        tableRows += '<tr data-row-id="' + r.id + '"' + (ri === 0 ? ' class="req-cluster-start"' : '') + ' title="Double-clic pour modifier">' +
           '<td><div class="req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div></td>' +
-          '<td><strong>' + escapeHtml(r.code) + '</strong></td>' +
-          '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
+          codeCell +          '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
           '<td>' + (r.duree ? escapeHtml(r.duree) : '—') + '</td>' +
           '<td>' + escapeHtml(r.intitule) + '</td>' +
-          '<td>' + (r.cadresDesignes.length ? inlineBadgesHtml(r.cadresDesignes, 'badges') : '—') + '</td>' +
-          '<td>' + (r.consignes ? '<span class="req-cell-clamp" title="' + escapeHtml(r.consignes) + '">' + escapeHtml(r.consignes) + '</span>' : '—') + '</td>' +
+          '<td>' + editableCellHtml(r, 'cadres', r.cadresDesignes.length ? inlineBadgesHtml(r.cadresDesignes, 'badges') : '<span class="cell-empty">—</span>') + '</td>' +
+          '<td>' + editableCellHtml(r, 'consignes', r.consignes ? '<span class="req-cell-text">' + escapeHtml(r.consignes) + '</span>' : '<span class="cell-empty">—</span>') + '</td>' +
         '</tr>';
 
         cardsHtml += '<div class="req-card" data-row-id="' + r.id + '">' +
@@ -3890,15 +4028,17 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           (r.duree ? '<p class="req-card__line"><span class="req-card__label">Durée :</span> ' + escapeHtml(r.duree) + '</p>' : '') +
           '<p class="req-card__line"><span class="req-card__label">Intitulé :</span> ' + escapeHtml(r.intitule) + '</p>' +
           (r.cadresDesignes.length ? '<p class="req-card__line"><span class="req-card__label">Cadres désignés :</span> ' + inlineBadgesHtml(r.cadresDesignes, 'badges') + '</p>' : '') +
-          (r.consignes ? '<p class="req-card__line"><span class="req-card__label">Consignes :</span> ' + escapeHtml(r.consignes) + '</p>' : '') +
+          (r.consignes ? '<p class="req-card__line req-card__line--multiline"><span class="req-card__label">Consignes :</span> ' + escapeHtml(r.consignes) + '</p>' : '') +
           '<div class="req-card__actions req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div>' +
         '</div>';
-      });
+      }); });
     });
 
     reglagesZone.innerHTML =
       '<div class="req-table-wrap req-table-view"><table class="req-table req-table--fit"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
       '<div class="req-cards req-cards-view">' + cardsHtml + '</div>';
+
+    mountInlineEditor();
 
     reglagesZone.querySelectorAll('button[data-sort]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -3935,7 +4075,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // occurrences de la Progression). Délégué sur la zone, reconstruite à
   // chaque rendu.
   reglagesZone.addEventListener('dblclick', function (e) {
-    if (e.target.closest && e.target.closest('button')) return;
+    if (e.target.closest && e.target.closest('button, .cell-editable, .inline-editor')) return;
     var tr = e.target.closest ? e.target.closest('tr[data-row-id]') : null;
     if (!tr) return;
     var rowId = Number(tr.getAttribute('data-row-id'));
@@ -4077,12 +4217,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       renderAlert(reglageEditStatusZone, 'error', 'Merci de renseigner au moins le code activité et l\'intitulé.');
       return;
     }
-    // Le code est la clé de recherche du pré-remplissage des occurrences :
-    // deux réglages ne doivent pas porter le même (casse et accents ignorés).
+    // Plusieurs activités peuvent partager un code (elles sont alors
+    // regroupées dans le tableau) ; c'est le couple code + numéro qui doit
+    // rester unique (casse et accents ignorés).
     var codeKey = normalizeNameKey(code);
-    var duplicate = reglagesData.filter(function (r) { return r.id !== reglageEditingRowId && normalizeNameKey(r.code) === codeKey; })[0];
+    var numeroKey = normalizeNameKey(numero);
+    var duplicate = reglagesData.filter(function (r) {
+      return r.id !== reglageEditingRowId && normalizeNameKey(r.code) === codeKey && normalizeNameKey(r.numero) === numeroKey;
+    })[0];
     if (duplicate) {
-      renderAlert(reglageEditStatusZone, 'error', 'Le code « ' + duplicate.code + ' » est déjà utilisé par le réglage « ' + duplicate.intitule + ' ». Modifiez plutôt ce réglage existant.');
+      renderAlert(reglageEditStatusZone, 'error', 'Le code « ' + duplicate.code + ' »' + (duplicate.numero ? ' (numéro ' + duplicate.numero + ')' : ' sans numéro') + ' est déjà utilisé par le réglage « ' + duplicate.intitule + ' ». Modifiez plutôt ce réglage existant, ou indiquez un autre numéro.');
       return;
     }
 
