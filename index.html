@@ -170,24 +170,7 @@
     flex-wrap: wrap;
     gap: 0.75rem;
   }
-
-  /* Bascule Semaine / Jour de la vue Progression : présentée comme un
-     petit contrôle segmenté, l'option active étant surlignée. */
-  .scale-toggle {
-    display: inline-flex;
-    border: 1px solid var(--border-default-grey);
-    border-radius: 0.25rem;
-    overflow: hidden;
-  }
-  .scale-toggle .fr-btn {
-    border: none;
-    border-radius: 0;
-    margin: 0;
-  }
-  .scale-toggle .fr-btn[aria-pressed="true"] {
-    background-color: var(--bleu-france);
-    color: #fff;
-  }
+  .progression-search-bar { width: 16rem; max-width: 100%; flex: 0 1 16rem; }
 
   /* Filet de sécurité pour les deux boutons de téléchargement (icône
      DSFR fr-icon-download-line + fr-btn--icon-left) : le CSS du DSFR
@@ -482,6 +465,40 @@
   }
   #absEditModal[open]:not([data-fr-js-modal]) > .fr-container { margin: auto; width: 100%; }
 
+  /* Bouton de suppression (pied de la modale, mode édition uniquement,
+     voir openAbsEditForm) : le DSFR ne fournit pas de variante "danger"
+     pour fr-btn, on réutilise donc le rouge déjà utilisé ailleurs dans le
+     widget pour le statut "Refusée" (voir .req-card[data-status="refusee"]
+     plus haut). Sur sa propre ligne sous Enregistrer/Annuler (et non
+     mélangé au groupe .fr-btns-group), pour le distinguer visuellement des
+     actions normales. */
+  #absEditDeleteBtn.abs-edit-delete-btn {
+    margin-top: 1rem;
+    color: #ce0500;
+  }
+  #absEditDeleteBtn.abs-edit-delete-btn:hover { background-color: #fbe1e0; }
+
+  /* Même convention pour la modale d'édition d'occurrence (Progression). */
+  #occEditDeleteBtn.occ-edit-delete-btn {
+    margin-top: 1rem;
+    color: #ce0500;
+  }
+  #occEditDeleteBtn.occ-edit-delete-btn:hover { background-color: #fbe1e0; }
+
+  /* Groupes de cases à cocher (Apprenants/Encadrement) de la modale
+     d'édition d'occurrence : affichées sur une ligne (avec retour à la
+     ligne si nécessaire) plutôt qu'empilées verticalement comme le fait le
+     DSFR par défaut, pour rester compact. */
+  .occ-checkbox-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+  }
+  .occ-checkbox-row .fr-fieldset__element {
+    width: auto;
+    margin: 0;
+  }
+
   /* Filtre "Demandeur" : champ de recherche clavier en tête du menu
      déroulant, pour retrouver rapidement un nom dans une longue liste. */
   .dropdown-menu__search {
@@ -633,13 +650,13 @@
     </div>
 
     <div class="week-filter-row fr-mb-2w">
-      <div class="scale-toggle" id="progressionScaleToggle" role="group" aria-label="Échelle d'affichage">
-        <button class="fr-btn fr-btn--tertiary fr-btn--sm" id="scaleWeekBtn" type="button" aria-pressed="false">
-          Semaine
-        </button>
-        <button class="fr-btn fr-btn--tertiary fr-btn--sm" id="scaleDayBtn" type="button" aria-pressed="false">
-          Jour
-        </button>
+      <button class="fr-btn fr-btn--sm fr-icon-add-line fr-btn--icon-left" id="progressionAddBtn" type="button">
+        Ajouter une occurrence
+      </button>
+      <div class="fr-search-bar progression-search-bar" id="progressionSearchBar" role="search">
+        <label class="fr-label fr-sr-only" for="progressionSearchInput">Rechercher une occurrence (code ou intitulé)</label>
+        <input class="fr-input" type="search" id="progressionSearchInput" name="progressionSearchInput" placeholder="Rechercher (code ou intitulé)…">
+        <button class="fr-btn" id="progressionSearchBtn" type="button" title="Rechercher">Rechercher</button>
       </div>
       <div class="dropdown-menu" id="progressionFilterMenu">
         <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-btn--icon-right fr-icon-arrow-down-s-line" id="progressionFilterBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="progressionFilterList">
@@ -647,6 +664,12 @@
         </button>
         <ul class="dropdown-menu__list" id="progressionFilterList" role="menu" aria-label="Filtrer la progression" hidden></ul>
       </div>
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-close-line fr-btn--icon-left" id="progressionResetFiltersBtn" type="button">
+        Réinitialiser le(s) filtre(s)
+      </button>
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-settings-5-line" id="progressionSettingsBtn" type="button" title="Réglages des activités">
+        <span class="fr-sr-only">Réglages des activités</span>
+      </button>
       <button class="fr-btn fr-btn--secondary fr-btn--sm fr-icon-download-line fr-btn--icon-left" id="generateProgressionPdfBtn" type="button" disabled>
         Progression en PDF
       </button>
@@ -690,6 +713,34 @@
 
   </div>
 
+  <!-- Page cachée "Réglages des activités" : accessible uniquement via
+       l'icône de roue crantée de la barre d'outils de la page Progression
+       (jamais depuis le menu de navigation principal) ; la table Grist
+       source est choisie dans le backoffice (onglet "Réglages", voir
+       #configSectionReglages), exactement comme pour la table des
+       absences. -->
+  <div id="panelReglages" hidden>
+
+    <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-arrow-left-s-line fr-btn--icon-left" id="reglagesBackBtn" type="button">
+      Retour à la Progression
+    </button>
+
+    <h2 class="fr-h6 fr-mt-2w">Réglages des activités</h2>
+
+    <div class="req-toolbar fr-mb-2w">
+      <button class="fr-btn fr-btn--sm fr-icon-add-line fr-btn--icon-left" id="reglageNewBtn" type="button">
+        Ajouter un réglage
+      </button>
+      <span class="fr-tooltip fr-placement" id="reglageNewTooltip" role="tooltip"></span>
+      <p class="req-count" id="reglagesCount"></p>
+    </div>
+
+    <div id="reglagesStatusZone" aria-live="polite"></div>
+
+    <div id="reglagesZone"></div>
+
+  </div>
+
   <div id="panelConfig" hidden>
 
     <h2 class="fr-h6">Paramètres du widget</h2>
@@ -709,7 +760,7 @@
             </div>
             <div class="fr-segmented__element">
               <input value="progression" type="radio" id="configSectionRadio_progression" name="configSection" data-section="progression">
-              <label class="fr-label" for="configSectionRadio_progression">Progression (PDF) <span class="fr-badge fr-badge--sm" id="configTabStatus_progression"></span></label>
+              <label class="fr-label" for="configSectionRadio_progression">Progression <span class="fr-badge fr-badge--sm" id="configTabStatus_progression"></span></label>
             </div>
             <div class="fr-segmented__element">
               <input value="fsj" type="radio" id="configSectionRadio_fsj" name="configSection" data-section="fsj">
@@ -718,6 +769,10 @@
             <div class="fr-segmented__element">
               <input value="absences" type="radio" id="configSectionRadio_absences" name="configSection" data-section="absences">
               <label class="fr-label" for="configSectionRadio_absences">Absences <span class="fr-badge fr-badge--sm" id="configTabStatus_absences"></span></label>
+            </div>
+            <div class="fr-segmented__element">
+              <input value="reglages" type="radio" id="configSectionRadio_reglages" name="configSection" data-section="reglages">
+              <label class="fr-label" for="configSectionRadio_reglages">Réglages des activités <span class="fr-badge fr-badge--sm" id="configTabStatus_reglages"></span></label>
             </div>
           </div>
         </fieldset>
@@ -774,12 +829,13 @@
       </div>
 
       <div id="configSectionProgression" hidden>
-        <h3 class="fr-text--lead config-section-title">Progression (export PDF)</h3>
+        <h3 class="fr-text--lead config-section-title">Progression</h3>
 
         <div class="config-grid-2col">
           <div class="fr-input-group">
             <label class="fr-label" for="configStartDate">Date de début du stage</label>
             <input class="fr-input" type="date" id="configStartDate" name="configStartDate">
+            <span class="fr-hint-text">Si cette date est postérieure à aujourd'hui, la vue Progression l'affiche par défaut au lieu d'une semaine vide.</span>
           </div>
           <div class="fr-input-group">
             <label class="fr-label" for="configEndDate">Date de fin du stage</label>
@@ -802,8 +858,8 @@
         <div class="fr-checkbox-group fr-mt-2w">
           <input type="checkbox" id="configFsjLimit3Days" name="configFsjLimit3Days" checked>
           <label class="fr-label" for="configFsjLimit3Days">
-            Limiter la génération de la FSJ aux 3 prochains jours
-            <span class="fr-hint-text">Le champ de sélection de date est alors réduit aux 3 prochains jours (aujourd'hui inclus) : impossible de générer une FSJ à une date plus lointaine. Les dates passées restent toujours accessibles.</span>
+            Interdire la génération de la FSJ au-delà de J+3
+            <span class="fr-hint-text">Le bouton « Générer la FSJ » devient inopérant si la date sélectionnée est postérieure à J+3 (J = aujourd'hui). Les dates passées restent toujours accessibles.</span>
           </label>
         </div>
       </div>
@@ -913,12 +969,53 @@
               <div class="fr-input-group">
                 <label class="fr-label" for="absSignataire">
                   Signataire de l'autorisation d'absence
-                  <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « SLT de HAZE Vincent, directeur de stage »).</span>
+                  <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « ADJ DELAIT Kary, directrice de stage »).</span>
                 </label>
-                <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : SLT de HAZE Vincent, directeur de stage">
+                <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : ADJ DELAIT Kary, directrice de stage">
               </div>
             </div>
           </section>
+        </div>
+      </div>
+
+      <div id="configSectionReglages" hidden>
+        <h3 class="fr-text--lead config-section-title">Réglages des activités <span class="fr-badge fr-badge--sm" id="reglagesConfigStatus"></span></h3>
+        <p class="fr-hint-text fr-mb-2w">
+          Choisissez la table Grist source du catalogue des réglages d'activité (accessible depuis la page Progression, icône de roue crantée), puis associez chaque rôle à l'une de ses colonnes. Seuls Code activité et Intitulé sont obligatoires.
+        </p>
+
+        <div class="fr-select-group">
+          <label class="fr-label" for="reglagesTable">Table source</label>
+          <select class="fr-select" id="reglagesTable" name="reglagesTable">
+            <option value="">Choisir une table…</option>
+          </select>
+        </div>
+
+        <div class="config-grid-2col">
+          <div class="fr-select-group">
+            <label class="fr-label" for="reglagesCol_code">Code activité</label>
+            <select class="fr-select" id="reglagesCol_code" name="reglagesCol_code"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="reglagesCol_intitule">Intitulé</label>
+            <select class="fr-select" id="reglagesCol_intitule" name="reglagesCol_intitule"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="reglagesCol_numero">Numéro <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="reglagesCol_numero" name="reglagesCol_numero"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="reglagesCol_duree">Durée <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="reglagesCol_duree" name="reglagesCol_duree"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="reglagesCol_cadresDesignes">Cadres désignés <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="reglagesCol_cadresDesignes" name="reglagesCol_cadresDesignes"></select>
+          </div>
+          <div class="fr-select-group">
+            <label class="fr-label" for="reglagesCol_consignes">Consignes <span class="fr-hint-text">(optionnel)</span></label>
+            <select class="fr-select" id="reglagesCol_consignes" name="reglagesCol_consignes"></select>
+          </div>
         </div>
       </div>
 
@@ -955,9 +1052,9 @@
               <h1 id="absEditModalTitle" class="fr-modal__title">Demande d'absence</h1>
               <div id="absEditStatusZone" aria-live="polite"></div>
               <form id="absEditForm">
-                <div class="fr-input-group">
-                  <label class="fr-label" for="absEditField_demandeur">Demandeur</label>
-                  <input class="fr-input" type="text" id="absEditField_demandeur" name="absEditField_demandeur">
+                <div class="fr-select-group">
+                  <label class="fr-label" for="absEditField_demandeur">Militaire</label>
+                  <select class="fr-select" id="absEditField_demandeur" name="absEditField_demandeur"></select>
                 </div>
                 <div class="config-grid-2col">
                   <div class="fr-input-group">
@@ -981,7 +1078,13 @@
                   <label class="fr-label" for="absEditField_commentaire">Commentaire</label>
                   <textarea class="fr-input" id="absEditField_commentaire" name="absEditField_commentaire" rows="3"></textarea>
                 </div>
-                <div class="config-grid-2col">
+                <!-- « Date de la demande » et « Date de la décision » restent
+                     gérées automatiquement (valeur par défaut à la création,
+                     conservées telles quelles en modification) mais ne sont
+                     plus des champs éditables dans cette modale : les groupes
+                     restent volontairement masqués en permanence (hidden posé
+                     ici en dur, jamais retiré par le script). -->
+                <div class="config-grid-2col" hidden>
                   <div class="fr-input-group" id="absEditGroup_creeLe">
                     <label class="fr-label" for="absEditField_creeLe">Date de la demande</label>
                     <input class="fr-input" type="datetime-local" id="absEditField_creeLe" name="absEditField_creeLe">
@@ -998,6 +1101,170 @@
                 <li><button class="fr-btn" id="absEditSaveBtn" type="button">Enregistrer</button></li>
                 <li><button class="fr-btn fr-btn--secondary" id="absEditCancelBtn" type="button">Annuler</button></li>
               </ul>
+              <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-delete-line fr-btn--icon-left abs-edit-delete-btn" id="absEditDeleteBtn" type="button" hidden>Supprimer la demande</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modale de création/édition d'une occurrence de la vue Progression
+       (double-clic sur une barre, ou bouton "Ajouter une occurrence") :
+       même principe que #absEditModal ci-dessus (dialog natif, ouvert/fermé
+       via l'API JS du DSFR avec repli sur l'attribut "open"). -->
+  <dialog id="occEditModal" class="fr-modal" aria-labelledby="occEditModalTitle">
+    <div class="fr-container fr-container--fluid fr-container-md">
+      <div class="fr-grid-row fr-grid-row--center">
+        <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
+          <div class="fr-modal__body">
+            <div class="fr-modal__header">
+              <button class="fr-btn--close fr-btn" title="Fermer" id="occEditModalCloseBtn" type="button">Fermer</button>
+            </div>
+            <div class="fr-modal__content">
+              <h1 id="occEditModalTitle" class="fr-modal__title">Occurrence</h1>
+              <div id="occEditStatusZone" aria-live="polite"></div>
+              <form id="occEditForm">
+                <div class="fr-input-group">
+                  <label class="fr-label" for="occEditField_code">Code activité <span class="fr-hint-text">(optionnel)</span></label>
+                  <input class="fr-input" type="text" id="occEditField_code" name="occEditField_code">
+                </div>
+                <div class="config-grid-2col">
+                  <div class="fr-input-group">
+                    <label class="fr-label" for="occEditField_dateDebut">Date de début <span class="fr-hint-text">JJ/MM/AAAA HH:mm</span></label>
+                    <input class="fr-input" type="datetime-local" id="occEditField_dateDebut" name="occEditField_dateDebut">
+                  </div>
+                  <div class="fr-input-group">
+                    <label class="fr-label" for="occEditField_dateFin">Date de fin <span class="fr-hint-text">(optionnel) JJ/MM/AAAA HH:mm</span></label>
+                    <input class="fr-input" type="datetime-local" id="occEditField_dateFin" name="occEditField_dateFin">
+                  </div>
+                </div>
+                <fieldset class="fr-fieldset fr-mt-2w" id="occEditApprenantsFieldset" aria-labelledby="occEditApprenantsFieldset-legend">
+                  <legend class="fr-fieldset__legend fr-text--regular" id="occEditApprenantsFieldset-legend">
+                    Apprenants <span class="fr-hint-text">(optionnel — pelotons concernés ; aucune case cochée = tous les pelotons)</span>
+                  </legend>
+                  <div class="occ-checkbox-row">
+                    <div class="fr-fieldset__element">
+                      <div class="fr-checkbox-group fr-checkbox-group--sm">
+                        <input type="checkbox" id="occEditApprenant_P1" name="occEditApprenants" value="P1">
+                        <label class="fr-label" for="occEditApprenant_P1">P1</label>
+                      </div>
+                    </div>
+                    <div class="fr-fieldset__element">
+                      <div class="fr-checkbox-group fr-checkbox-group--sm">
+                        <input type="checkbox" id="occEditApprenant_P2" name="occEditApprenants" value="P2">
+                        <label class="fr-label" for="occEditApprenant_P2">P2</label>
+                      </div>
+                    </div>
+                    <div class="fr-fieldset__element">
+                      <div class="fr-checkbox-group fr-checkbox-group--sm">
+                        <input type="checkbox" id="occEditApprenant_P3" name="occEditApprenants" value="P3">
+                        <label class="fr-label" for="occEditApprenant_P3">P3</label>
+                      </div>
+                    </div>
+                    <div class="fr-fieldset__element">
+                      <div class="fr-checkbox-group fr-checkbox-group--sm">
+                        <input type="checkbox" id="occEditApprenant_P4" name="occEditApprenants" value="P4">
+                        <label class="fr-label" for="occEditApprenant_P4">P4</label>
+                      </div>
+                    </div>
+                    <div class="fr-fieldset__element">
+                      <div class="fr-checkbox-group fr-checkbox-group--sm">
+                        <input type="checkbox" id="occEditApprenant_ACC" name="occEditApprenants" value="ACC">
+                        <label class="fr-label" for="occEditApprenant_ACC">ACC.</label>
+                      </div>
+                    </div>
+                  </div>
+                </fieldset>
+                <fieldset class="fr-fieldset fr-mt-2w" id="occEditEncadrementFieldset" aria-labelledby="occEditEncadrementFieldset-legend">
+                  <legend class="fr-fieldset__legend fr-text--regular" id="occEditEncadrementFieldset-legend">
+                    Encadrement <span class="fr-hint-text">(optionnel)</span>
+                  </legend>
+                  <div id="occEditEncadrementList" class="occ-checkbox-row"></div>
+                </fieldset>
+                <div class="fr-input-group">
+                  <label class="fr-label" for="occEditField_lieu">Lieu <span class="fr-hint-text">(optionnel)</span></label>
+                  <input class="fr-input" type="text" id="occEditField_lieu" name="occEditField_lieu">
+                </div>
+                <div class="fr-input-group">
+                  <label class="fr-label" for="occEditField_intitule">Intitulé</label>
+                  <input class="fr-input" type="text" id="occEditField_intitule" name="occEditField_intitule">
+                </div>
+                <div class="fr-input-group">
+                  <label class="fr-label" for="occEditField_consignes">Consignes <span class="fr-hint-text">(optionnel)</span></label>
+                  <textarea class="fr-input" id="occEditField_consignes" name="occEditField_consignes" rows="3"></textarea>
+                </div>
+              </form>
+            </div>
+            <div class="fr-modal__footer">
+              <ul class="fr-btns-group fr-btns-group--inline-md">
+                <li><button class="fr-btn" id="occEditSaveBtn" type="button">Enregistrer</button></li>
+                <li><button class="fr-btn fr-btn--secondary" id="occEditCancelBtn" type="button">Annuler</button></li>
+              </ul>
+              <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-delete-line fr-btn--icon-left occ-edit-delete-btn" id="occEditDeleteBtn" type="button" hidden>Supprimer l'occurrence</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Modale de création/édition d'un réglage d'activité (page cachée
+       "Réglages des activités", accessible depuis l'icône de roue crantée
+       de la page Progression) : même principe que les modales
+       #absEditModal/#occEditModal ci-dessus. L'écriture se fait via
+       docApi.applyUserActions avec reglagesConfig.table, comme pour les
+       absences : contrairement à la table Progression, celle-ci est
+       choisie explicitement dans le backoffice, pas la table liée au
+       widget. -->
+  <dialog id="reglageEditModal" class="fr-modal" aria-labelledby="reglageEditModalTitle">
+    <div class="fr-container fr-container--fluid fr-container-md">
+      <div class="fr-grid-row fr-grid-row--center">
+        <div class="fr-col-12 fr-col-md-8 fr-col-lg-6">
+          <div class="fr-modal__body">
+            <div class="fr-modal__header">
+              <button class="fr-btn--close fr-btn" title="Fermer" id="reglageEditModalCloseBtn" type="button">Fermer</button>
+            </div>
+            <div class="fr-modal__content">
+              <h1 id="reglageEditModalTitle" class="fr-modal__title">Réglage d'activité</h1>
+              <div id="reglageEditStatusZone" aria-live="polite"></div>
+              <form id="reglageEditForm">
+                <div class="fr-input-group">
+                  <label class="fr-label" for="reglageEditField_code">Code activité</label>
+                  <input class="fr-input" type="text" id="reglageEditField_code" name="reglageEditField_code">
+                </div>
+                <div class="config-grid-2col">
+                  <div class="fr-input-group">
+                    <label class="fr-label" for="reglageEditField_numero">Numéro <span class="fr-hint-text">(optionnel)</span></label>
+                    <input class="fr-input" type="text" id="reglageEditField_numero" name="reglageEditField_numero">
+                  </div>
+                  <div class="fr-input-group">
+                    <label class="fr-label" for="reglageEditField_duree">Durée <span class="fr-hint-text">(optionnel)</span></label>
+                    <input class="fr-input" type="text" id="reglageEditField_duree" name="reglageEditField_duree">
+                  </div>
+                </div>
+                <div class="fr-input-group">
+                  <label class="fr-label" for="reglageEditField_intitule">Intitulé</label>
+                  <input class="fr-input" type="text" id="reglageEditField_intitule" name="reglageEditField_intitule">
+                </div>
+                <fieldset class="fr-fieldset fr-mt-2w" id="reglageEditCadresFieldset" aria-labelledby="reglageEditCadresFieldset-legend">
+                  <legend class="fr-fieldset__legend fr-text--regular" id="reglageEditCadresFieldset-legend">
+                    Cadres désignés <span class="fr-hint-text">(optionnel)</span>
+                  </legend>
+                  <div id="reglageEditCadresList" class="occ-checkbox-row"></div>
+                </fieldset>
+                <div class="fr-input-group">
+                  <label class="fr-label" for="reglageEditField_consignes">Consignes <span class="fr-hint-text">(optionnel)</span></label>
+                  <textarea class="fr-input" id="reglageEditField_consignes" name="reglageEditField_consignes" rows="3"></textarea>
+                </div>
+              </form>
+            </div>
+            <div class="fr-modal__footer">
+              <ul class="fr-btns-group fr-btns-group--inline-md">
+                <li><button class="fr-btn" id="reglageEditSaveBtn" type="button">Enregistrer</button></li>
+                <li><button class="fr-btn fr-btn--secondary" id="reglageEditCancelBtn" type="button">Annuler</button></li>
+              </ul>
+              <button class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-delete-line fr-btn--icon-left occ-edit-delete-btn" id="reglageEditDeleteBtn" type="button" hidden>Supprimer ce réglage</button>
             </div>
           </div>
         </div>
@@ -1067,11 +1334,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var weekLabel = document.getElementById('weekLabel');
   var weekGrid = document.getElementById('weekGrid');
   var weekReferenceDate = null; // le jour affiché en vue Jour, ou un jour quelconque de la semaine affichée en vue Semaine
+  // Reste vrai tant que l'utilisateur n'a jamais navigué manuellement
+  // (boutons "Semaine précédente/suivante") : permet de recalculer le jour
+  // de référence par défaut (aujourd'hui, ou le début de la période
+  // Progression s'il est postérieur — voir defaultProgressionReferenceDate)
+  // si la configuration arrive après le tout premier affichage.
+  var weekReferenceDateIsDefault = true;
   var progressionPdfBtn = document.getElementById('generateProgressionPdfBtn');
   var progressionFilterBtn = document.getElementById('progressionFilterBtn');
   var progressionFilterList = document.getElementById('progressionFilterList');
-  var scaleWeekBtn = document.getElementById('scaleWeekBtn');
-  var scaleDayBtn = document.getElementById('scaleDayBtn');
+  var progressionAddBtn = document.getElementById('progressionAddBtn');
+  var progressionSearchInput = document.getElementById('progressionSearchInput');
+  var progressionSearchBtn = document.getElementById('progressionSearchBtn');
+  var progressionResetFiltersBtn = document.getElementById('progressionResetFiltersBtn');
+  var progressionSettingsBtn = document.getElementById('progressionSettingsBtn');
   var progressionPdfTooltip = document.getElementById('progressionPdfTooltip');
 
   var headerBrand = document.getElementById('headerBrand');
@@ -1092,13 +1368,15 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     donnees: document.getElementById('configSectionDonnees'),
     progression: document.getElementById('configSectionProgression'),
     fsj: document.getElementById('configSectionFsj'),
-    absences: document.getElementById('configSectionAbsences')
+    absences: document.getElementById('configSectionAbsences'),
+    reglages: document.getElementById('configSectionReglages')
   };
   var configSectionRadios = {
     donnees: document.getElementById('configSectionRadio_donnees'),
     progression: document.getElementById('configSectionRadio_progression'),
     fsj: document.getElementById('configSectionRadio_fsj'),
-    absences: document.getElementById('configSectionRadio_absences')
+    absences: document.getElementById('configSectionRadio_absences'),
+    reglages: document.getElementById('configSectionRadio_reglages')
   };
   var configFsjLimit3Days = document.getElementById('configFsjLimit3Days');
   var genColSelects = {};
@@ -1126,6 +1404,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var absEditModalCloseBtn = document.getElementById('absEditModalCloseBtn');
   var absEditSaveBtn = document.getElementById('absEditSaveBtn');
   var absEditCancelBtn = document.getElementById('absEditCancelBtn');
+  var absEditDeleteBtn = document.getElementById('absEditDeleteBtn');
   var absEditFields = {
     demandeur: document.getElementById('absEditField_demandeur'),
     dateDebut: document.getElementById('absEditField_dateDebut'),
@@ -1144,6 +1423,27 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     derniereMiseAJour: document.getElementById('absEditGroup_derniereMiseAJour')
   };
   var absEditingRowId = null; // null en création, id de la ligne en édition
+
+  // ---- Modale d'édition d'une occurrence (vue Progression) --------------
+
+  var occEditModal = document.getElementById('occEditModal');
+  var occEditModalTitle = document.getElementById('occEditModalTitle');
+  var occEditStatusZone = document.getElementById('occEditStatusZone');
+  var occEditModalCloseBtn = document.getElementById('occEditModalCloseBtn');
+  var occEditSaveBtn = document.getElementById('occEditSaveBtn');
+  var occEditCancelBtn = document.getElementById('occEditCancelBtn');
+  var occEditDeleteBtn = document.getElementById('occEditDeleteBtn');
+  var occEditFields = {
+    code: document.getElementById('occEditField_code'),
+    dateDebut: document.getElementById('occEditField_dateDebut'),
+    dateFin: document.getElementById('occEditField_dateFin'),
+    lieu: document.getElementById('occEditField_lieu'),
+    intitule: document.getElementById('occEditField_intitule'),
+    consignes: document.getElementById('occEditField_consignes')
+  };
+  var occEditApprenantsCheckboxes = Array.prototype.slice.call(document.querySelectorAll('input[name="occEditApprenants"]'));
+  var occEditEncadrementList = document.getElementById('occEditEncadrementList');
+  var occEditingRowId = null; // null en création, id de la ligne en édition
 
   var absTableSelect = document.getElementById('absTable');
   var absColSelects = {
@@ -1164,46 +1464,52 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var absValRefusee = document.getElementById('absVal_refusee');
   var absSignataire = document.getElementById('absSignataire');
 
-  // ---- Échelle de la vue Progression : Semaine ou Jour -------------------
+  // ---- Page cachée "Réglages des activités" + son backoffice ------------
+
+  var panelReglages = document.getElementById('panelReglages');
+  var reglagesBackBtn = document.getElementById('reglagesBackBtn');
+  var reglageNewBtn = document.getElementById('reglageNewBtn');
+  var reglageNewTooltip = document.getElementById('reglageNewTooltip');
+  var reglagesCount = document.getElementById('reglagesCount');
+  var reglagesStatusZone = document.getElementById('reglagesStatusZone');
+  var reglagesZone = document.getElementById('reglagesZone');
+
+  var reglagesTableSelect = document.getElementById('reglagesTable');
+  var reglagesColSelects = {
+    code: document.getElementById('reglagesCol_code'),
+    numero: document.getElementById('reglagesCol_numero'),
+    duree: document.getElementById('reglagesCol_duree'),
+    intitule: document.getElementById('reglagesCol_intitule'),
+    cadresDesignes: document.getElementById('reglagesCol_cadresDesignes'),
+    consignes: document.getElementById('reglagesCol_consignes')
+  };
+
+  var reglageEditModal = document.getElementById('reglageEditModal');
+  var reglageEditModalTitle = document.getElementById('reglageEditModalTitle');
+  var reglageEditStatusZone = document.getElementById('reglageEditStatusZone');
+  var reglageEditModalCloseBtn = document.getElementById('reglageEditModalCloseBtn');
+  var reglageEditSaveBtn = document.getElementById('reglageEditSaveBtn');
+  var reglageEditCancelBtn = document.getElementById('reglageEditCancelBtn');
+  var reglageEditDeleteBtn = document.getElementById('reglageEditDeleteBtn');
+  var reglageEditFields = {
+    code: document.getElementById('reglageEditField_code'),
+    numero: document.getElementById('reglageEditField_numero'),
+    duree: document.getElementById('reglageEditField_duree'),
+    intitule: document.getElementById('reglageEditField_intitule'),
+    consignes: document.getElementById('reglageEditField_consignes')
+  };
+  var reglageEditCadresList = document.getElementById('reglageEditCadresList');
+  var reglageEditingRowId = null; // null en création, id de la ligne en édition
+  var viewBeforeReglages = null;
+
+  // ---- Échelle de la vue Progression : Semaine uniquement -----------------
   //
-  // Par défaut, semaine sur ordinateur ou tablette, jour sur mobile (au sens
-  // du point de rupture DSFR "md", 48em/768px) ; l'utilisateur peut ensuite
-  // basculer librement via les boutons Semaine/Jour, ce choix étant alors
-  // conservé pour le reste de la session (pas de re-bascule automatique au
-  // redimensionnement).
-  var progressionScale = null; // null (pas encore déterminée) | 'week' | 'day'
-
-  function defaultProgressionScale() {
-    try {
-      return window.matchMedia('(max-width: 47.99em)').matches ? 'day' : 'week';
-    } catch (e) {
-      return 'week';
-    }
-  }
-
-  function applyScaleButtons() {
-    scaleWeekBtn.setAttribute('aria-pressed', progressionScale === 'week' ? 'true' : 'false');
-    scaleDayBtn.setAttribute('aria-pressed', progressionScale === 'day' ? 'true' : 'false');
-    var isDay = (progressionScale === 'day');
-    weekPrevBtn.textContent = isDay ? 'Jour précédent' : 'Semaine précédente';
-    weekNextBtn.textContent = isDay ? 'Jour suivant' : 'Semaine suivante';
-  }
-
-  function ensureProgressionScale() {
-    if (!progressionScale) {
-      progressionScale = defaultProgressionScale();
-      applyScaleButtons();
-    }
-  }
-
-  function setProgressionScale(scale) {
-    progressionScale = scale;
-    applyScaleButtons();
-    renderWeekView();
-  }
-
-  scaleWeekBtn.addEventListener('click', function () { setProgressionScale('week'); });
-  scaleDayBtn.addEventListener('click', function () { setProgressionScale('day'); });
+  // La bascule Semaine/Jour a été retirée : la vue Progression n'affiche
+  // plus que la semaine complète. `progressionScale` reste défini (plutôt
+  // que de retirer toutes ses lectures ailleurs dans le fichier) pour ne
+  // pas multiplier les points de modification, mais vaut désormais
+  // toujours 'week'.
+  var progressionScale = 'week';
 
   // ---- Initialisation du widget Grist ------------------------------------
 
@@ -1431,6 +1737,39 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return !!(cfg.table && cfg.col.demandeur && cfg.col.dateDebut && cfg.col.dateFin && cfg.col.decision);
   }
 
+  // ---- Table du catalogue "Réglages des activités" (page cachée) --------
+  //
+  // Choisie explicitement dans le backoffice (comme la table des
+  // absences), et non la table liée au widget (comme la Progression) :
+  // les réglages d'activité sont un catalogue de référence indépendant des
+  // occurrences elles-mêmes, qui n'a pas vocation à être "la" table
+  // affichée par le widget dans Grist.
+  var REGLAGES_ROLES = ['code', 'numero', 'duree', 'intitule', 'cadresDesignes', 'consignes'];
+
+  function defaultReglagesConfig() {
+    return { table: '', col: { code: '', numero: '', duree: '', intitule: '', cadresDesignes: '', consignes: '' } };
+  }
+
+  function normalizeReglagesConfig(raw) {
+    var cfg = defaultReglagesConfig();
+    if (raw && typeof raw === 'object') {
+      if (typeof raw.table === 'string') cfg.table = raw.table;
+      if (raw.col && typeof raw.col === 'object') {
+        REGLAGES_ROLES.forEach(function (role) {
+          if (typeof raw.col[role] === 'string') cfg.col[role] = raw.col[role];
+        });
+      }
+    }
+    return cfg;
+  }
+
+  var reglagesConfig = defaultReglagesConfig();
+  var reglagesAllTableIds = [];
+
+  function isReglagesConfigComplete(cfg) {
+    return !!(cfg.table && cfg.col.code && cfg.col.intitule);
+  }
+
   function fillSelectWithOptions(select, values, selectedValue, placeholder) {
     select.innerHTML = '';
     var placeholderOpt = document.createElement('option');
@@ -1533,6 +1872,51 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return cfg;
   }
 
+  // ---- Backoffice "Réglages des activités" : même principe (table +
+  // colonnes) que le bloc Absences ci-dessus. ------------------------------
+
+  function refreshReglagesTableList() {
+    if (!(grist.docApi && grist.docApi.listTables)) return;
+    grist.docApi.listTables().then(function (tables) {
+      reglagesAllTableIds = tables || [];
+      fillSelectWithOptions(reglagesTableSelect, reglagesAllTableIds, reglagesConfig.table, 'Choisir une table…');
+      if (reglagesTableSelect.value) refreshReglagesColumnLists(reglagesTableSelect.value);
+      else {
+        REGLAGES_ROLES.forEach(function (role) { fillSelectWithOptions(reglagesColSelects[role], [], '', 'Choisir une colonne…'); });
+        updateReglagesTabBadge();
+      }
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lister les tables du document : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  function refreshReglagesColumnLists(tableId) {
+    if (!tableId) return;
+    grist.docApi.fetchTable(tableId).then(function (data) {
+      var cols = Object.keys(data || {}).filter(function (c) { return c !== 'id' && c !== 'manualSort'; });
+      REGLAGES_ROLES.forEach(function (role) {
+        var placeholder = (role === 'code' || role === 'intitule') ? 'Choisir une colonne…' : '— Aucune —';
+        fillSelectWithOptions(reglagesColSelects[role], cols, reglagesConfig.col[role], placeholder);
+      });
+      updateReglagesTabBadge();
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  reglagesTableSelect.addEventListener('change', function () { refreshReglagesColumnLists(reglagesTableSelect.value); });
+
+  function fillReglagesSettingsForm() {
+    refreshReglagesTableList(); // pré-sélectionne aussi la table et les colonnes déjà enregistrées
+  }
+
+  function reglagesConfigFromForm() {
+    var cfg = defaultReglagesConfig();
+    cfg.table = reglagesTableSelect.value;
+    REGLAGES_ROLES.forEach(function (role) { cfg.col[role] = reglagesColSelects[role].value; });
+    return cfg;
+  }
+
   // Badges d'état du backoffice (un par onglet du contrôle segmenté, plus
   // un dans l'intitulé de l'accordéon "Table et colonnes" d'Absences) :
   // même principe que le widget Réservations — peignent l'état ACTUEL du
@@ -1556,7 +1940,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
   function updateFsjTabBadge() {
     var limited = configFsjLimit3Days.checked;
-    paintConfigBadge(document.getElementById('configTabStatus_fsj'), limited ? 'Limitée à 3 j.' : 'Sans limite');
+    paintConfigBadge(document.getElementById('configTabStatus_fsj'), limited ? 'Limitée à J+3' : 'Sans limite');
   }
   function updateAbsencesTabBadge() {
     var complete = isAbsencesConfigComplete(absencesConfigFromForm());
@@ -1565,11 +1949,19 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     paintConfigBadge(document.getElementById('configTabStatus_absences'), text, variant);
     paintConfigBadge(document.getElementById('absConfigStatus'), text, variant);
   }
+  function updateReglagesTabBadge() {
+    var complete = isReglagesConfigComplete(reglagesConfigFromForm());
+    var text = complete ? 'Configurés' : 'À compléter';
+    var variant = complete ? 'success' : 'warning';
+    paintConfigBadge(document.getElementById('configTabStatus_reglages'), text, variant);
+    paintConfigBadge(document.getElementById('reglagesConfigStatus'), text, variant);
+  }
   function updateAllConfigTabBadges() {
     updateDonneesTabBadge();
     updateProgressionTabBadge();
     updateFsjTabBadge();
     updateAbsencesTabBadge();
+    updateReglagesTabBadge();
   }
   // Écouteur unique, délégué sur le formulaire entier (plutôt qu'un par
   // champ), pour couvrir aussi les futurs champs sans y penser.
@@ -1589,6 +1981,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     panelGenerer.hidden = true;
     panelProgression.hidden = true;
     panelAbsences.hidden = true;
+    panelReglages.hidden = true;
     panelConfig.hidden = false;
     configStatusZone.innerHTML = '';
     setConfigSection(configActiveSection);
@@ -1598,6 +1991,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     configPdfEnabled.checked = progressionPdfEnabled;
     configFsjLimit3Days.checked = fsjLimit3Days;
     fillAbsencesSettingsForm();
+    fillReglagesSettingsForm();
     updateAllConfigTabBadges();
   }
 
@@ -1621,6 +2015,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var fsjLimit = configFsjLimit3Days.checked;
     var newAbsCfg = absencesConfigFromForm();
     var newGenCfg = genColumnsConfigFromForm();
+    var newReglagesCfg = reglagesConfigFromForm();
 
     PROGRESSION_PDF_START = start;
     PROGRESSION_PDF_END = end;
@@ -1630,11 +2025,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     applyFsjDateLimit();
     absencesConfig = newAbsCfg;
     genColumnsConfig = newGenCfg;
+    reglagesConfig = newReglagesCfg;
     // Ré-applique immédiatement le nouveau mapping de colonnes aux
     // dernières lignes reçues, sans attendre un nouvel événement
     // onRecords, pour un retour visuel instantané (Génération/Progression).
     allRecords = applyGenColumnsMapping(lastRawGenRecords);
     renderPreview();
+    // Si la vue Semaine affiche toujours son jour de référence par défaut
+    // (voir defaultProgressionReferenceDate), le recalculer avec la
+    // période qui vient d'être enregistrée.
+    if (weekReferenceDateIsDefault) weekReferenceDate = defaultProgressionReferenceDate();
     if (!panelProgression.hidden) renderWeekView();
 
     Promise.all([
@@ -1643,9 +2043,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       grist.setOption('progressionPdfEnabled', enabled),
       grist.setOption('fsjLimit3Days', fsjLimit),
       grist.setOption('absencesConfig', newAbsCfg),
-      grist.setOption('genColumnsConfig', newGenCfg)
+      grist.setOption('genColumnsConfig', newGenCfg),
+      grist.setOption('reglagesConfig', newReglagesCfg)
     ]).then(function () {
-      showConfigStatus('success', 'Paramètres enregistrés : données ' + (isGenColumnsConfigComplete(newGenCfg) ? 'configurées' : 'à compléter') + ', période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', FSJ ' + (fsjLimit ? 'limitée aux 3 prochains jours' : 'sans limite de date') + ', absences ' + (isAbsencesConfigComplete(newAbsCfg) ? 'configurées' : 'à finaliser') + '.');
+      showConfigStatus('success', 'Paramètres enregistrés : données ' + (isGenColumnsConfigComplete(newGenCfg) ? 'configurées' : 'à compléter') + ', période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', FSJ ' + (fsjLimit ? 'limitée aux 3 prochains jours' : 'sans limite de date') + ', absences ' + (isAbsencesConfigComplete(newAbsCfg) ? 'configurées' : 'à finaliser') + ', réglages des activités ' + (isReglagesConfigComplete(newReglagesCfg) ? 'configurés' : 'à finaliser') + '.');
     }).catch(function (e) {
       showConfigStatus('error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
     });
@@ -1695,10 +2096,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     // garanti), pour un affichage correct dès le premier chargement.
     allRecords = applyGenColumnsMapping(lastRawGenRecords);
     renderPreview();
+    // onOptions et onRecords peuvent arriver dans un ordre quelconque (voir
+    // commentaire ci-dessus) : si le jour de référence de la vue Semaine
+    // est toujours sa valeur par défaut (l'utilisateur n'a pas encore
+    // navigué), on le recalcule avec le PROGRESSION_PDF_START qui vient
+    // peut-être d'être mis à jour, plutôt que de garder celui calculé avant
+    // que la configuration ne soit connue.
+    if (weekReferenceDateIsDefault) weekReferenceDate = defaultProgressionReferenceDate();
     if (!panelProgression.hidden) renderWeekView();
 
     absencesConfig = normalizeAbsencesConfig(opts.absencesConfig);
     if (!panelAbsences.hidden) renderAbsencesPage();
+
+    reglagesConfig = normalizeReglagesConfig(opts.reglagesConfig);
+    if (!panelReglages.hidden) renderReglagesPage();
   });
 
   // ---- Gestion des absences : page (liste, décisions, PDF) --------------
@@ -1899,7 +2310,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++);
         pdfTooltipHtml = blockedTooltipHtml('Impossible de télécharger le PDF.', [
           !isAutorisationType
-            ? 'Le PDF n\'est disponible que pour les demandes de type « ' + escapeHtml(ABSENCE_TYPE_AUTORISATION) + ' ».'
+            ? 'Le PDF n\'est disponible que pour les ' + escapeHtml(ABSENCE_TYPE_AUTORISATION_ABBR)
             : 'Le PDF est disponible une fois la demande validée.'
         ]);
       }
@@ -1960,7 +2371,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           pdfTooltipId = 'absPdfTooltip' + (absTooltipSeq++) + variant;
           pdfTooltipHtml = blockedTooltipHtml('Impossible de télécharger le PDF.', [
             !isAutorisationType
-              ? 'Le PDF n\'est disponible que pour les demandes de type « ' + escapeHtml(ABSENCE_TYPE_AUTORISATION) + ' ».'
+              ? 'Le PDF n\'est disponible que pour les ' + escapeHtml(ABSENCE_TYPE_AUTORISATION_ABBR)
               : 'Le PDF est disponible une fois la demande validée.'
           ]);
         }
@@ -2094,6 +2505,21 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     fillSelectWithOptions(absEditFields.motif, values, currentValue || '', 'Choisir un type…');
   }
 
+  // « Militaire » (colonne Demandeur) est lui aussi un choix contraint
+  // (select), construit à partir des noms déjà vus dans les demandes
+  // existantes plutôt qu'une liste figée (il n'existe pas de liste de
+  // référence des militaires dans ce widget) — plus la valeur actuelle de
+  // la ligne en cours d'édition le cas échéant. Tant qu'aucune demande
+  // n'a jamais été créée, la liste est vide : la première doit alors être
+  // créée directement dans Grist (aucune valeur à proposer ici).
+  function fillAbsEditMilitaireSelect(currentValue) {
+    var seen = {};
+    absData.forEach(function (r) { if (r.demandeur) seen[r.demandeur] = true; });
+    if (currentValue) seen[currentValue] = true;
+    var values = Object.keys(seen).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+    fillSelectWithOptions(absEditFields.demandeur, values, currentValue || '', 'Choisir un militaire…');
+  }
+
   // L'intégralité de la fonction est couverte par un seul bloc try/catch :
   // si quoi que ce soit échoue en préparant le formulaire (donnée
   // inattendue, champ introuvable, etc.), l'exception serait sinon levée
@@ -2117,7 +2543,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absEditModalTitle.textContent = row ? 'Modifier la demande' : 'Nouvelle demande d\'absence';
       absEditStatusZone.innerHTML = '';
 
-      absEditFields.demandeur.value = row ? (row.demandeur || '') : '';
+      fillAbsEditMilitaireSelect(row ? (row.demandeur || '') : '');
       var debut = row ? parseGristDateTime(row.dateDebut) : null;
       var fin = row ? parseGristDateTime(row.dateFin) : null;
       absEditFields.dateDebut.value = debut ? toDatetimeLocalValue(debut) : '';
@@ -2132,13 +2558,19 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absEditGroups.commentaire.hidden = !cfg.col.commentaire;
       absEditFields.commentaire.value = row ? (row.commentaire || '') : '';
 
-      absEditGroups.creeLe.hidden = !cfg.col.creeLe;
+      // « Date de la demande »/« Date de la décision » : groupes masqués en
+      // permanence (voir le HTML), mais leurs valeurs par défaut restent
+      // calculées ici afin que l'enregistrement (saveAbsEditForm) continue
+      // à horodater automatiquement la création, exactement comme avant.
       var creeLe = row ? parseGristDateTime(row.creeLe) : null;
       absEditFields.creeLe.value = creeLe ? toDatetimeLocalValue(creeLe) : (row ? '' : toDatetimeLocalValue(new Date()));
 
-      absEditGroups.derniereMiseAJour.hidden = !cfg.col.derniereMiseAJour;
       var derniereMaj = row ? parseGristDateTime(row.derniereMiseAJour) : null;
       absEditFields.derniereMiseAJour.value = derniereMaj ? toDatetimeLocalValue(derniereMaj) : '';
+
+      // Bouton de suppression : uniquement en modification d'une demande
+      // existante, jamais à la création.
+      absEditDeleteBtn.hidden = !row;
 
       // Affiche la modale via l'API JS officielle du DSFR
       // (window.dsfr(elem).modal.disclose()), et non en posant l'attribut
@@ -2249,9 +2681,34 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     });
   }
 
+  // Supprime la demande en cours d'édition (bouton visible uniquement en
+  // modification, voir openAbsEditForm) : demande confirmation avant toute
+  // action irréversible (même principe que les autres actions destructrices
+  // de ce widget), puis RemoveRecord sur la ligne Grist correspondante.
+  function deleteAbsRequest() {
+    if (absEditingRowId === null) return;
+    var cfg = absencesConfig;
+    var rowId = absEditingRowId;
+    if (!window.confirm('Supprimer définitivement cette demande d\'absence ? Cette action est irréversible.')) return;
+    absEditDeleteBtn.disabled = true;
+    absEditSaveBtn.disabled = true;
+    grist.docApi.applyUserActions([['RemoveRecord', cfg.table, rowId]]).then(function () {
+      absEditDeleteBtn.disabled = false;
+      absEditSaveBtn.disabled = false;
+      closeAbsEditModal();
+      showAbsStatus('success', 'Demande supprimée.');
+      renderAbsencesPage();
+    }).catch(function (e) {
+      absEditDeleteBtn.disabled = false;
+      absEditSaveBtn.disabled = false;
+      renderAlert(absEditStatusZone, 'error', 'Suppression impossible : ' + friendlyErrorMessage(e));
+    });
+  }
+
   absNewRequestBtn.addEventListener('click', openAbsNewRequestModal);
   absEditModalCloseBtn.addEventListener('click', closeAbsEditModal);
   absEditCancelBtn.addEventListener('click', closeAbsEditModal);
+  absEditDeleteBtn.addEventListener('click', deleteAbsRequest);
   absEditSaveBtn.addEventListener('click', saveAbsEditForm);
   // Ferme aussi la modale d'un clic sur le fond (en dehors de la boîte de
   // contenu). Le DSFR gère normalement lui-même la touche Échap une fois
@@ -2264,6 +2721,528 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && absModalIsOpen()) closeAbsEditModal();
+  });
+
+  // ---- Modale d'édition d'une occurrence (vue Progression) ---------------
+  //
+  // Ouverte au double-clic sur une barre de la vue Semaine (édition) ou par
+  // le bouton "Ajouter une occurrence" de la barre d'outils (création, sans
+  // pré-remplissage ni bouton supprimer) — même principe général que la
+  // modale des demandes d'absence ci-dessus. L'écriture se fait via
+  // grist.selectedTable (create/update/destroy) et non docApi.
+  // applyUserActions avec un identifiant de table explicite : contrairement
+  // à la table des absences (choisie par l'utilisateur dans le backoffice
+  // via un sélecteur dédié, voir absencesConfig.table), la table
+  // "Progression" est celle à laquelle le widget est lié dans Grist
+  // (grist.onRecords) et son identifiant réel n'est jamais communiqué au
+  // widget — grist.selectedTable est l'API prévue par Grist pour écrire
+  // dans cette table liée sans en connaître l'identifiant.
+
+  function gristSelectedTableAvailable() {
+    return !!(grist.selectedTable && typeof grist.selectedTable.create === 'function');
+  }
+
+  // Les cases "Apprenants" désignent en réalité les pelotons concernés (la
+  // colonne Apprenants encode des jetons comme "P1"/"ACC", voir
+  // normalizeApprenants/tokenMatchesRow plus bas), pas des noms d'élèves.
+  function occEditCheckedApprenants() {
+    return occEditApprenantsCheckboxes.filter(function (cb) { return cb.checked; }).map(function (cb) { return cb.value; });
+  }
+  function occEditSetCheckedApprenants(values) {
+    var seen = {};
+    (values || []).forEach(function (v) { seen[normalizePelotonToken(v)] = true; });
+    occEditApprenantsCheckboxes.forEach(function (cb) { cb.checked = !!seen[normalizePelotonToken(cb.value)]; });
+  }
+
+  // Reconstruit un groupe de cases à cocher "cadre" (utilisé pour
+  // Encadrement dans la modale d'occurrence, et pour Cadres désignés dans
+  // la modale de réglage d'activité) à partir de tous les noms de cadres
+  // déjà rencontrés dans les données de la Progression (même source que le
+  // menu de filtre "Cadre" de la barre d'outils, voir getAllCadreNames),
+  // plus l'éventuelle valeur courante de la ligne en cours d'édition (au
+  // cas où elle ne serait, pour une raison quelconque, pas déjà comprise
+  // dans cet ensemble). `containerEl.id` sert de préfixe aux identifiants
+  // générés, pour rester uniques même si les deux modales existent en même
+  // temps dans le DOM (l'une des deux étant simplement masquée).
+  function buildCadreCheckboxGroup(containerEl, checkboxName, selectedNames) {
+    var seen = {};
+    var names = [];
+    getAllCadreNames().forEach(function (n) {
+      var k = normalizeNameKey(n);
+      if (!seen[k]) { seen[k] = true; names.push(n); }
+    });
+    (selectedNames || []).forEach(function (n) {
+      var k = normalizeNameKey(n);
+      if (n && !seen[k]) { seen[k] = true; names.push(n); }
+    });
+    names.sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+
+    containerEl.innerHTML = '';
+    if (!names.length) {
+      var hint = document.createElement('p');
+      hint.className = 'fr-hint-text';
+      hint.textContent = 'Aucun cadre connu pour l\'instant : renseignez-en un directement dans Grist pour qu\'il apparaisse ici.';
+      containerEl.appendChild(hint);
+      return;
+    }
+    var selectedSet = {};
+    (selectedNames || []).forEach(function (n) { selectedSet[normalizeNameKey(n)] = true; });
+    names.forEach(function (name, i) {
+      var wrap = document.createElement('div');
+      wrap.className = 'fr-fieldset__element';
+      var group = document.createElement('div');
+      group.className = 'fr-checkbox-group fr-checkbox-group--sm';
+      var id = containerEl.id + '_' + i;
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.id = id;
+      input.name = checkboxName;
+      input.value = name;
+      input.checked = !!selectedSet[normalizeNameKey(name)];
+      var label = document.createElement('label');
+      label.className = 'fr-label';
+      label.setAttribute('for', id);
+      label.textContent = name;
+      group.appendChild(input);
+      group.appendChild(label);
+      wrap.appendChild(group);
+      containerEl.appendChild(wrap);
+    });
+  }
+  function checkedCadreNames(containerEl, checkboxName) {
+    return Array.prototype.slice.call(containerEl.querySelectorAll('input[name="' + checkboxName + '"]'))
+      .filter(function (cb) { return cb.checked; })
+      .map(function (cb) { return cb.value; });
+  }
+
+  // Wrappers autour de l'API JS du DSFR (voir absModalDisclose/Conceal/
+  // IsOpen ci-dessus pour l'explication complète), repli sur l'attribut
+  // natif "open" si window.dsfr est indisponible.
+  function occModalDisclose() {
+    if (typeof window.dsfr === 'function') {
+      window.dsfr(occEditModal).modal.disclose();
+    } else {
+      occEditModal.open = true;
+    }
+  }
+  function occModalConceal() {
+    if (typeof window.dsfr === 'function') {
+      window.dsfr(occEditModal).modal.conceal();
+    } else {
+      occEditModal.open = false;
+    }
+  }
+  function occModalIsOpen() {
+    if (typeof window.dsfr === 'function') {
+      return !!window.dsfr(occEditModal).modal.isDisclosed;
+    }
+    return occEditModal.open;
+  }
+
+  // Retrouve la ligne (déjà passée par le mapping de colonnes "Données",
+  // donc avec les noms de champs internes Code/Debut/Fin/...) correspondant
+  // à un id, pour préremplir la modale en édition.
+  function findGenRecordById(id) {
+    for (var i = 0; i < allRecords.length; i++) {
+      if (allRecords[i].id === id) return allRecords[i];
+    }
+    return null;
+  }
+
+  function openOccEditForm(rowId) {
+    try {
+      var row = (rowId !== null && rowId !== undefined) ? findGenRecordById(rowId) : null;
+      occEditingRowId = row ? row.id : null;
+      occEditModalTitle.textContent = row ? 'Modifier l\'occurrence' : 'Nouvelle occurrence';
+      occEditStatusZone.innerHTML = '';
+
+      occEditFields.code.value = row ? textOf(row.Code) : '';
+      var debut = row ? parseGristDateTime(row.Debut) : null;
+      var fin = row ? parseGristDateTime(row.Fin) : null;
+      occEditFields.dateDebut.value = debut ? toDatetimeLocalValue(debut) : '';
+      occEditFields.dateFin.value = fin ? toDatetimeLocalValue(fin) : '';
+
+      occEditSetCheckedApprenants(row ? normalizeApprenants(row.Apprenants) : []);
+      buildCadreCheckboxGroup(occEditEncadrementList, 'occEditEncadrement', row ? splitCadreNames(textOf(row.Encadrement)) : []);
+
+      occEditFields.lieu.value = row ? textOf(row.Lieu) : '';
+      occEditFields.intitule.value = row ? textOf(row.Intitule) : '';
+      occEditFields.consignes.value = row ? textOf(row.Consignes) : '';
+
+      // Bouton de suppression : uniquement en modification d'une occurrence
+      // existante, jamais à la création.
+      occEditDeleteBtn.hidden = !row;
+
+      occModalDisclose();
+    } catch (e) {
+      if (window.console && console.error) console.error('openOccEditForm a échoué :', e);
+    }
+  }
+
+  function closeOccEditModal() {
+    occModalConceal();
+    occEditingRowId = null;
+    occEditStatusZone.innerHTML = '';
+  }
+
+  function saveOccEditForm() {
+    if (!gristSelectedTableAvailable()) {
+      renderAlert(occEditStatusZone, 'error', 'Cette version de Grist ne permet pas l\'écriture directe dans cette table depuis le widget.');
+      return;
+    }
+    var code = occEditFields.code.value.trim();
+    var debut = fromDatetimeLocalValue(occEditFields.dateDebut.value);
+    var fin = fromDatetimeLocalValue(occEditFields.dateFin.value);
+    var apprenants = occEditCheckedApprenants();
+    var encadrement = checkedCadreNames(occEditEncadrementList, 'occEditEncadrement');
+    var lieu = occEditFields.lieu.value.trim();
+    var intitule = occEditFields.intitule.value.trim();
+    var consignes = occEditFields.consignes.value.trim();
+
+    if (!debut || !intitule) {
+      renderAlert(occEditStatusZone, 'error', 'Merci de renseigner au moins la date de début et l\'intitulé.');
+      return;
+    }
+    if (fin && fin < debut) {
+      renderAlert(occEditStatusZone, 'error', 'La date de fin doit être postérieure ou égale à la date de début.');
+      return;
+    }
+
+    var cfg = genColumnsConfig;
+    var patch = {};
+    if (cfg.Code) patch[cfg.Code] = code;
+    patch[cfg.Debut] = Math.round(debut.getTime() / 1000);
+    if (cfg.Fin) patch[cfg.Fin] = fin ? Math.round(fin.getTime() / 1000) : null;
+    // Apprenants : colonne Liste dans Grist (voir normalizeApprenants), donc
+    // réécrite au format wire attendu (tag 'L' en tête du tableau).
+    if (cfg.Apprenants) patch[cfg.Apprenants] = ['L'].concat(apprenants);
+    // Encadrement : colonne Texte simple, valeurs jointes par une virgule.
+    if (cfg.Encadrement) patch[cfg.Encadrement] = encadrement.join(', ');
+    if (cfg.Lieu) patch[cfg.Lieu] = lieu;
+    patch[cfg.Intitule] = intitule;
+    if (cfg.Consignes) patch[cfg.Consignes] = consignes;
+
+    var editingRowId = occEditingRowId;
+    occEditSaveBtn.disabled = true;
+    var action = editingRowId
+      ? grist.selectedTable.update({ id: editingRowId, fields: patch })
+      : grist.selectedTable.create({ fields: patch });
+    Promise.resolve(action).then(function () {
+      occEditSaveBtn.disabled = false;
+      closeOccEditModal();
+      if (!panelProgression.hidden) renderWeekView();
+    }).catch(function (e) {
+      occEditSaveBtn.disabled = false;
+      renderAlert(occEditStatusZone, 'error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  // Supprime l'occurrence en cours d'édition (bouton visible uniquement en
+  // modification, voir openOccEditForm) : demande confirmation avant toute
+  // action irréversible, même principe que deleteAbsRequest ci-dessus.
+  function deleteOccurrence() {
+    if (occEditingRowId === null) return;
+    if (!gristSelectedTableAvailable()) {
+      renderAlert(occEditStatusZone, 'error', 'Cette version de Grist ne permet pas l\'écriture directe dans cette table depuis le widget.');
+      return;
+    }
+    var rowId = occEditingRowId;
+    if (!window.confirm('Supprimer définitivement cette occurrence ? Cette action est irréversible.')) return;
+    occEditDeleteBtn.disabled = true;
+    occEditSaveBtn.disabled = true;
+    Promise.resolve(grist.selectedTable.destroy([rowId])).then(function () {
+      occEditDeleteBtn.disabled = false;
+      occEditSaveBtn.disabled = false;
+      closeOccEditModal();
+      if (!panelProgression.hidden) renderWeekView();
+    }).catch(function (e) {
+      occEditDeleteBtn.disabled = false;
+      occEditSaveBtn.disabled = false;
+      renderAlert(occEditStatusZone, 'error', 'Suppression impossible : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  progressionAddBtn.addEventListener('click', function () { openOccEditForm(null); });
+  occEditModalCloseBtn.addEventListener('click', closeOccEditModal);
+  occEditCancelBtn.addEventListener('click', closeOccEditModal);
+  occEditDeleteBtn.addEventListener('click', deleteOccurrence);
+  occEditSaveBtn.addEventListener('click', saveOccEditForm);
+  occEditModal.addEventListener('click', function (e) {
+    if (e.target === occEditModal) closeOccEditModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && occModalIsOpen()) closeOccEditModal();
+  });
+
+  // Double-clic sur une occurrence de la vue Semaine : ouvre la modale
+  // d'édition. Délégation sur weekGrid, dont le contenu est entièrement
+  // reconstruit (innerHTML) à chaque rendu.
+  weekGrid.addEventListener('dblclick', function (e) {
+    var el = e.target.closest ? e.target.closest('.week-event[data-occ-id]') : null;
+    if (!el) return;
+    var id = Number(el.getAttribute('data-occ-id'));
+    if (!isNaN(id)) openOccEditForm(id);
+  });
+
+  // ---- Page cachée "Réglages des activités" ------------------------------
+  //
+  // Accessible uniquement via l'icône de roue crantée de la barre d'outils
+  // de la page Progression (jamais depuis le menu de navigation
+  // principal) : catalogue de référence des types d'activité (Code,
+  // Numéro, Durée, Intitulé, Cadres désignés, Consignes), dans une table
+  // Grist choisie explicitement dans le backoffice (voir reglagesConfig).
+  // Même principe général que la page Absences (fetchTable + tableau/
+  // cartes + modale de création/édition/suppression).
+
+  var reglagesData = []; // dernières lignes chargées depuis la table source (avec id Grist)
+
+  function openReglagesPage() {
+    viewBeforeReglages = currentView;
+    panelGenerer.hidden = true;
+    panelProgression.hidden = true;
+    panelAbsences.hidden = true;
+    panelConfig.hidden = true;
+    panelReglages.hidden = false;
+    reglagesStatusZone.innerHTML = '';
+    renderReglagesPage();
+  }
+
+  function closeReglagesPage() {
+    panelReglages.hidden = true;
+    setView(viewBeforeReglages || 'progression');
+  }
+
+  progressionSettingsBtn.addEventListener('click', openReglagesPage);
+  reglagesBackBtn.addEventListener('click', closeReglagesPage);
+
+  function renderReglagesPage() {
+    var cfg = reglagesConfig;
+    reglagesStatusZone.innerHTML = '';
+
+    // Le bouton "Ajouter un réglage" ne peut rien créer tant qu'aucune
+    // table n'est configurée (backoffice) : désactivé, avec une infobulle
+    // expliquant pourquoi — même principe que "Nouvelle demande" côté
+    // absences.
+    if (!isReglagesConfigComplete(cfg)) {
+      reglageNewBtn.disabled = true;
+      reglageNewTooltip.innerHTML = blockedTooltipHtml('Impossible de créer un réglage.', [
+        'Aucune table n\'est configurée pour les réglages des activités.',
+        'Cliquez 5 fois rapidement sur le bloc marque du header pour ouvrir les paramètres et en choisir une.'
+      ]);
+      reglageNewBtn.setAttribute('aria-describedby', 'reglageNewTooltip');
+      reglagesCount.textContent = '';
+      reglagesZone.innerHTML = '<div class="fr-alert fr-alert--warning fr-alert--sm"><p>Aucune table n\'est configurée pour les réglages des activités. Cliquez 5 fois rapidement sur le bloc marque du header pour ouvrir les paramètres et en choisir une.</p></div>';
+      return;
+    }
+    reglageNewBtn.disabled = false;
+    reglageNewBtn.removeAttribute('aria-describedby');
+
+    grist.docApi.fetchTable(cfg.table).then(function (table) {
+      reglagesData = columnarToRows(table).map(function (r) {
+        return {
+          id: r.id,
+          code: textOf(r[cfg.col.code]),
+          numero: cfg.col.numero ? textOf(r[cfg.col.numero]) : '',
+          duree: cfg.col.duree ? textOf(r[cfg.col.duree]) : '',
+          intitule: textOf(r[cfg.col.intitule]),
+          cadresDesignes: cfg.col.cadresDesignes ? splitCadreNames(textOf(r[cfg.col.cadresDesignes])) : [],
+          consignes: cfg.col.consignes ? textOf(r[cfg.col.consignes]) : ''
+        };
+      });
+      reglagesData.sort(function (a, b) { return a.code.localeCompare(b.code, 'fr') || a.intitule.localeCompare(b.intitule, 'fr'); });
+      renderReglagesList();
+    }).catch(function (e) {
+      reglagesCount.textContent = '';
+      reglagesZone.innerHTML = '<div class="fr-alert fr-alert--error fr-alert--sm"><p>Impossible de charger les données : ' + escapeHtml(friendlyErrorMessage(e)) + '</p></div>';
+    });
+  }
+
+  // Tableau (écran large) / cartes (mobile), même bascule CSS que la page
+  // Absences (.req-table-view/.req-cards-view).
+  function renderReglagesList() {
+    reglagesCount.textContent = reglagesData.length + (reglagesData.length > 1 ? ' réglages' : ' réglage');
+    if (!reglagesData.length) {
+      reglagesZone.innerHTML = '<p class="fr-hint-text">Aucun réglage d\'activité pour l\'instant.</p>';
+      return;
+    }
+
+    var head = '<tr><th>Actions</th><th>Code activité</th><th>Numéro</th><th>Durée</th><th>Intitulé</th><th>Cadres désignés</th><th>Consignes</th></tr>';
+    var tableRows = '';
+    var cardsHtml = '';
+
+    reglagesData.forEach(function (r) {
+      var actionsHtml =
+        '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier" data-edit-id="' + r.id + '"></button>' +
+        '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-delete-line" title="Supprimer" data-delete-id="' + r.id + '"></button>';
+
+      tableRows += '<tr data-row-id="' + r.id + '">' +
+        '<td><div class="req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div></td>' +
+        '<td>' + escapeHtml(r.code) + '</td>' +
+        '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
+        '<td>' + (r.duree ? escapeHtml(r.duree) : '—') + '</td>' +
+        '<td>' + escapeHtml(r.intitule) + '</td>' +
+        '<td>' + (r.cadresDesignes.length ? inlineBadgesHtml(r.cadresDesignes, 'badges') : '—') + '</td>' +
+        '<td>' + (r.consignes ? escapeHtml(r.consignes) : '—') + '</td>' +
+      '</tr>';
+
+      cardsHtml += '<div class="req-card" data-row-id="' + r.id + '">' +
+        '<p class="req-card__line"><span class="req-card__label">Code :</span> <strong>' + escapeHtml(r.code) + '</strong></p>' +
+        (r.numero ? '<p class="req-card__line"><span class="req-card__label">Numéro :</span> ' + escapeHtml(r.numero) + '</p>' : '') +
+        (r.duree ? '<p class="req-card__line"><span class="req-card__label">Durée :</span> ' + escapeHtml(r.duree) + '</p>' : '') +
+        '<p class="req-card__line"><span class="req-card__label">Intitulé :</span> ' + escapeHtml(r.intitule) + '</p>' +
+        (r.cadresDesignes.length ? '<p class="req-card__line"><span class="req-card__label">Cadres désignés :</span> ' + inlineBadgesHtml(r.cadresDesignes, 'badges') + '</p>' : '') +
+        (r.consignes ? '<p class="req-card__line"><span class="req-card__label">Consignes :</span> ' + escapeHtml(r.consignes) + '</p>' : '') +
+        '<div class="req-card__actions req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div>' +
+      '</div>';
+    });
+
+    reglagesZone.innerHTML =
+      '<div class="req-table-wrap req-table-view"><table class="req-table"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
+      '<div class="req-cards req-cards-view">' + cardsHtml + '</div>';
+
+    reglagesZone.querySelectorAll('button[data-edit-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var rowId = Number(btn.getAttribute('data-edit-id'));
+        var row = reglagesData.filter(function (r) { return r.id === rowId; })[0];
+        if (row) openReglageEditForm(row);
+      });
+    });
+    reglagesZone.querySelectorAll('button[data-delete-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var rowId = Number(btn.getAttribute('data-delete-id'));
+        deleteReglageById(rowId);
+      });
+    });
+  }
+
+  // ---- Modale de création/édition d'un réglage d'activité ---------------
+
+  function reglageModalDisclose() {
+    if (typeof window.dsfr === 'function') {
+      window.dsfr(reglageEditModal).modal.disclose();
+    } else {
+      reglageEditModal.open = true;
+    }
+  }
+  function reglageModalConceal() {
+    if (typeof window.dsfr === 'function') {
+      window.dsfr(reglageEditModal).modal.conceal();
+    } else {
+      reglageEditModal.open = false;
+    }
+  }
+  function reglageModalIsOpen() {
+    if (typeof window.dsfr === 'function') {
+      return !!window.dsfr(reglageEditModal).modal.isDisclosed;
+    }
+    return reglageEditModal.open;
+  }
+
+  function openReglageEditForm(row) {
+    try {
+      reglageEditingRowId = row ? row.id : null;
+      reglageEditModalTitle.textContent = row ? 'Modifier ce réglage' : 'Nouveau réglage';
+      reglageEditStatusZone.innerHTML = '';
+
+      reglageEditFields.code.value = row ? row.code : '';
+      reglageEditFields.numero.value = row ? row.numero : '';
+      reglageEditFields.duree.value = row ? row.duree : '';
+      reglageEditFields.intitule.value = row ? row.intitule : '';
+      reglageEditFields.consignes.value = row ? row.consignes : '';
+      buildCadreCheckboxGroup(reglageEditCadresList, 'reglageEditCadres', row ? row.cadresDesignes : []);
+
+      // Bouton de suppression : uniquement en modification d'un réglage
+      // existant, jamais à la création.
+      reglageEditDeleteBtn.hidden = !row;
+
+      reglageModalDisclose();
+    } catch (e) {
+      if (window.console && console.error) console.error('openReglageEditForm a échoué :', e);
+    }
+  }
+
+  function closeReglageEditModal() {
+    reglageModalConceal();
+    reglageEditingRowId = null;
+    reglageEditStatusZone.innerHTML = '';
+  }
+
+  function saveReglageEditForm() {
+    var cfg = reglagesConfig;
+    var code = reglageEditFields.code.value.trim();
+    var numero = reglageEditFields.numero.value.trim();
+    var duree = reglageEditFields.duree.value.trim();
+    var intitule = reglageEditFields.intitule.value.trim();
+    var consignes = reglageEditFields.consignes.value.trim();
+    var cadres = checkedCadreNames(reglageEditCadresList, 'reglageEditCadres');
+
+    if (!code || !intitule) {
+      renderAlert(reglageEditStatusZone, 'error', 'Merci de renseigner au moins le code activité et l\'intitulé.');
+      return;
+    }
+
+    var patch = {};
+    patch[cfg.col.code] = code;
+    if (cfg.col.numero) patch[cfg.col.numero] = numero;
+    if (cfg.col.duree) patch[cfg.col.duree] = duree;
+    patch[cfg.col.intitule] = intitule;
+    if (cfg.col.cadresDesignes) patch[cfg.col.cadresDesignes] = cadres.join(', ');
+    if (cfg.col.consignes) patch[cfg.col.consignes] = consignes;
+
+    var editingRowId = reglageEditingRowId;
+    var action = editingRowId
+      ? ['UpdateRecord', cfg.table, editingRowId, patch]
+      : ['AddRecord', cfg.table, null, patch];
+
+    reglageEditSaveBtn.disabled = true;
+    grist.docApi.applyUserActions([action]).then(function () {
+      reglageEditSaveBtn.disabled = false;
+      closeReglageEditModal();
+      renderReglagesPage();
+    }).catch(function (e) {
+      reglageEditSaveBtn.disabled = false;
+      renderAlert(reglageEditStatusZone, 'error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  // Supprime le réglage en cours d'édition (bouton visible uniquement en
+  // modification) : demande confirmation avant toute action irréversible,
+  // même principe que deleteAbsRequest/deleteOccurrence.
+  function deleteReglage() {
+    if (reglageEditingRowId === null) return;
+    deleteReglageById(reglageEditingRowId, true);
+  }
+  function deleteReglageById(rowId, modalAlreadyOpen) {
+    var cfg = reglagesConfig;
+    if (!window.confirm('Supprimer définitivement ce réglage d\'activité ? Cette action est irréversible.')) return;
+    reglageEditDeleteBtn.disabled = true;
+    reglageEditSaveBtn.disabled = true;
+    grist.docApi.applyUserActions([['RemoveRecord', cfg.table, rowId]]).then(function () {
+      reglageEditDeleteBtn.disabled = false;
+      reglageEditSaveBtn.disabled = false;
+      if (modalAlreadyOpen) closeReglageEditModal();
+      renderReglagesPage();
+    }).catch(function (e) {
+      reglageEditDeleteBtn.disabled = false;
+      reglageEditSaveBtn.disabled = false;
+      if (modalAlreadyOpen) {
+        renderAlert(reglageEditStatusZone, 'error', 'Suppression impossible : ' + friendlyErrorMessage(e));
+      } else {
+        renderAlert(reglagesStatusZone, 'error', 'Suppression impossible : ' + friendlyErrorMessage(e));
+      }
+    });
+  }
+
+  reglageNewBtn.addEventListener('click', function () { openReglageEditForm(null); });
+  reglageEditModalCloseBtn.addEventListener('click', closeReglageEditModal);
+  reglageEditCancelBtn.addEventListener('click', closeReglageEditModal);
+  reglageEditDeleteBtn.addEventListener('click', deleteReglage);
+  reglageEditSaveBtn.addEventListener('click', saveReglageEditForm);
+  reglageEditModal.addEventListener('click', function (e) {
+    if (e.target === reglageEditModal) closeReglageEditModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && reglageModalIsOpen()) closeReglageEditModal();
   });
 
   // ---- Filtres (Décision / Demandeur) de la liste des absences ----------
@@ -2538,22 +3517,31 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // ---- Date du jour par défaut, et limite FSJ configurable --------------
   //
-  // Si fsjLimit3Days est activé (backoffice, onglet FSJ), la sélection de
-  // date ne propose que les 3 prochains jours (aujourd'hui inclus) : la
-  // feuille de service journalier n'a alors vocation à être générée que
-  // pour une échéance proche. Les dates passées restent en revanche
-  // toujours accessibles, quel que soit ce réglage.
+  // Si fsjLimit3Days est activé (backoffice, onglet FSJ), le bouton de
+  // téléchargement de la FSJ est inopérant pour toute date postérieure à
+  // J+3 : la feuille de service journalier n'a alors vocation à être
+  // générée que pour une échéance proche. Les dates passées et jusqu'à J+3
+  // restent téléchargeables, quel que soit ce réglage.
+  function fsjMaxAllowedDate() {
+    var today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3);
+  }
+  // Le sélecteur de date n'est jamais borné : c'est le bouton de
+  // téléchargement qui devient inopérant au-delà de J+3 (voir
+  // fsjDateLimitReason), avec une infobulle qui l'explique.
   function applyFsjDateLimit() {
-    if (fsjLimit3Days) {
-      var today = new Date();
-      var maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2);
-      dayPicker.removeAttribute('min');
-      dayPicker.max = toInputDateValue(maxDate);
-      if (getSelectedDate() > maxDate) dayPicker.value = toInputDateValue(maxDate);
-    } else {
-      dayPicker.removeAttribute('min');
-      dayPicker.removeAttribute('max');
+    dayPicker.removeAttribute('min');
+    dayPicker.removeAttribute('max');
+  }
+  // Retourne le motif de blocage du bouton de téléchargement si la date
+  // sélectionnée dépasse J+3 (et que l'option est cochée), ou null si la
+  // FSJ reste téléchargeable pour cette date.
+  function fsjDateLimitReason(day) {
+    if (!fsjLimit3Days) return null;
+    if (day > fsjMaxAllowedDate()) {
+      return 'La génération de la FSJ n\'est pas possible au-delà de J+3.';
     }
+    return null;
   }
 
   (function initDate() {
@@ -2564,6 +3552,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   dayPicker.addEventListener('change', function () {
     renderPreview();
     weekReferenceDate = getSelectedDate();
+    weekReferenceDateIsDefault = false;
     if (!panelProgression.hidden) renderWeekView();
   });
   generateBtn.addEventListener('click', function () {
@@ -2630,13 +3619,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     Object.keys(VIEW_PANEL).forEach(function (v) {
       VIEW_PANEL[v].hidden = (v !== view);
     });
-    // Toujours masqué par une navigation normale, y compris si les
-    // paramètres cachés étaient ouverts (voir closeConfigPanel, qui passe
-    // lui-même par setView pour revenir à la vue précédente).
+    // Toujours masqués par une navigation normale, y compris si les
+    // paramètres cachés ou la page "Réglages des activités" étaient
+    // ouverts (voir closeConfigPanel/closeReglagesPage, qui passent
+    // eux-mêmes par setView pour revenir à la vue précédente).
     panelConfig.hidden = true;
+    panelReglages.hidden = true;
     if (view === 'progression') {
-      if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
-      ensureProgressionScale();
+      if (!weekReferenceDate) weekReferenceDate = defaultProgressionReferenceDate();
       renderWeekView();
     }
     if (view === 'absences') {
@@ -2651,6 +3641,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // ---- Filtre de la vue Progression : par peloton ou par cadre ----------
 
   var activeFilter = null; // null | { type: 'peloton', code } | { type: 'cadre', name }
+  var progressionSearchQuery = ''; // texte brut tel que tapé dans la barre de recherche
 
   function normalizeNameKey(value) {
     return String(value || '')
@@ -2767,7 +3758,58 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   var progressionFilterDropdown = setupDropdown(progressionFilterBtn, progressionFilterList, buildProgressionFilterMenu);
 
+  // ---- Barre de recherche (Code ou intitulé) -----------------------------
+
+  // Une occurrence correspond-elle à la recherche en cours ? `queryNorm` est
+  // déjà normalisé (accents retirés, casse uniformisée) via normalizeNameKey.
+  function occMatchesSearch(o, queryNorm) {
+    if (!queryNorm) return true;
+    if (normalizeNameKey(o.code).indexOf(queryNorm) !== -1) return true;
+    if (normalizeNameKey(o.intitule).indexOf(queryNorm) !== -1) return true;
+    return false;
+  }
+
+  function applyProgressionSearch(occ) {
+    var queryNorm = normalizeNameKey(progressionSearchQuery);
+    if (!queryNorm) return occ;
+    return occ.filter(function (o) { return occMatchesSearch(o, queryNorm); });
+  }
+
+  progressionSearchInput.addEventListener('input', function () {
+    progressionSearchQuery = progressionSearchInput.value;
+    if (!panelProgression.hidden) renderWeekView();
+  });
+  progressionSearchBtn.addEventListener('click', function () {
+    progressionSearchQuery = progressionSearchInput.value;
+    if (!panelProgression.hidden) renderWeekView();
+  });
+
+  // Réinitialise à la fois le filtre peloton/cadre et la recherche en cours.
+  function resetProgressionFilters() {
+    activeFilter = null;
+    progressionFilterBtn.textContent = progressionFilterLabel();
+    progressionSearchQuery = '';
+    progressionSearchInput.value = '';
+    if (!panelProgression.hidden) renderWeekView();
+  }
+  progressionResetFiltersBtn.addEventListener('click', resetProgressionFilters);
+
   // ---- Onglet "Progression" : vue calendrier hebdomadaire -----------------
+
+  // Jour de référence par défaut de la vue Semaine : aujourd'hui, sauf si
+  // le début de la période configurée pour la Progression (onglet
+  // "Progression" du backoffice, PROGRESSION_PDF_START) est postérieur à
+  // aujourd'hui — dans ce cas le stage n'a pas encore commencé, et
+  // afficher "aujourd'hui" montrerait une semaine vide ; on affiche donc
+  // directement la semaine de ce début.
+  function defaultProgressionReferenceDate() {
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (PROGRESSION_PDF_START && PROGRESSION_PDF_START > today) {
+      return new Date(PROGRESSION_PDF_START.getFullYear(), PROGRESSION_PDF_START.getMonth(), PROGRESSION_PDF_START.getDate());
+    }
+    return today;
+  }
 
   function getMonday(d) {
     var date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -2778,15 +3820,15 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
 
   weekPrevBtn.addEventListener('click', function () {
-    if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
-    var step = (progressionScale === 'day') ? 1 : 7;
-    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() - step);
+    if (!weekReferenceDate) weekReferenceDate = defaultProgressionReferenceDate();
+    weekReferenceDateIsDefault = false;
+    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() - 7);
     renderWeekView();
   });
   weekNextBtn.addEventListener('click', function () {
-    if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
-    var step = (progressionScale === 'day') ? 1 : 7;
-    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() + step);
+    if (!weekReferenceDate) weekReferenceDate = defaultProgressionReferenceDate();
+    weekReferenceDateIsDefault = false;
+    weekReferenceDate = new Date(weekReferenceDate.getFullYear(), weekReferenceDate.getMonth(), weekReferenceDate.getDate() + 7);
     renderWeekView();
   });
 
@@ -2929,7 +3971,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var tooltipId = 'weekTooltip' + (weekTooltipSeq++);
     var colorStyle = 'background-color:' + rgbCss(info.fillColor) + '; border-left-color:' + rgbCss(info.borderColor) + ';';
     return '<div class="week-event-wrap" style="left:' + left + 'px; width:' + width + 'px; top:' + top + 'px; height:' + height + 'px;">' +
-      '<div class="week-event' + (extraClass ? ' ' + extraClass : '') + '" style="' + colorStyle + '" tabindex="0" aria-describedby="' + tooltipId + '">' +
+      '<div class="week-event' + (extraClass ? ' ' + extraClass : '') + '" style="' + colorStyle + '" tabindex="0" aria-describedby="' + tooltipId + '" data-occ-id="' + o.id + '">' +
       info.visibleContent +
       '</div>' +
       '<span class="fr-tooltip fr-placement" id="' + tooltipId + '" role="tooltip">' + info.tooltipContent + '</span>' +
@@ -2947,21 +3989,16 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       return;
     }
 
-    ensureProgressionScale();
-    if (!weekReferenceDate) weekReferenceDate = getSelectedDate();
+    if (!weekReferenceDate) weekReferenceDate = defaultProgressionReferenceDate();
 
-    // Vue Semaine : du lundi au dimanche de la semaine de référence.
-    // Vue Jour : uniquement le jour de référence.
-    var isDayScale = (progressionScale === 'day');
-    var rangeStart = isDayScale ? weekReferenceDate : getMonday(weekReferenceDate);
-    var dayCount = isDayScale ? 1 : 7;
+    // Vue Semaine uniquement : du lundi au dimanche de la semaine de référence.
+    var rangeStart = getMonday(weekReferenceDate);
+    var dayCount = 7;
     var rangeEnd = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + dayCount - 1);
     var mode = getSelectedMode();
     var today = new Date();
 
-    weekLabel.textContent = isDayScale
-      ? (dayNameFor(rangeStart) + ' ' + fmtDayTitle(rangeStart))
-      : ('Semaine du ' + fmtDayTitle(rangeStart) + ' au ' + fmtDayTitle(rangeEnd));
+    weekLabel.textContent = 'Semaine du ' + fmtDayTitle(rangeStart) + ' au ' + fmtDayTitle(rangeEnd);
 
     // Occurrences de chaque jour, Permanences exclues (codes CDT, AE, SOP,
     // SAN) : cette vue ne montre que la progression pédagogique.
@@ -2973,6 +4010,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       if (activeFilter && activeFilter.type === 'cadre') {
         occ = occ.filter(function (o) { return matchesCadre(o.encadrement, activeFilter.name); });
       }
+      occ = applyProgressionSearch(occ);
       // Le SOP (officier de permanence) concerne toute la promotion, pas
       // un peloton ou un cadre en particulier : on ne l'affiche que sur la
       // vue non filtrée, pour ne pas laisser croire qu'il est spécifique
@@ -3424,9 +4462,17 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function getOccurrencesForDay(day, mode) {
     var all = allRecords
       .map(function (r) {
+        var debut = parseGristDateTime(r.Debut);
+        // Fin est désormais optionnelle à la saisie (voir la modale
+        // d'édition d'occurrence) : sans valeur, elle vaut Début, ce qui
+        // réduit l'occurrence à une durée nulle — déjà géré sans erreur par
+        // les calculs de largeur/agencement de la vue Semaine (repli "e <=
+        // s => e = s + 15" dans layoutDayEvents notamment), qui l'affichent
+        // alors comme un court bloc de 15 minutes.
         return {
-          debut: parseGristDateTime(r.Debut),
-          fin: parseGristDateTime(r.Fin),
+          id: r.id,
+          debut: debut,
+          fin: parseGristDateTime(r.Fin) || debut,
           occurrence: textOf(r.Occurrence),
           code: r.Code,
           intitule: textOf(r.Intitule),
@@ -3511,6 +4557,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     }
     var day = getSelectedDate();
     var mode = getSelectedMode();
+    var dateLimitReason = fsjDateLimitReason(day);
     var occAll = getOccurrencesForDay(day, 'cadres');
     var occ = getOccurrencesForDay(day, mode);
     var hiddenCount = occAll.length - occ.length;
@@ -3521,10 +4568,10 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
         '<div class="fr-alert fr-alert--info fr-alert--sm">' +
         '<p>Aucune occurrence trouvée pour le ' + escapeHtml(fmtDayTitle(day)) + '.</p>' +
         '</div>';
-      applyGenerateBtnState('Aucune occurrence à exporter pour le ' + escapeHtml(fmtDayTitle(day)) + '.');
+      applyGenerateBtnState(dateLimitReason || ('Aucune occurrence à exporter pour le ' + escapeHtml(fmtDayTitle(day)) + '.'));
       return;
     }
-    applyGenerateBtnState(null);
+    applyGenerateBtnState(dateLimitReason);
 
     var countLine = occ.length + ' occurrence(s) pour le ' + escapeHtml(fmtDayTitle(day));
     if (hiddenCount > 0) {
@@ -3613,6 +4660,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     if (!recordsLoaded) return null;
 
     var day = getSelectedDate();
+    var dateLimitReason = fsjDateLimitReason(day);
+    if (dateLimitReason) {
+      showStatus('warning', dateLimitReason);
+      return null;
+    }
+
     var mode = getSelectedMode();
     var occ = getOccurrencesForDay(day, mode);
     var sections = splitBySection(occ);
