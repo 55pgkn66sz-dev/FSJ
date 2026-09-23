@@ -6664,3 +6664,329 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 </script>
 </body>
 </html>
+au ' + fmtDayTitle(genMoment) + ' à ' + fmtHM(genMoment) + ', sous réserve de modifications ultérieures.';
+    doc.text(editionLine, pageWidth / 2, 13.5, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
+
+    var contentTop = 16.5;
+    var AXIS_H = 5;
+    var DAY_LABEL_W = 20;
+    var PELOTON_W = 8;
+    var gridLeft = marginLeft + DAY_LABEL_W + PELOTON_W;
+    var gridRight = pageWidth - marginRight;
+    var gridTotalWidth = gridRight - gridLeft;
+
+    // ---- Amplitude horaire commune, sur l'ensemble de la période ----
+    var minStart = null, maxEnd = null;
+    days.forEach(function (day) {
+      day.occ.forEach(function (o) {
+        var s = o.debut.getHours() * 60 + o.debut.getMinutes();
+        var e = o.fin.getHours() * 60 + o.fin.getMinutes();
+        if (e <= s) e = s + 15;
+        if (minStart === null || s < minStart) minStart = s;
+        if (maxEnd === null || e > maxEnd) maxEnd = e;
+      });
+    });
+    if (minStart === null) { minStart = 7 * 60; maxEnd = 19 * 60; }
+    var gridStart = Math.floor(minStart / 60) * 60;
+    var gridEnd = Math.ceil(maxEnd / 60) * 60;
+    if (gridEnd <= gridStart) gridEnd = gridStart + 60;
+    function minutesToX(min) {
+      return gridLeft + (min - gridStart) / (gridEnd - gridStart) * gridTotalWidth;
+    }
+
+    // ---- Hauteur de ligne : les intitulés s'affichent désormais en
+    // entier, avec retour à la ligne selon la largeur de leur case,
+    // plutôt que tronqués. La hauteur de chaque ligne de peloton (et des
+    // blocs fusionnés) s'adapte donc au texte qu'elle contient. Pour
+    // malgré tout garantir que tout le stage tienne sur une seule page,
+    // on essaie plusieurs tailles de police (de la plus grande à la plus
+    // petite) et on retient la plus grande qui suffit, puis on mets le
+    // résultat à l'échelle pour occuper toute la hauteur disponible.
+    var usableHeight = pageHeight - contentTop - AXIS_H - marginBottom;
+    var FONT_EVENT_CANDIDATES = [5.5, 5, 4.6, 4.2, 3.8, 3.4, 3, 2.7];
+    var LINE_GAP = 1.12; // interligne (facteur appliqué à la taille de police)
+    var BOX_V_PAD = 0.5; // marge haute + basse (mm) réservée dans chaque case
+
+    // Largeur de case (mm) de chaque occurrence : uniquement fonction du
+    // créneau horaire (début/fin), donc indépendante de la police
+    // retenue — calculée une seule fois, avant les essais de taille.
+    days.forEach(function (day) {
+      day.layout.rows.forEach(function (row) {
+        row.events.forEach(function (ev) { ev.boxWidth = minutesToX(ev.end) - minutesToX(ev.start); });
+      });
+      day.layout.mergedGroups.forEach(function (g) {
+        g.events.forEach(function (ev) { ev.boxWidth = minutesToX(ev.end) - minutesToX(ev.start); });
+      });
+    });
+
+    // Pour une taille de police donnée, calcule le nombre de lignes que
+    // prend chaque occurrence (texte complet, retour à la ligne selon la
+    // largeur de sa case), la hauteur nécessaire de chaque ligne de
+    // peloton (et des blocs fusionnés, qui peuvent en retour agrandir les
+    // lignes qu'ils recouvrent), et retourne la hauteur totale requise.
+    // `cache` : si vrai, mémorise ces lignes et hauteurs pour le dessin.
+    function computeRowHeights(fontPt, cache) {
+      doc.setFont(baseFont, 'normal');
+      doc.setFontSize(fontPt);
+      var lineH = fontPt * MM_PER_PT * LINE_GAP;
+      var minSlice = lineH + BOX_V_PAD;
+
+      function neededSlice(ev) {
+        var w = ev.boxWidth - 1.1;
+        var label = ev.o.intitule || ev.o.occurrence || '';
+        var lines = (w > 1.5 && label) ? doc.splitTextToSize(label, w) : [''];
+        if (cache) ev.wrapLines = lines;
+        return Math.max(minSlice, lines.length * lineH + BOX_V_PAD);
+      }
+
+      var total = 0;
+      days.forEach(function (day) {
+        var rowHeights = {};
+        day.layout.rows.forEach(function (row) {
+          var maxSlice = minSlice;
+          row.events.forEach(function (ev) { maxSlice = Math.max(maxSlice, neededSlice(ev)); });
+          rowHeights[row.code] = row.maxCols * maxSlice;
+        });
+        day.layout.mergedGroups.forEach(function (g) {
+          var maxSlice = minSlice;
+          g.events.forEach(function (ev) { maxSlice = Math.max(maxSlice, neededSlice(ev)); });
+          var neededGroupHeight = g.maxCols * maxSlice;
+          var spannedSum = g.rowCodes.reduce(function (s, rc) { return s + rowHeights[rc]; }, 0);
+          if (neededGroupHeight > spannedSum) {
+            var share = (neededGroupHeight - spannedSum) / g.rowCodes.length;
+            g.rowCodes.forEach(function (rc) { rowHeights[rc] += share; });
+          }
+        });
+        if (cache) day.rowHeights = rowHeights;
+        var dayHeight = day.layout.rowCodes.reduce(function (s, rc) { return s + rowHeights[rc]; }, 0);
+        if (cache) day.dayHeight = dayHeight;
+        total += dayHeight;
+      });
+      return total;
+    }
+
+    // Essaie chaque taille de police, de la plus grande à la plus
+    // petite, et retient la plus grande qui suffit à tenir sur une page.
+    var FONT_EVENT = FONT_EVENT_CANDIDATES[FONT_EVENT_CANDIDATES.length - 1];
+    for (var fi = 0; fi < FONT_EVENT_CANDIDATES.length; fi++) {
+      if (computeRowHeights(FONT_EVENT_CANDIDATES[fi], false) <= usableHeight) {
+        FONT_EVENT = FONT_EVENT_CANDIDATES[fi];
+        break;
+      }
+    }
+    var FONT_BADGE = clamp(FONT_EVENT * 0.85, 2.6, 5);
+    var FONT_DAYLABEL = clamp(FONT_EVENT * 0.95, 3, 6.5);
+
+    // Calcul final à la police retenue (avec mise en cache des lignes de
+    // texte et des hauteurs), puis mise à l'échelle pour occuper toute la
+    // hauteur disponible (comme lorsque chaque ligne avait une hauteur
+    // fixe identique) — cette échelle ne fait qu'agrandir les cases, elle
+    // ne remet donc jamais en cause le texte déjà calculé.
+    var neededHeight = computeRowHeights(FONT_EVENT, true);
+    var scale = neededHeight > 0 ? Math.min(usableHeight / neededHeight, 3) : 1;
+    days.forEach(function (day) {
+      var scaledDayHeight = 0;
+      day.layout.rowCodes.forEach(function (rc) {
+        day.rowHeights[rc] *= scale;
+        scaledDayHeight += day.rowHeights[rc];
+      });
+      day.dayHeight = scaledDayHeight;
+    });
+
+    // Anchre verticalement une ligne de texte proche du bas d'une case de
+    // hauteur `h` (convention baseline "alphabetic" par défaut de jsPDF) :
+    // approche purement géométrique (indépendante de la taille de police
+    // exacte en points), robuste même pour des cases très basses.
+    function textY(top, h) {
+      return top + h - clamp(h * 0.26, 0.25, 0.9);
+    }
+
+    // ---- Axe des heures ----
+    doc.setFont(baseFont, 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(110, 110, 110);
+    for (var h = gridStart; h <= gridEnd; h += 60) {
+      var x = minutesToX(h);
+      var hh = String(Math.floor(h / 60) % 24).padStart(2, '0');
+      doc.text(hh + 'h', x + 0.5, contentTop + AXIS_H - 1.3);
+      doc.setDrawColor(210, 210, 210);
+      doc.setLineWidth(0.15);
+      doc.line(x, contentTop + AXIS_H - 0.5, x, pageHeight - marginBottom);
+    }
+    doc.setTextColor(0, 0, 0);
+
+    function truncateToWidth(text, maxWidth) {
+      if (doc.getTextWidth(text) <= maxWidth) return text;
+      var ellipsis = '…';
+      var t = text;
+      while (t.length > 1 && doc.getTextWidth(t + ellipsis) > maxWidth) {
+        t = t.slice(0, -1);
+      }
+      return t + ellipsis;
+    }
+
+    // Dessine, à partir du haut d'une case, des lignes de texte déjà
+    // calculées (wrapLines), centrées verticalement dans la case.
+    function drawWrappedLines(lines, x, top, h) {
+      var lineH = FONT_EVENT * MM_PER_PT * LINE_GAP;
+      var textH = lines.length * lineH;
+      var padTop = Math.max(0.3, (h - textH) / 2);
+      lines.forEach(function (line, i) {
+        var baseline = top + padTop + (i + 1) * lineH - clamp(lineH * 0.28, 0.25, 0.9);
+        doc.text(line, x, baseline);
+      });
+    }
+
+    // Dessine une occurrence, colorée selon son Type (même palette que la
+    // vue web) : fond clair + filet gauche dans la teinte pleine ; le
+    // texte s'affiche en entier, sur autant de lignes que nécessaire (les
+    // hauteurs de case ont été calculées pour cela).
+    function drawEventBox(ev, x, w, y, h) {
+      if (w <= 0.4 || h <= 0.4) return;
+      var o = ev.o;
+      var border = colorForType(o.type);
+      var fill = lightenColor(border, 0.86);
+
+      doc.setFillColor(fill[0], fill[1], fill[2]);
+      doc.rect(x, y, w, h, 'F');
+      doc.setDrawColor(border[0], border[1], border[2]);
+      doc.setLineWidth(0.5);
+      doc.line(x, y, x, y + h); // filet gauche marqué, comme .week-event
+      doc.setDrawColor(215, 215, 215);
+      doc.setLineWidth(0.1);
+      doc.rect(x, y, w, h, 'S'); // fin contour pour distinguer les cases voisines
+
+      var textMaxWidth = w - 1.1;
+      var lines = (ev.wrapLines || []).filter(function (l) { return l; });
+      if (textMaxWidth > 1.5 && lines.length) {
+        doc.setFont(baseFont, 'normal');
+        doc.setFontSize(FONT_EVENT);
+        doc.setTextColor(20, 20, 20);
+        drawWrappedLines(lines.map(function (l) { return truncateToWidth(l, textMaxWidth); }), x + 0.7, y, h);
+        doc.setTextColor(0, 0, 0);
+      }
+    }
+
+    // ---- Un jour après l'autre ----
+    var dayNamesShort = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    var y = contentTop + AXIS_H;
+
+    days.forEach(function (day, dayIdx) {
+      var rowCodes = day.layout.rowCodes;
+      var dayTop = y;
+      var dayHeight = day.dayHeight;
+
+      // Fond alterné (zébrage) sur toute la largeur de la grille, un jour
+      // sur deux : renforce la séparation visuelle entre les jours, en
+      // plus du trait de séparation dessiné plus bas.
+      if (dayIdx % 2 === 1) {
+        doc.setFillColor(240, 240, 242);
+        doc.rect(marginLeft, dayTop, gridRight - marginLeft, dayHeight, 'F');
+      }
+
+      // Position de chaque ligne de peloton, déduite des hauteurs déjà
+      // calculées (variables selon le texte qu'elles contiennent).
+      var rowTops = {};
+      var rowOffset = dayTop;
+      rowCodes.forEach(function (rc) {
+        rowTops[rc] = rowOffset;
+        rowOffset += day.rowHeights[rc];
+      });
+
+      // Lignes de peloton : séparateur + badge + occurrences propres à
+      // cette seule ligne.
+      rowCodes.forEach(function (rc, ri) {
+        var rowTop = rowTops[rc];
+        var rowH = day.rowHeights[rc];
+        var row = day.layout.rows[ri];
+
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.1);
+        doc.line(marginLeft, rowTop, gridRight, rowTop);
+
+        doc.setFont(baseFont, 'bold');
+        doc.setFontSize(FONT_BADGE);
+        doc.setTextColor(70, 70, 70);
+        doc.text(rowLabel(rc), marginLeft + DAY_LABEL_W + PELOTON_W / 2, textY(rowTop, rowH), { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+
+        var cols = row.maxCols;
+        row.events.forEach(function (ev) {
+          var slice = rowH / cols;
+          var boxY = rowTop + ev.col * slice + 0.25;
+          var boxH = slice - 0.5;
+          var boxX = minutesToX(ev.start);
+          var boxW = ev.boxWidth;
+          drawEventBox(ev, boxX, boxW, boxY, boxH);
+        });
+      });
+
+      // Blocs fusionnés (occurrences collectives ou multi-pelotons) : par-
+      // dessus les lignes de peloton, sur la hauteur qui leur correspond.
+      day.layout.mergedGroups.forEach(function (g) {
+        var top = rowTops[g.rowCodes[0]];
+        var height = g.rowCodes.reduce(function (s, rc) { return s + day.rowHeights[rc]; }, 0);
+        var cols = g.maxCols;
+        g.events.forEach(function (ev) {
+          var slice = height / cols;
+          var boxY = top + ev.col * slice + 0.25;
+          var boxH = slice - 0.5;
+          var boxX = minutesToX(ev.start);
+          var boxW = ev.boxWidth;
+          drawEventBox(ev, boxX, boxW, boxY, boxH);
+        });
+      });
+
+      // Séparateur bas de journée, nettement plus marqué que les
+      // séparateurs de lignes de peloton (couleur plus sombre, trait plus
+      // épais) : c'est la limite entre deux jours qui doit dominer, pas
+      // les lignes internes à un même jour.
+      doc.setDrawColor(70, 70, 70);
+      doc.setLineWidth(0.6);
+      doc.line(marginLeft, dayTop + dayHeight, gridRight, dayTop + dayHeight);
+
+      doc.setFont(baseFont, 'bold');
+      doc.setFontSize(FONT_DAYLABEL);
+      doc.setTextColor(0, 0, 0);
+      var dow = day.date.getDay(); // 0 = dimanche
+      var dowIdx = (dow === 0) ? 6 : dow - 1;
+      doc.text(dayNamesShort[dowIdx] + ' ' + fmtDayTitle(day.date), marginLeft, textY(dayTop, dayHeight));
+
+      y = dayTop + dayHeight;
+    });
+
+    // Cadre extérieur de la grille.
+    doc.setDrawColor(120, 120, 120);
+    doc.setLineWidth(0.3);
+    doc.rect(marginLeft, contentTop, gridRight - marginLeft, y - contentTop, 'S');
+  }
+
+  // Bandeau d'information importante (façon DSFR fr-notice / fr-notice--alert)
+  // en haut de page : fond rouge clair, texte rouge foncé en gras, sur toute
+  // la largeur. Remplace l'ancien filigrane diagonal "NE PAS DIFFUSER".
+  function drawImportantNotice(doc, pageWidth, bannerHeight, text, baseFont, marginLeft) {
+    // Couleurs approximant les tokens DSFR --background-contrast-error /
+    // --text-default-error (le PDF ne peut pas consommer les variables CSS).
+    var bg = [254, 231, 231];
+    var fg = [206, 5, 0];
+
+    doc.setFillColor(bg[0], bg[1], bg[2]);
+    doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+    doc.setDrawColor(fg[0], fg[1], fg[2]);
+    doc.setLineWidth(0.6);
+    doc.line(0, bannerHeight, pageWidth, bannerHeight);
+
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(fg[0], fg[1], fg[2]);
+    doc.text(text, pageWidth / 2, bannerHeight / 2 + 1.5, { align: 'center', maxWidth: pageWidth - 16 });
+
+    doc.setTextColor(0, 0, 0);
+  }
+
+})();
+</script>
+</body>
+</html>
