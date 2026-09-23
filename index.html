@@ -388,6 +388,43 @@
     white-space: nowrap;
   }
   .req-table th { font-weight: 700; }
+  /* En-têtes triables (page Réglages des activités) */
+  .req-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 700;
+    color: inherit;
+    cursor: pointer;
+  }
+  .req-sort:hover { color: var(--bleu-france); }
+  .req-sort__arrow { font-size: 0.75em; color: var(--text-mention-grey); }
+  .req-sort[data-active="true"] .req-sort__arrow { color: var(--bleu-france); }
+  .req-table tbody tr[data-row-id] { cursor: default; }
+  .req-table tbody tr[data-row-id]:hover { background: #f5f5fe; }
+  /* Consignes : au plus 2 lignes dans le tableau (texte complet en infobulle) */
+  .req-cell-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    max-width: 28rem;
+  }
+  .reglage-cadres-tools { display: flex; gap: 0.5rem; margin: 0 0 0.5rem; }
+
+  /* Libellé "Code activité" + icône d'aide (liste des codes existants). */
+  .occ-code-label-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .occ-code-label-row .fr-label { margin-bottom: 0; }
+  /* L'info-bulle liste potentiellement de nombreux codes : plus large que
+     l'info-bulle DSFR standard, sur deux colonnes. */
+  #occCodeHelpTooltip { width: max-content; max-width: min(36rem, 90vw); }
+  .code-help-list { columns: 2; column-gap: 1.5rem; margin: 0.25rem 0 0; padding: 0; list-style: none; text-align: left; }
+  .code-help-list li { margin: 0 0 0.15rem; break-inside: avoid; }
   /* Groupe d'icônes d'action façon "Gérer la demande" du widget
      Réservations (repris à l'identique de son CSS .req-actions) : boutons
      DSFR tertiaires standards (pas de contour permanent) ; seul le
@@ -741,6 +778,11 @@
         Ajouter un réglage
       </button>
       <span class="fr-tooltip fr-placement" id="reglageNewTooltip" role="tooltip"></span>
+      <div class="fr-search-bar progression-search-bar" id="reglagesSearchBar" role="search">
+        <label class="fr-label fr-sr-only" for="reglagesSearchInput">Rechercher un réglage (code, intitulé, cadre, consignes)</label>
+        <input class="fr-input" type="search" id="reglagesSearchInput" name="reglagesSearchInput" placeholder="Rechercher un réglage…">
+        <button class="fr-btn" id="reglagesSearchBtn" type="button" title="Rechercher">Rechercher</button>
+      </div>
       <p class="req-count" id="reglagesCount"></p>
     </div>
 
@@ -764,16 +806,8 @@
           <legend class="fr-segmented__legend">Réglages par page</legend>
           <div class="fr-segmented__elements">
             <div class="fr-segmented__element">
-              <input value="donnees" type="radio" id="configSectionRadio_donnees" name="configSection" data-section="donnees" checked>
-              <label class="fr-label" for="configSectionRadio_donnees">Données <span class="fr-badge fr-badge--sm" id="configTabStatus_donnees"></span></label>
-            </div>
-            <div class="fr-segmented__element">
-              <input value="progression" type="radio" id="configSectionRadio_progression" name="configSection" data-section="progression">
-              <label class="fr-label" for="configSectionRadio_progression">Progression <span class="fr-badge fr-badge--sm" id="configTabStatus_progression"></span></label>
-            </div>
-            <div class="fr-segmented__element">
-              <input value="fsj" type="radio" id="configSectionRadio_fsj" name="configSection" data-section="fsj">
-              <label class="fr-label" for="configSectionRadio_fsj">FSJ <span class="fr-badge fr-badge--sm" id="configTabStatus_fsj"></span></label>
+              <input value="general" type="radio" id="configSectionRadio_general" name="configSection" data-section="general" checked>
+              <label class="fr-label" for="configSectionRadio_general">Général</label>
             </div>
             <div class="fr-segmented__element">
               <input value="absences" type="radio" id="configSectionRadio_absences" name="configSection" data-section="absences">
@@ -787,233 +821,112 @@
         </fieldset>
       </div>
 
-      <div id="configSectionDonnees">
-        <h3 class="fr-text--lead config-section-title">Données</h3>
+      <div id="configSectionGeneral">
+        <h3 class="fr-text--lead config-section-title">Général</h3>
         <p class="fr-hint-text fr-mb-2w">
-          Associez chaque rôle utilisé par le widget à l'une des colonnes de la table à laquelle il est relié dans Grist. Heure de début, Heure de fin, Occurrence et Intitulé sont obligatoires ; ce réglage remplace l'association de colonnes du panneau natif de Grist.
+          Réglages de la Progression, des permanences et de la Feuille de service journalier. Cliquez sur une section pour la déplier ; le badge indique son état actuel.
         </p>
 
-        <div class="config-grid-2col">
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Debut">Heure de début</label>
-            <select class="fr-select" id="genCol_Debut" name="genCol_Debut"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Fin">Heure de fin</label>
-            <select class="fr-select" id="genCol_Fin" name="genCol_Fin"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Occurrence">Occurrence (permanences)</label>
-            <select class="fr-select" id="genCol_Occurrence" name="genCol_Occurrence"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Intitule">Intitulé (progression)</label>
-            <select class="fr-select" id="genCol_Intitule" name="genCol_Intitule"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Code">Code <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="genCol_Code" name="genCol_Code"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Lieu">Lieu <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="genCol_Lieu" name="genCol_Lieu"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Encadrement">Encadrement <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="genCol_Encadrement" name="genCol_Encadrement"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Consignes">Consignes <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="genCol_Consignes" name="genCol_Consignes"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Apprenants">Apprenants <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="genCol_Apprenants" name="genCol_Apprenants"></select>
-          </div>
-          <div class="fr-select-group">
-            <label class="fr-label" for="genCol_Type">Type <span class="fr-hint-text">(optionnel)</span></label>
-            <select class="fr-select" id="genCol_Type" name="genCol_Type"></select>
-          </div>
-        </div>
-      </div>
+        <div class="fr-accordions-group">
+          <section class="fr-accordion">
+            <h4 class="fr-accordion__title">
+              <button type="button" class="fr-accordion__btn" aria-expanded="true" aria-controls="accGenProgression">Progression <span class="fr-badge fr-badge--sm" id="configTabStatus_progression"></span></button>
+            </h4>
+            <div class="fr-collapse fr-collapse--expanded" id="accGenProgression">
 
-      <div id="configSectionProgression" hidden>
-        <h3 class="fr-text--lead config-section-title">Progression</h3>
+            <div class="config-grid-2col">
+              <div class="fr-input-group">
+                <label class="fr-label" for="configStartDate">Date de début du stage</label>
+                <input class="fr-input" type="date" id="configStartDate" name="configStartDate">
+                <span class="fr-hint-text">Si cette date est postérieure à aujourd'hui, la vue Progression l'affiche par défaut au lieu d'une semaine vide.</span>
+              </div>
+              <div class="fr-input-group">
+                <label class="fr-label" for="configEndDate">Date de fin du stage</label>
+                <input class="fr-input" type="date" id="configEndDate" name="configEndDate">
+              </div>
+            </div>
 
-        <div class="config-grid-2col">
-          <div class="fr-input-group">
-            <label class="fr-label" for="configStartDate">Date de début du stage</label>
-            <input class="fr-input" type="date" id="configStartDate" name="configStartDate">
-            <span class="fr-hint-text">Si cette date est postérieure à aujourd'hui, la vue Progression l'affiche par défaut au lieu d'une semaine vide.</span>
-          </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="configEndDate">Date de fin du stage</label>
-            <input class="fr-input" type="date" id="configEndDate" name="configEndDate">
-          </div>
-        </div>
+            <div class="fr-checkbox-group fr-mt-2w">
+              <input type="checkbox" id="configPdfEnabled" name="configPdfEnabled" checked>
+              <label class="fr-label" for="configPdfEnabled">
+                Autoriser la génération de la Progression en PDF
+                <span class="fr-hint-text">Décochez pour bloquer temporairement le bouton « Progression en PDF » (le reste du widget continue de fonctionner normalement).</span>
+              </label>
+            </div>
+            </div>
+          </section>
 
-        <div class="fr-checkbox-group fr-mt-2w">
-          <input type="checkbox" id="configPdfEnabled" name="configPdfEnabled" checked>
-          <label class="fr-label" for="configPdfEnabled">
-            Autoriser la génération de la Progression en PDF
-            <span class="fr-hint-text">Décochez pour bloquer temporairement le bouton « Progression en PDF » (le reste du widget continue de fonctionner normalement).</span>
-          </label>
-        </div>
+          <section class="fr-accordion">
+            <h4 class="fr-accordion__title">
+              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accGenPermanences">Permanences</button>
+            </h4>
+            <div class="fr-collapse" id="accGenPermanences">
+            <p class="fr-hint-text fr-mb-2w">
+              Numéro de téléphone de permanence, affiché entre parenthèses après le nom du militaire lors de la création d'une permanence (« Commandement : Identité complète (numéro) »). En l'absence de numéro renseigné ici, le numéro personnel du militaire est repris de la table et de la colonne choisies ci-dessous (le militaire est retrouvé dans cette table par son identifiant s'il s'agit de la table référencée par Encadrement, sinon par son nom).
+            </p>
+            <div class="config-grid-2col">
+              <div class="fr-input-group">
+                <label class="fr-label" for="configPermTel_CDT">Commandement (CDT) <span class="fr-hint-text">(optionnel)</span></label>
+                <input class="fr-input" type="text" id="configPermTel_CDT" name="configPermTel_CDT" placeholder="Ex. : 06 00 00 00 00">
+              </div>
+              <div class="fr-input-group">
+                <label class="fr-label" for="configPermTel_AE">Adjudant d'escadron (AE) <span class="fr-hint-text">(optionnel)</span></label>
+                <input class="fr-input" type="text" id="configPermTel_AE" name="configPermTel_AE">
+              </div>
+              <div class="fr-input-group">
+                <label class="fr-label" for="configPermTel_SAN">Soutien sanitaire (SAN) <span class="fr-hint-text">(optionnel)</span></label>
+                <input class="fr-input" type="text" id="configPermTel_SAN" name="configPermTel_SAN">
+              </div>
+              <div class="fr-input-group">
+                <label class="fr-label" for="configPermTel_SOP">SOP <span class="fr-hint-text">(optionnel)</span></label>
+                <input class="fr-input" type="text" id="configPermTel_SOP" name="configPermTel_SOP">
+              </div>
+            </div>
+            <div class="config-grid-2col">
+              <div class="fr-select-group">
+                <label class="fr-label" for="configPermTelTable">Table des militaires <span class="fr-hint-text">(optionnel — pour le numéro personnel)</span></label>
+                <select class="fr-select" id="configPermTelTable" name="configPermTelTable">
+                  <option value="">— Aucune —</option>
+                </select>
+              </div>
+              <div class="fr-select-group">
+                <label class="fr-label" for="configPermTelColumn">Colonne du numéro personnel <span class="fr-hint-text">(optionnel)</span></label>
+                <select class="fr-select" id="configPermTelColumn" name="configPermTelColumn"></select>
+              </div>
+            </div>
+            </div>
+          </section>
 
-        <h4 class="fr-h6 fr-mt-4w">Permanences</h4>
-        <p class="fr-hint-text fr-mb-2w">
-          Numéro de téléphone de permanence, affiché entre parenthèses après le nom du militaire lors de la création d'une permanence (« Commandement : Identité complète (numéro) »). En l'absence de numéro renseigné ici, le numéro personnel du militaire (colonne « Tél » de la table des cadres) est utilisé.
-        </p>
-        <div class="config-grid-2col">
-          <div class="fr-input-group">
-            <label class="fr-label" for="configPermTel_CDT">Commandement (CDT) <span class="fr-hint-text">(optionnel)</span></label>
-            <input class="fr-input" type="text" id="configPermTel_CDT" name="configPermTel_CDT" placeholder="Ex. : 06 00 00 00 00">
-          </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="configPermTel_AE">Adjudant d'escadron (AE) <span class="fr-hint-text">(optionnel)</span></label>
-            <input class="fr-input" type="text" id="configPermTel_AE" name="configPermTel_AE">
-          </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="configPermTel_SAN">Soutien sanitaire (SAN) <span class="fr-hint-text">(optionnel)</span></label>
-            <input class="fr-input" type="text" id="configPermTel_SAN" name="configPermTel_SAN">
-          </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="configPermTel_SOP">SOP <span class="fr-hint-text">(optionnel)</span></label>
-            <input class="fr-input" type="text" id="configPermTel_SOP" name="configPermTel_SOP">
-          </div>
-        </div>
-        <div class="fr-input-group">
-          <label class="fr-label" for="configPermTelColumn">
-            Colonne du numéro personnel <span class="fr-hint-text">(optionnel — nom ou identifiant de la colonne dans la table des cadres ; détectée automatiquement si elle s'appelle « Tél », « Téléphone », « Portable »…)</span>
-          </label>
-          <input class="fr-input" type="text" id="configPermTelColumn" name="configPermTelColumn" placeholder="Ex. : Tél">
-        </div>
-      </div>
+          <section class="fr-accordion">
+            <h4 class="fr-accordion__title">
+              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accGenFsj">Feuille de service journalier (FSJ) <span class="fr-badge fr-badge--sm" id="configTabStatus_fsj"></span></button>
+            </h4>
+            <div class="fr-collapse" id="accGenFsj">
 
-      <div id="configSectionFsj" hidden>
-
-        <h3 class="fr-text--lead config-section-title">Feuille de service journalier (FSJ)</h3>
-
-        <div class="fr-checkbox-group fr-mt-2w">
-          <input type="checkbox" id="configFsjLimit3Days" name="configFsjLimit3Days" checked>
-          <label class="fr-label" for="configFsjLimit3Days">
-            Interdire la génération de la FSJ au-delà de J+3
-            <span class="fr-hint-text">Le bouton « Générer la FSJ » devient inopérant si la date sélectionnée est postérieure à J+3 (J = aujourd'hui). Les dates passées restent toujours accessibles.</span>
-          </label>
+            <div class="fr-checkbox-group fr-mt-2w">
+              <input type="checkbox" id="configFsjLimit3Days" name="configFsjLimit3Days" checked>
+              <label class="fr-label" for="configFsjLimit3Days">
+                Interdire la génération de la FSJ au-delà de J+3
+                <span class="fr-hint-text">Le bouton « Générer la FSJ » devient inopérant si la date sélectionnée est postérieure à J+3 (J = aujourd'hui). Les dates passées restent toujours accessibles.</span>
+              </label>
+            </div>
+            </div>
+          </section>
         </div>
       </div>
 
       <div id="configSectionAbsences" hidden>
         <h3 class="fr-text--lead config-section-title">Gestion des absences</h3>
         <p class="fr-hint-text fr-mb-2w">
-          Choisissez la table Grist source des demandes d'absence, puis associez chaque rôle à l'une de ses colonnes. Seuls Demandeur, Début, Fin et Décision sont obligatoires. Cliquez sur une section pour la déplier ; le badge indique si elle est déjà configurée.
+          La table (Gestion_des_absences), ses colonnes et les libellés de décision (« En attente », « Validée », « Refusée ») sont fixés dans le widget.
         </p>
 
-        <div class="fr-accordions-group">
-          <section class="fr-accordion">
-            <h4 class="fr-accordion__title">
-              <button type="button" class="fr-accordion__btn" aria-expanded="true" aria-controls="accAbsTableCols">Table et colonnes <span class="fr-badge fr-badge--sm" id="absConfigStatus"></span></button>
-            </h4>
-            <div class="fr-collapse fr-collapse--expanded" id="accAbsTableCols">
-              <div class="fr-select-group">
-                <label class="fr-label" for="absTable">Table source</label>
-                <select class="fr-select" id="absTable" name="absTable">
-                  <option value="">Choisir une table…</option>
-                </select>
-              </div>
-
-              <div class="config-grid-2col">
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_demandeur">Demandeur</label>
-                  <select class="fr-select" id="absCol_demandeur" name="absCol_demandeur"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_decision">Décision</label>
-                  <select class="fr-select" id="absCol_decision" name="absCol_decision"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_dateDebut">Date de début</label>
-                  <select class="fr-select" id="absCol_dateDebut" name="absCol_dateDebut"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_dateFin">Date de fin</label>
-                  <select class="fr-select" id="absCol_dateFin" name="absCol_dateFin"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_motif">Type d'absence <span class="fr-hint-text">(optionnel)</span></label>
-                  <select class="fr-select" id="absCol_motif" name="absCol_motif"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_destination">Destination <span class="fr-hint-text">(optionnel)</span></label>
-                  <select class="fr-select" id="absCol_destination" name="absCol_destination"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_commentaire">Commentaire <span class="fr-hint-text">(optionnel)</span></label>
-                  <select class="fr-select" id="absCol_commentaire" name="absCol_commentaire"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_creeLe">Date de la demande <span class="fr-hint-text">(optionnel)</span></label>
-                  <select class="fr-select" id="absCol_creeLe" name="absCol_creeLe"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_derniereMiseAJour">Date de la décision <span class="fr-hint-text">(optionnel)</span></label>
-                  <select class="fr-select" id="absCol_derniereMiseAJour" name="absCol_derniereMiseAJour"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_droits">Droits (à repos) <span class="fr-hint-text">(optionnel)</span></label>
-                  <select class="fr-select" id="absCol_droits" name="absCol_droits"></select>
-                </div>
-                <div class="fr-select-group">
-                  <label class="fr-label" for="absCol_conflit">Conflit <span class="fr-hint-text">(optionnel, case à cocher)</span></label>
-                  <select class="fr-select" id="absCol_conflit" name="absCol_conflit"></select>
-                </div>
-              </div>
-              <p class="fr-hint-text fr-mt-2w">
-                « Droits (à repos) » : colonne donnant le nombre de jours de repos accordés au demandeur. Si elle est configurée, valider une demande de type « Repos » est bloqué dès lors que le cumul des « Repos » déjà validés pour ce demandeur (celui-ci compris) dépasserait ce quota.
-              </p>
-              <p class="fr-hint-text fr-mt-2w">
-                « Conflit » : colonne Oui/Non (case à cocher), calculée côté document Grist. Si elle est configurée et cochée pour une demande, un badge « Conflit » s'affiche à côté du type d'absence — purement informatif, la validation reste toujours possible.
-              </p>
-            </div>
-          </section>
-
-          <section class="fr-accordion">
-            <h4 class="fr-accordion__title">
-              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accAbsLibelles">Libellés de décision</button>
-            </h4>
-            <div class="fr-collapse" id="accAbsLibelles">
-              <p class="fr-hint-text fr-mb-2w">Valeurs utilisées dans la colonne Décision (laisser vide pour garder la valeur par défaut) :</p>
-              <div class="config-grid-3col">
-                <div class="fr-input-group">
-                  <label class="fr-label" for="absVal_attente">En attente</label>
-                  <input class="fr-input" type="text" id="absVal_attente" name="absVal_attente" placeholder="En attente">
-                </div>
-                <div class="fr-input-group">
-                  <label class="fr-label" for="absVal_validee">Validée</label>
-                  <input class="fr-input" type="text" id="absVal_validee" name="absVal_validee" placeholder="Validée">
-                </div>
-                <div class="fr-input-group">
-                  <label class="fr-label" for="absVal_refusee">Refusée</label>
-                  <input class="fr-input" type="text" id="absVal_refusee" name="absVal_refusee" placeholder="Refusée">
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="fr-accordion">
-            <h4 class="fr-accordion__title">
-              <button type="button" class="fr-accordion__btn" aria-expanded="false" aria-controls="accAbsSignataire">Signataire</button>
-            </h4>
-            <div class="fr-collapse" id="accAbsSignataire">
-              <div class="fr-input-group">
-                <label class="fr-label" for="absSignataire">
-                  Signataire de l'autorisation d'absence
-                  <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « ADJ DELAIT Kary, directrice de stage »).</span>
-                </label>
-                <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : ADJ DELAIT Kary, directrice de stage">
-              </div>
-            </div>
-          </section>
+        <div class="fr-input-group">
+          <label class="fr-label" for="absSignataire">
+            Signataire de l'autorisation d'absence
+            <span class="fr-hint-text">Nom, grade et qualité imprimés sur le PDF « Autorisation d'absence » (ex. : « ADJ DELAIT Kary, directrice de stage »).</span>
+          </label>
+          <input class="fr-input" type="text" id="absSignataire" name="absSignataire" placeholder="Ex. : ADJ DELAIT Kary, directrice de stage">
         </div>
       </div>
 
@@ -1185,7 +1098,11 @@
               <form id="occEditForm">
                 <div id="occGroupCode">
                 <div class="fr-input-group">
-                  <label class="fr-label" for="occEditField_code">Code activité <span class="fr-hint-text">(optionnel)</span></label>
+                  <div class="occ-code-label-row">
+                    <label class="fr-label" for="occEditField_code">Code activité <span class="fr-hint-text">(optionnel)</span></label>
+                    <button type="button" class="fr-btn--tooltip fr-btn" id="occCodeHelpBtn" aria-describedby="occCodeHelpTooltip">Afficher les codes d'activité existants</button>
+                    <span class="fr-tooltip fr-placement" id="occCodeHelpTooltip" role="tooltip"></span>
+                  </div>
                   <input class="fr-input" type="text" id="occEditField_code" name="occEditField_code">
                 </div>
                 </div>
@@ -1377,6 +1294,10 @@
                   <legend class="fr-fieldset__legend fr-text--regular" id="reglageEditCadresFieldset-legend">
                     Cadres désignés <span class="fr-hint-text">(optionnel)</span>
                   </legend>
+                  <div class="reglage-cadres-tools">
+                    <button class="fr-btn fr-btn--tertiary fr-btn--sm" id="reglageCadresAllBtn" type="button">Tout cocher</button>
+                    <button class="fr-btn fr-btn--tertiary fr-btn--sm" id="reglageCadresNoneBtn" type="button">Tout décocher</button>
+                  </div>
                   <div id="reglageEditCadresList" class="occ-checkbox-row"></div>
                 </fieldset>
                 <div class="fr-input-group">
@@ -1491,27 +1412,20 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // radio par élément) plutôt qu'à l'imitation par boutons utilisée pour la
   // bascule Semaine/Jour de la vue Progression.
   var configSectionPanels = {
-    donnees: document.getElementById('configSectionDonnees'),
-    progression: document.getElementById('configSectionProgression'),
-    fsj: document.getElementById('configSectionFsj'),
+    general: document.getElementById('configSectionGeneral'),
     absences: document.getElementById('configSectionAbsences'),
     reglages: document.getElementById('configSectionReglages')
   };
   var configSectionRadios = {
-    donnees: document.getElementById('configSectionRadio_donnees'),
-    progression: document.getElementById('configSectionRadio_progression'),
-    fsj: document.getElementById('configSectionRadio_fsj'),
+    general: document.getElementById('configSectionRadio_general'),
     absences: document.getElementById('configSectionRadio_absences'),
     reglages: document.getElementById('configSectionRadio_reglages')
   };
   var configFsjLimit3Days = document.getElementById('configFsjLimit3Days');
   var configPermTel = {};
   ['CDT', 'AE', 'SAN', 'SOP'].forEach(function (k) { configPermTel[k] = document.getElementById('configPermTel_' + k); });
+  var configPermTelTable = document.getElementById('configPermTelTable');
   var configPermTelColumn = document.getElementById('configPermTelColumn');
-  var genColSelects = {};
-  ['Debut', 'Fin', 'Occurrence', 'Intitule', 'Code', 'Lieu', 'Encadrement', 'Consignes', 'Apprenants', 'Type'].forEach(function (key) {
-    genColSelects[key] = document.getElementById('genCol_' + key);
-  });
 
   // ---- Gestion des absences : page + backoffice de configuration --------
   var panelAbsences = document.getElementById('panelAbsences');
@@ -1574,23 +1488,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   var occEditEncadrementList = document.getElementById('occEditEncadrementList');
   var occEditingRowId = null; // null en création, id de la ligne en édition
 
-  var absTableSelect = document.getElementById('absTable');
-  var absColSelects = {
-    demandeur: document.getElementById('absCol_demandeur'),
-    dateDebut: document.getElementById('absCol_dateDebut'),
-    dateFin: document.getElementById('absCol_dateFin'),
-    motif: document.getElementById('absCol_motif'),
-    destination: document.getElementById('absCol_destination'),
-    decision: document.getElementById('absCol_decision'),
-    commentaire: document.getElementById('absCol_commentaire'),
-    creeLe: document.getElementById('absCol_creeLe'),
-    derniereMiseAJour: document.getElementById('absCol_derniereMiseAJour'),
-    droits: document.getElementById('absCol_droits'),
-    conflit: document.getElementById('absCol_conflit')
-  };
-  var absValAttente = document.getElementById('absVal_attente');
-  var absValValidee = document.getElementById('absVal_validee');
-  var absValRefusee = document.getElementById('absVal_refusee');
   var absSignataire = document.getElementById('absSignataire');
 
   // ---- Page cachée "Réglages des activités" + son backoffice ------------
@@ -1692,16 +1589,13 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     if (!panelProgression.hidden) renderWeekView();
   });
 
-  // ---- Données : mapping de colonnes pour "Génération" (FSJ) et
-  // "Progression" (backoffice) --------------------------------------------
+  // ---- Données : colonnes de la table liée, codées en dur ----------------
   //
-  // Remplace l'association de colonnes qui apparaissait auparavant dans le
-  // panneau natif de Grist (volet de droite) : chaque rôle interne utilisé
-  // par le widget (Debut, Fin, ...) est associé ici à l'une des colonnes
-  // réelles de la table liée, enregistré comme option du widget
-  // (genColumnsConfig) et appliqué manuellement dans grist.onRecords
-  // ci-dessus, sur le même principe que la table des absences.
-
+  // Le widget lit et écrit la table à laquelle il est lié (Progression) via
+  // des noms de colonnes fixes, identiques aux rôles internes ci-dessous :
+  // plus aucune association de colonnes n'est nécessaire dans le
+  // backoffice. Les colonnes de la table Grist doivent donc porter
+  // exactement ces identifiants.
   var GEN_ROLES = [
     { key: 'Debut', label: 'Heure de début', required: true },
     { key: 'Fin', label: 'Heure de fin', required: true },
@@ -1715,23 +1609,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     { key: 'Type', label: 'Type', required: false }
   ];
 
-  function defaultGenColumnsConfig() {
-    var cfg = {};
-    GEN_ROLES.forEach(function (r) { cfg[r.key] = ''; });
-    return cfg;
-  }
-
-  function normalizeGenColumnsConfig(raw) {
-    var cfg = defaultGenColumnsConfig();
-    if (raw && typeof raw === 'object') {
-      GEN_ROLES.forEach(function (r) {
-        if (typeof raw[r.key] === 'string') cfg[r.key] = raw[r.key];
-      });
-    }
-    return cfg;
-  }
-
-  var genColumnsConfig = defaultGenColumnsConfig();
+  var genColumnsConfig = {};
+  GEN_ROLES.forEach(function (r) { genColumnsConfig[r.key] = r.key; });
 
   // Valeurs possibles de la colonne "Encadrement" de la table liée au
   // widget (Liste de choix ou de références) : chargées une fois par
@@ -1757,7 +1636,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // Repli si l'API ne donne pas l'identifiant de la table liée : on le
   // déduit des métadonnées — tables possédant toutes les colonnes associées
-  // dans l'onglet "Données" du backoffice (hors tables des absences et des
+  // parmi les colonnes fixes (voir GEN_ROLES) (hors tables des absences et des
   // réglages) ; en cas d'ambiguïté, on retient celle qui contient toutes
   // les lignes actuellement reçues par le widget.
   function findLinkedTableIdByColumns() {
@@ -1808,7 +1687,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     selectedTableIdPromise().then(function (tableId) {
       return tableId || findLinkedTableIdByColumns();
     }).then(function (tableId) {
-      return loadColumnChoicesInfo(tableId, col, permanencesConfig.telColumn);
+      return loadColumnChoicesInfo(tableId, col);
     }).then(function (info) {
       if (encadrementInfoCol !== key || !info) return;
       encadrementInfo = info;
@@ -1820,10 +1699,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     });
   }
   var genAvailableColumns = []; // colonnes réelles vues dans les derniers enregistrements reçus
-
-  function isGenColumnsConfigComplete(cfg) {
-    return GEN_ROLES.every(function (r) { return !r.required || !!cfg[r.key]; });
-  }
 
   // Applique le mapping rôle → colonne à des lignes brutes (telles que
   // reçues de grist.onRecords) pour reconstruire des objets avec les noms
@@ -1869,11 +1744,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // permanence — voir savePermanence.
   var PERMANENCE_TEL_KEYS = ['CDT', 'AE', 'SAN', 'SOP'];
   function normalizePermanencesConfig(raw) {
-    var cfg = { tel: { CDT: '', AE: '', SAN: '', SOP: '' }, telColumn: '' };
+    var cfg = { tel: { CDT: '', AE: '', SAN: '', SOP: '' }, telTable: '', telColumn: '' };
     if (raw && typeof raw === 'object') {
       if (raw.tel && typeof raw.tel === 'object') {
         PERMANENCE_TEL_KEYS.forEach(function (k) { if (typeof raw.tel[k] === 'string') cfg.tel[k] = raw.tel[k].trim(); });
       }
+      if (typeof raw.telTable === 'string') cfg.telTable = raw.telTable.trim();
       if (typeof raw.telColumn === 'string') cfg.telColumn = raw.telColumn.trim();
     }
     return cfg;
@@ -1881,7 +1757,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function permanencesConfigFromForm() {
     var cfg = normalizePermanencesConfig(null);
     PERMANENCE_TEL_KEYS.forEach(function (k) { cfg.tel[k] = configPermTel[k].value.trim(); });
-    cfg.telColumn = configPermTelColumn.value.trim();
+    cfg.telTable = configPermTelTable.value;
+    cfg.telColumn = cfg.telTable ? configPermTelColumn.value : '';
     return cfg;
   }
   var permanencesConfig = normalizePermanencesConfig(null);
@@ -1940,49 +1817,57 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return motif;
   }
 
+  // Table et colonnes des demandes d'absence : codées en dur (plus
+  // d'association dans le backoffice). "creeLe"/"derniereMiseAJour" :
+  // dates de la demande et de la décision, imprimées sur le PDF
+  // « Autorisation d'absence ». "droits" : droits à repos du demandeur
+  // (nombre de jours), utilisés pour bloquer la validation d'une demande de
+  // type "Repos" qui ferait dépasser ce quota (voir renderAbsencesList /
+  // reposDaysForRow). "demandeur" est la colonne d'affichage du militaire
+  // (texte) ; la colonne Référence servant à l'écriture est détectée
+  // automatiquement (voir findAbsMilitaireRefColumn).
+  var ABS_TABLE = 'Gestion_des_absences';
+  var ABS_COLUMNS = {
+    demandeur: 'Militaire_affiche',
+    decision: 'Decision',
+    dateDebut: 'Date_de_debut',
+    dateFin: 'Date_de_fin',
+    motif: 'Type_de_demande',
+    destination: 'Adresse',
+    commentaire: 'Observations',
+    creeLe: 'Cree_le',
+    derniereMiseAJour: 'Derniere_mise_a_jour',
+    droits: 'Droits_repos',
+    conflit: 'Conflit'
+  };
+
   function defaultAbsencesConfig() {
+    var col = {};
+    ABS_ROLES.forEach(function (role) { col[role] = ABS_COLUMNS[role] || ''; });
     return {
-      table: '',
-      // "creeLe"/"derniereMiseAJour" : colonnes optionnelles donnant la date
-      // de la demande et la date de la décision, imprimées sur le PDF
-      // « Autorisation d'absence » (voir renderAbsenceAuthorizationPdfContent).
-      // "droits" : colonne optionnelle donnant les droits à repos du
-      // demandeur (nombre de jours), utilisée pour bloquer la validation
-      // d'une demande de type "Repos" qui ferait dépasser ce quota (voir
-      // renderAbsencesList / reposDaysForRow).
-      col: { demandeur: '', dateDebut: '', dateFin: '', motif: '', destination: '', decision: '', commentaire: '', creeLe: '', derniereMiseAJour: '', droits: '', conflit: '' },
+      table: ABS_TABLE,
+      col: col,
+      // Libellés de la colonne Décision : codés en dur.
       valeurs: { attente: 'En attente', validee: 'Validée', refusee: 'Refusée' },
       signataire: ''
     };
   }
 
-  // Reconstruit une config sûre à partir de ce qui a pu être enregistré
-  // (défensif : une option Grist peut être absente, incomplète, ou d'un
-  // format ancien).
+  // Reconstruit une config sûre à partir de ce qui a pu être enregistré :
+  // seul le signataire est configurable (une éventuelle ancienne table,
+  // association de colonnes ou libellé de décision enregistré est ignoré).
   function normalizeAbsencesConfig(raw) {
     var cfg = defaultAbsencesConfig();
     if (raw && typeof raw === 'object') {
-      if (typeof raw.table === 'string') cfg.table = raw.table;
-      if (raw.col && typeof raw.col === 'object') {
-        ABS_ROLES.forEach(function (role) {
-          if (typeof raw.col[role] === 'string') cfg.col[role] = raw.col[role];
-        });
-      }
-      if (raw.valeurs && typeof raw.valeurs === 'object') {
-        if (raw.valeurs.attente) cfg.valeurs.attente = String(raw.valeurs.attente);
-        if (raw.valeurs.validee) cfg.valeurs.validee = String(raw.valeurs.validee);
-        if (raw.valeurs.refusee) cfg.valeurs.refusee = String(raw.valeurs.refusee);
-      }
       if (typeof raw.signataire === 'string') cfg.signataire = raw.signataire;
     }
     return cfg;
   }
 
   var absencesConfig = defaultAbsencesConfig();
-  var absAllTableIds = [];
 
   function isAbsencesConfigComplete(cfg) {
-    return !!(cfg.table && cfg.col.demandeur && cfg.col.dateDebut && cfg.col.dateFin && cfg.col.decision);
+    return !!(cfg.table && cfg.col.demandeur && cfg.col.dateDebut && cfg.col.dateFin && cfg.col.decision); // toujours vrai : table et colonnes en dur
   }
 
   // ---- Table du catalogue "Réglages des activités" (page cachée) --------
@@ -2033,60 +1918,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     select.value = values.indexOf(selectedValue) !== -1 ? selectedValue : '';
   }
 
-  // Liste les tables du document (nécessite l'accès "full") pour peupler
-  // le sélecteur de table source, puis déclenche le listing des colonnes
-  // si une table est déjà choisie.
-  function refreshAbsencesTableList() {
-    if (!(grist.docApi && grist.docApi.listTables)) return;
-    grist.docApi.listTables().then(function (tables) {
-      absAllTableIds = tables || [];
-      fillSelectWithOptions(absTableSelect, absAllTableIds, absencesConfig.table, 'Choisir une table…');
-      if (absTableSelect.value) refreshAbsencesColumnLists(absTableSelect.value);
-      else {
-        ABS_ROLES.forEach(function (role) { fillSelectWithOptions(absColSelects[role], [], '', 'Choisir une colonne…'); });
-        updateAbsencesTabBadge();
-      }
-    }).catch(function (e) {
-      showConfigStatus('error', 'Impossible de lister les tables du document : ' + friendlyErrorMessage(e));
-    });
-  }
-
-  // Liste les colonnes d'une table (via une lecture de son contenu : la
-  // Plugin API Grist n'expose pas de "lister les colonnes" indépendant)
-  // pour peupler les 7 sélecteurs de rôle.
-  function refreshAbsencesColumnLists(tableId) {
-    if (!tableId) return;
-    grist.docApi.fetchTable(tableId).then(function (data) {
-      var cols = Object.keys(data || {}).filter(function (c) { return c !== 'id' && c !== 'manualSort'; });
-      ABS_ROLES.forEach(function (role) {
-        fillSelectWithOptions(absColSelects[role], cols, absencesConfig.col[role], 'Choisir une colonne…');
-      });
-      updateAbsencesTabBadge();
-    }).catch(function (e) {
-      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
-    });
-  }
-
-  absTableSelect.addEventListener('change', function () { refreshAbsencesColumnLists(absTableSelect.value); });
-
-  // Peuple les 10 sélecteurs de colonnes "Données" avec les colonnes vues
-  // dans les derniers enregistrements chargés, en présélectionnant le
-  // mapping déjà enregistré.
-  function fillGenColumnsSettingsForm() {
-    GEN_ROLES.forEach(function (role) {
-      var placeholder = role.required ? 'Choisir une colonne…' : '— Aucune —';
-      fillSelectWithOptions(genColSelects[role.key], genAvailableColumns, genColumnsConfig[role.key], placeholder);
-    });
-  }
-
-  function genColumnsConfigFromForm() {
-    var cfg = defaultGenColumnsConfig();
-    GEN_ROLES.forEach(function (role) { cfg[role.key] = genColSelects[role.key].value; });
-    return cfg;
-  }
-
   // Contrôle segmenté du backoffice : une section visible à la fois.
-  var configActiveSection = 'donnees';
+  var configActiveSection = 'general';
 
   function setConfigSection(section) {
     if (!configSectionPanels[section]) return;
@@ -2102,23 +1935,43 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   });
 
   function fillAbsencesSettingsForm() {
-    absValAttente.value = absencesConfig.valeurs.attente;
-    absValValidee.value = absencesConfig.valeurs.validee;
-    absValRefusee.value = absencesConfig.valeurs.refusee;
     absSignataire.value = absencesConfig.signataire;
-    refreshAbsencesTableList(); // pré-sélectionne aussi la table et les colonnes déjà enregistrées
   }
 
   function absencesConfigFromForm() {
     var cfg = defaultAbsencesConfig();
-    cfg.table = absTableSelect.value;
-    ABS_ROLES.forEach(function (role) { cfg.col[role] = absColSelects[role].value; });
-    cfg.valeurs.attente = absValAttente.value.trim() || 'En attente';
-    cfg.valeurs.validee = absValValidee.value.trim() || 'Validée';
-    cfg.valeurs.refusee = absValRefusee.value.trim() || 'Refusée';
     cfg.signataire = absSignataire.value.trim();
     return cfg;
   }
+
+  // ---- Backoffice "Permanences" : table + colonne du numéro personnel ----
+  //
+  // Même principe que les blocs Absences/Réglages : liste des tables du
+  // document, puis colonnes de la table choisie.
+  function refreshPermTelTableList() {
+    if (!(grist.docApi && grist.docApi.listTables)) return;
+    grist.docApi.listTables().then(function (tables) {
+      fillSelectWithOptions(configPermTelTable, tables || [], permanencesConfig.telTable, '— Aucune —');
+      refreshPermTelColumnList(configPermTelTable.value, permanencesConfig.telColumn);
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lister les tables du document : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  function refreshPermTelColumnList(tableId, selected) {
+    if (!tableId) {
+      fillSelectWithOptions(configPermTelColumn, [], '', '— Aucune —');
+      return;
+    }
+    grist.docApi.fetchTable(tableId).then(function (data) {
+      var cols = Object.keys(data || {}).filter(function (c) { return c !== 'id' && c !== 'manualSort'; });
+      fillSelectWithOptions(configPermTelColumn, cols, selected || '', 'Choisir une colonne…');
+    }).catch(function (e) {
+      showConfigStatus('error', 'Impossible de lire les colonnes de cette table : ' + friendlyErrorMessage(e));
+    });
+  }
+
+  configPermTelTable.addEventListener('change', function () { refreshPermTelColumnList(configPermTelTable.value, ''); });
 
   // ---- Backoffice "Réglages des activités" : même principe (table +
   // colonnes) que le bloc Absences ci-dessus. ------------------------------
@@ -2166,7 +2019,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
 
   // Badges d'état du backoffice (un par onglet du contrôle segmenté, plus
-  // un dans l'intitulé de l'accordéon "Table et colonnes" d'Absences) :
+  // un dans le badge de l'onglet Absences) :
   // même principe que le widget Réservations — peignent l'état ACTUEL du
   // formulaire (pas encore enregistré), recalculés à la moindre
   // modification (voir l'écouteur "change" délégué sur configForm plus
@@ -2178,10 +2031,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     el.textContent = text;
     el.className = 'fr-badge fr-badge--sm' + (variant ? ' fr-badge--' + variant : '');
   }
-  function updateDonneesTabBadge() {
-    var complete = isGenColumnsConfigComplete(genColumnsConfigFromForm());
-    paintConfigBadge(document.getElementById('configTabStatus_donnees'), complete ? 'Configurées' : 'À compléter', complete ? 'success' : 'warning');
-  }
   function updateProgressionTabBadge() {
     var enabled = configPdfEnabled.checked;
     paintConfigBadge(document.getElementById('configTabStatus_progression'), enabled ? 'PDF activé' : 'PDF désactivé', enabled ? 'success' : 'warning');
@@ -2191,11 +2040,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     paintConfigBadge(document.getElementById('configTabStatus_fsj'), limited ? 'Limitée à J+3' : 'Sans limite');
   }
   function updateAbsencesTabBadge() {
-    var complete = isAbsencesConfigComplete(absencesConfigFromForm());
-    var text = complete ? 'Configurées' : 'À compléter';
-    var variant = complete ? 'success' : 'warning';
-    paintConfigBadge(document.getElementById('configTabStatus_absences'), text, variant);
-    paintConfigBadge(document.getElementById('absConfigStatus'), text, variant);
+    var hasSignataire = !!absSignataire.value.trim();
+    paintConfigBadge(document.getElementById('configTabStatus_absences'), hasSignataire ? 'Signataire renseigné' : 'Signataire à renseigner', hasSignataire ? 'success' : 'warning');
   }
   function updateReglagesTabBadge() {
     var complete = isReglagesConfigComplete(reglagesConfigFromForm());
@@ -2205,7 +2051,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     paintConfigBadge(document.getElementById('reglagesConfigStatus'), text, variant);
   }
   function updateAllConfigTabBadges() {
-    updateDonneesTabBadge();
     updateProgressionTabBadge();
     updateFsjTabBadge();
     updateAbsencesTabBadge();
@@ -2233,13 +2078,12 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     panelConfig.hidden = false;
     configStatusZone.innerHTML = '';
     setConfigSection(configActiveSection);
-    fillGenColumnsSettingsForm();
     configStartDate.value = toInputDateValue(PROGRESSION_PDF_START);
     configEndDate.value = toInputDateValue(PROGRESSION_PDF_END);
     configPdfEnabled.checked = progressionPdfEnabled;
     configFsjLimit3Days.checked = fsjLimit3Days;
     PERMANENCE_TEL_KEYS.forEach(function (k) { configPermTel[k].value = permanencesConfig.tel[k]; });
-    configPermTelColumn.value = permanencesConfig.telColumn;
+    refreshPermTelTableList(); // pré-sélectionne aussi la table et la colonne déjà enregistrées
     fillAbsencesSettingsForm();
     fillReglagesSettingsForm();
     updateAllConfigTabBadges();
@@ -2265,7 +2109,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     var fsjLimit = configFsjLimit3Days.checked;
     var newPermCfg = permanencesConfigFromForm();
     var newAbsCfg = absencesConfigFromForm();
-    var newGenCfg = genColumnsConfigFromForm();
     var newReglagesCfg = reglagesConfigFromForm();
 
     PROGRESSION_PDF_START = start;
@@ -2274,10 +2117,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     applyProgressionPdfEnabledState();
     fsjLimit3Days = fsjLimit;
     applyFsjDateLimit();
-    if (newPermCfg.telColumn !== permanencesConfig.telColumn) encadrementInfoCol = null; // recharge les numéros personnels
     permanencesConfig = newPermCfg;
     absencesConfig = newAbsCfg;
-    genColumnsConfig = newGenCfg;
     refreshEncadrementInfo();
     reglagesConfig = newReglagesCfg;
     // Ré-applique immédiatement le nouveau mapping de colonnes aux
@@ -2298,10 +2139,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       grist.setOption('fsjLimit3Days', fsjLimit),
       grist.setOption('permanencesConfig', newPermCfg),
       grist.setOption('absencesConfig', newAbsCfg),
-      grist.setOption('genColumnsConfig', newGenCfg),
       grist.setOption('reglagesConfig', newReglagesCfg)
     ]).then(function () {
-      showConfigStatus('success', 'Paramètres enregistrés : données ' + (isGenColumnsConfigComplete(newGenCfg) ? 'configurées' : 'à compléter') + ', période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', FSJ ' + (fsjLimit ? 'limitée aux 3 prochains jours' : 'sans limite de date') + ', absences ' + (isAbsencesConfigComplete(newAbsCfg) ? 'configurées' : 'à finaliser') + ', réglages des activités ' + (isReglagesConfigComplete(newReglagesCfg) ? 'configurés' : 'à finaliser') + '.');
+      showConfigStatus('success', 'Paramètres enregistrés : période du ' + fmtDayTitle(start) + ' au ' + fmtDayTitle(end) + ', génération PDF ' + (enabled ? 'autorisée' : 'désactivée') + ', FSJ ' + (fsjLimit ? 'limitée aux 3 prochains jours' : 'sans limite de date') + ', absences ' + (isAbsencesConfigComplete(newAbsCfg) ? 'configurées' : 'à finaliser') + ', réglages des activités ' + (isReglagesConfigComplete(newReglagesCfg) ? 'configurés' : 'à finaliser') + '.');
     }).catch(function (e) {
       showConfigStatus('error', 'Enregistrement impossible : ' + friendlyErrorMessage(e));
     });
@@ -2343,12 +2183,9 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     applyProgressionPdfEnabledState();
 
     fsjLimit3Days = (opts.fsjLimit3Days !== false);
-    var loadedPermCfg = normalizePermanencesConfig(opts.permanencesConfig);
-    if (loadedPermCfg.telColumn !== permanencesConfig.telColumn) encadrementInfoCol = null;
-    permanencesConfig = loadedPermCfg;
+    permanencesConfig = normalizePermanencesConfig(opts.permanencesConfig);
     applyFsjDateLimit();
 
-    genColumnsConfig = normalizeGenColumnsConfig(opts.genColumnsConfig);
     refreshEncadrementInfo();
     // Ré-applique le mapping de colonnes si des lignes ont déjà été
     // reçues (l'ordre d'arrivée de onOptions et onRecords n'est pas
@@ -2427,9 +2264,37 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // { table, labels, options } ou null (colonne non-Référence, ou toute
   // erreur — dans ce cas le comportement historique est conservé).
   function loadDemandeurRefInfo(cfg) {
-    return loadColumnChoicesInfo(cfg.table, cfg.col.demandeur).then(function (info) {
-      return (info && info.kind === 'ref') ? info : null;
+    return findAbsMilitaireRefColumn(cfg.table).then(function (refCol) {
+      if (!refCol) return null;
+      return loadColumnChoicesInfo(cfg.table, refCol).then(function (info) {
+        if (!info || info.kind !== 'ref') return null;
+        info.column = refCol;
+        return info;
+      });
     });
+  }
+
+  // Colonne "Référence" du militaire dans la table des absences : la
+  // colonne Militaire_affiche (fixée ci-dessus) n'est qu'un texte d'affichage
+  // (souvent une formule, donc non modifiable) ; c'est la colonne Référence
+  // qui doit être lue et écrite. On retient celle nommée "Militaire", à
+  // défaut l'unique colonne Référence de la table. null si introuvable.
+  function findAbsMilitaireRefColumn(tableId) {
+    return Promise.all([
+      grist.docApi.fetchTable('_grist_Tables'),
+      grist.docApi.fetchTable('_grist_Tables_column')
+    ]).then(function (res) {
+      var tables = columnarToRows(res[0]);
+      var cols = columnarToRows(res[1]);
+      var tableRow = tables.filter(function (t) { return t.tableId === tableId; })[0];
+      if (!tableRow) return null;
+      var refs = cols.filter(function (c) {
+        return c.parentId === tableRow.id && typeof c.type === 'string' && c.type.indexOf('Ref:') === 0;
+      });
+      var named = refs.filter(function (c) { return normalizeNameKey(c.colId) === 'MILITAIRE'; })[0];
+      if (named) return named.colId;
+      return refs.length === 1 ? refs[0].colId : null;
+    }).catch(function () { return null; });
   }
 
   // Version générique : décrit les valeurs possibles d'une colonne
@@ -2445,7 +2310,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   // ou null si la colonne est d'un autre type, introuvable, ou si les
   // métadonnées n'ont pas pu être lues (le comportement historique — liste
   // des valeurs déjà vues — prend alors le relais chez l'appelant).
-  function loadColumnChoicesInfo(tableId, colId, phoneColHint) {
+  function loadColumnChoicesInfo(tableId, colId) {
     if (!tableId || !colId) return Promise.resolve(null);
     return Promise.all([
       grist.docApi.fetchTable('_grist_Tables'),
@@ -2477,40 +2342,17 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       var refTableId = col.type.slice(refPrefix.length);
       var visible = col.visibleCol ? cols.filter(function (c) { return c.id === col.visibleCol; })[0] : null;
       var labelColId = visible ? visible.colId : null;
-      // Colonne du numéro de téléphone personnel dans la table référencée :
-      // celle désignée dans le backoffice (nom ou identifiant), sinon
-      // détectée par son nom ("Tél", "Téléphone", "Portable"…). Grist
-      // transforme "Tél" en identifiant "T_l" : on teste donc aussi le libellé.
-      var refTableRow = tables.filter(function (t) { return t.tableId === refTableId; })[0];
-      var refCols = refTableRow ? cols.filter(function (c) { return c.parentId === refTableRow.id; }) : [];
-      var phoneColId = null;
-      var hint = normalizeNameKey(phoneColHint || '');
-      if (hint) {
-        var hinted = refCols.filter(function (c) { return normalizeNameKey(c.colId) === hint || normalizeNameKey(c.label) === hint; })[0];
-        if (hinted) phoneColId = hinted.colId;
-      }
-      if (!phoneColId) {
-        var phoneRe = /^(TEL|T_L|TELEPHONE|PORTABLE|MOBILE|GSM)/;
-        var candidates = refCols.filter(function (c) {
-          return phoneRe.test(normalizeNameKey(c.label)) || phoneRe.test(normalizeNameKey(c.colId));
-        });
-        var exact = candidates.filter(function (c) { return normalizeNameKey(c.label) === 'TEL'; })[0];
-        var pick = exact || candidates[0];
-        if (pick) phoneColId = pick.colId;
-      }
       return grist.docApi.fetchTable(refTableId).then(function (refTable) {
         var labels = {};
-        var phones = {};
         var options = [];
         columnarToRows(refTable).forEach(function (r) {
           var label = labelColId ? textOf(r[labelColId]) : '';
           if (!label) label = '#' + r.id;
           labels[r.id] = label;
-          if (phoneColId) phones[r.id] = textOf(r[phoneColId]);
           options.push({ id: r.id, value: String(r.id), label: label });
         });
         options.sort(function (a, b) { return a.label.localeCompare(b.label, 'fr'); });
-        return { kind: refPrefix === 'Ref:' ? 'ref' : 'reflist', table: refTableId, options: options, labels: labels, phones: phones };
+        return { kind: refPrefix === 'Ref:' ? 'ref' : 'reflist', table: refTableId, options: options, labels: labels };
       });
     }).catch(function (e) {
       if (window.console && console.warn) console.warn('Chargement des valeurs possibles de la colonne ' + colId + ' impossible :', e);
@@ -2580,8 +2422,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       absData = columnarToRows(table).map(function (r) {
         return {
           id: r.id,
-          demandeur: resolveDemandeurDisplay(r[cfg.col.demandeur]),
-          demandeurRaw: r[cfg.col.demandeur],
+          demandeur: resolveDemandeurDisplay(r[cfg.col.demandeur]) || ((absDemandeurRef && typeof r[absDemandeurRef.column] === 'number') ? (absDemandeurRef.labels[r[absDemandeurRef.column]] || '') : ''),
+          demandeurRaw: r[(absDemandeurRef && absDemandeurRef.column) || cfg.col.demandeur],
           dateDebut: r[cfg.col.dateDebut],
           dateFin: r[cfg.col.dateFin],
           motif: cfg.col.motif ? textOf(r[cfg.col.motif]) : '',
@@ -3079,7 +2921,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     var patch = {};
     // Colonne Référence : on écrit l'identifiant de la ligne choisie, pas son nom.
-    patch[cfg.col.demandeur] = absDemandeurRef ? Number(demandeur) : demandeur;
+    if (absDemandeurRef) patch[absDemandeurRef.column] = Number(demandeur);
+    else patch[cfg.col.demandeur] = demandeur;
     patch[cfg.col.dateDebut] = Math.round(debut.getTime() / 1000);
     patch[cfg.col.dateFin] = Math.round(fin.getTime() / 1000);
     if (cfg.col.motif) patch[cfg.col.motif] = absEditFields.motif.value.trim();
@@ -3443,29 +3286,53 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       renderAlert(occEditStatusZone, 'error', 'Merci de choisir la permanence, sa date et le militaire.');
       return;
     }
-    if (!cfg.Code) {
-      renderAlert(occEditStatusZone, 'error', 'La colonne Code n\'est pas associée dans les paramètres (onglet Données) : impossible de créer une permanence.');
-      return;
-    }
     var typeLabelEl = document.querySelector('label[for="' + typeInput.id + '"]');
     var typeLabel = typeLabelEl ? typeLabelEl.textContent.trim() : typeInput.value;
     var militaireLabel = occPermMilitaire.options[occPermMilitaire.selectedIndex].textContent;
     // Numéro : celui de la permanence (backoffice) ; à défaut, le numéro
-    // personnel du militaire (colonne "Tél" de la table des cadres).
-    var tel = permanencesConfig.tel[typeInput.value] || '';
-    if (!tel && encadrementInfo && encadrementInfo.phones) tel = encadrementInfo.phones[militaireValue] || '';
-    var text = typeLabel + ' : ' + militaireLabel + (tel ? ' (' + tel + ')' : '');
-    var debut = new Date(day.getFullYear(), day.getMonth(), day.getDate(), OCC_PERMANENCE_START_HOUR, OCC_PERMANENCE_START_MINUTE);
+    // personnel du militaire (table et colonne choisies dans le backoffice).
+    var configuredTel = permanencesConfig.tel[typeInput.value] || '';
+    occEditSaveBtn.disabled = true;
+    var telPromise = configuredTel ? Promise.resolve(configuredTel) : lookupPersonalPhone(militaireValue, militaireLabel);
+    telPromise.then(function (tel) {
+      occEditSaveBtn.disabled = false;
+      var text = typeLabel + ' : ' + militaireLabel + (tel ? ' (' + tel + ')' : '');
+      // Comme pour les permanences existantes : le texte affiché en FSJ est la
+      // colonne Occurrence, le cadre qui l'assure est porté par Encadrement.
+      var patch = {};
+      patch[cfg.Code] = typeInput.value;
+      patch[cfg.Debut] = Math.round(debut.getTime() / 1000);
+      if (cfg.Occurrence) patch[cfg.Occurrence] = text;
+      patch[cfg.Intitule] = text;
+      if (cfg.Encadrement) patch[cfg.Encadrement] = encodeListForWrite([militaireValue], encadrementInfo);
+      submitNewOccurrenceRows([patch], debut);
+    });
+  }
 
-    // Comme pour les permanences existantes : le texte affiché en FSJ est la
-    // colonne Occurrence, le cadre qui l'assure est porté par Encadrement.
-    var patch = {};
-    patch[cfg.Code] = typeInput.value;
-    patch[cfg.Debut] = Math.round(debut.getTime() / 1000);
-    if (cfg.Occurrence) patch[cfg.Occurrence] = text;
-    patch[cfg.Intitule] = text;
-    if (cfg.Encadrement) patch[cfg.Encadrement] = encodeListForWrite([militaireValue], encadrementInfo);
-    submitNewOccurrenceRows([patch], debut);
+  // Numéro personnel d'un militaire : cherché dans la table et la colonne
+  // choisies dans le backoffice. Le militaire est retrouvé par son
+  // identifiant de ligne si cette table est celle que référence Encadrement,
+  // sinon par son nom (égal à l'une des valeurs texte de la ligne, casse et
+  // accents ignorés). Retourne une promesse résolue avec le numéro, ou ''.
+  function lookupPersonalPhone(militaireValue, militaireLabel) {
+    var cfg = permanencesConfig;
+    if (!cfg.telTable || !cfg.telColumn) return Promise.resolve('');
+    return grist.docApi.fetchTable(cfg.telTable).then(function (table) {
+      var rows = columnarToRows(table);
+      var row = null;
+      if (encadrementInfo && encadrementInfo.table === cfg.telTable && /^\d+$/.test(militaireValue)) {
+        row = rows.filter(function (r) { return r.id === Number(militaireValue); })[0] || null;
+      }
+      if (!row) {
+        var key = normalizeNameKey(militaireLabel);
+        row = rows.filter(function (r) {
+          return Object.keys(r).some(function (k) {
+            return k !== 'id' && typeof r[k] === 'string' && normalizeNameKey(r[k]) === key;
+          });
+        })[0] || null;
+      }
+      return row ? textOf(row[cfg.telColumn]) : '';
+    }).catch(function () { return ''; });
   }
 
   function openOccEditForm(rowId) {
@@ -3496,9 +3363,11 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       occEditDeleteBtn.hidden = !row;
 
       fillPermMilitaireSelect();
+      updateCodeHelpTooltip();
       occLastCodeProcessed = row ? textOf(row.Code) : '';
       occAuto = { intitule: '', consignes: '', cadres: [] };
       loadReglagesCatalog().then(function () {
+        updateCodeHelpTooltip();
         // Colonne Encadrement sans valeurs possibles connues : on complète la
         // liste avec les cadres du catalogue, en conservant les cases cochées.
         if (!encadrementInfo) {
@@ -3709,6 +3578,37 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
     return ka === kb;
   }
 
+  // Contenu de l'info-bulle d'aide du champ "Code activité" : les codes du
+  // catalogue "Réglages des activités" (avec leur intitulé), complétés des
+  // codes déjà utilisés par des occurrences mais absents du catalogue.
+  function updateCodeHelpTooltip() {
+    var tooltip = document.getElementById('occCodeHelpTooltip');
+    if (!tooltip) return;
+    var seen = {};
+    var items = [];
+    reglagesCatalog.forEach(function (e) {
+      var k = normalizeNameKey(e.code);
+      if (!k || seen[k]) return;
+      seen[k] = true;
+      items.push({ code: e.code, intitule: e.intitule });
+    });
+    allRecords.forEach(function (r) {
+      codesOf(r.Code).forEach(function (c) {
+        var code = String(c).trim();
+        var k = normalizeNameKey(code);
+        if (!k || seen[k]) return;
+        seen[k] = true;
+        items.push({ code: code, intitule: '' });
+      });
+    });
+    items.sort(function (a, b) { return a.code.localeCompare(b.code, 'fr', { numeric: true }); });
+    tooltip.innerHTML = items.length
+      ? '<strong>Codes existants</strong><ul class="code-help-list">' + items.map(function (it) {
+          return '<li><strong>' + escapeHtml(it.code) + '</strong>' + (it.intitule ? ' — ' + escapeHtml(it.intitule) : '') + '</li>';
+        }).join('') + '</ul>'
+      : 'Aucun code n\'existe pour l\'instant.';
+  }
+
   function applyCatalogFromCode() {
     var code = occEditFields.code.value;
     var entry = catalogEntryFor(code);
@@ -3833,7 +3733,6 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
           consignes: cfg.col.consignes ? textOf(r[cfg.col.consignes]) : ''
         };
       });
-      reglagesData.sort(function (a, b) { return a.code.localeCompare(b.code, 'fr') || a.intitule.localeCompare(b.intitule, 'fr'); });
       renderReglagesList();
     }).catch(function (e) {
       reglagesCount.textContent = '';
@@ -3843,30 +3742,83 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // Tableau (écran large) / cartes (mobile), même bascule CSS que la page
   // Absences (.req-table-view/.req-cards-view).
+  // Recherche (code, intitulé, cadres, consignes) et tri (clic sur un
+  // en-tête) de la liste : simples filtres d'affichage, sans nouvel
+  // appel à Grist.
+  var reglagesSearchInput = document.getElementById('reglagesSearchInput');
+  var reglagesSearchBtn = document.getElementById('reglagesSearchBtn');
+  var reglagesSearchQuery = '';
+  var reglagesSort = { key: 'code', dir: 1 };
+  var REGLAGES_SORT_LABELS = { code: 'Code activité', numero: 'Numéro', duree: 'Durée', intitule: 'Intitulé' };
+
+  function reglageMatchesSearch(r, queryNorm) {
+    if (!queryNorm) return true;
+    var haystack = [r.code, r.numero, r.duree, r.intitule, r.cadresDesignes.join(' '), r.consignes].map(normalizeNameKey).join(' | ');
+    return haystack.indexOf(queryNorm) !== -1;
+  }
+
+  function sortedFilteredReglages() {
+    var queryNorm = normalizeNameKey(reglagesSearchQuery);
+    var key = reglagesSort.key;
+    var dir = reglagesSort.dir;
+    return reglagesData.filter(function (r) { return reglageMatchesSearch(r, queryNorm); }).sort(function (a, b) {
+      // numeric: "2" avant "10" pour Numéro/Durée ; à égalité, tri par code puis intitulé.
+      var cmp = String(a[key]).localeCompare(String(b[key]), 'fr', { numeric: true, sensitivity: 'base' });
+      if (cmp) return cmp * dir;
+      return a.code.localeCompare(b.code, 'fr', { numeric: true }) || a.intitule.localeCompare(b.intitule, 'fr');
+    });
+  }
+
+  reglagesSearchInput.addEventListener('input', function () {
+    reglagesSearchQuery = reglagesSearchInput.value;
+    if (!panelReglages.hidden) renderReglagesList();
+  });
+  reglagesSearchBtn.addEventListener('click', function () {
+    reglagesSearchQuery = reglagesSearchInput.value;
+    if (!panelReglages.hidden) renderReglagesList();
+  });
+
+  // Tableau (écran large) / cartes (mobile), même bascule CSS que la page
+  // Absences (.req-table-view/.req-cards-view).
   function renderReglagesList() {
-    reglagesCount.textContent = reglagesData.length + (reglagesData.length > 1 ? ' réglages' : ' réglage');
-    if (!reglagesData.length) {
-      reglagesZone.innerHTML = '<p class="fr-hint-text">Aucun réglage d\'activité pour l\'instant.</p>';
+    var total = reglagesData.length;
+    var list = sortedFilteredReglages();
+    reglagesCount.textContent = (list.length === total ? total : list.length + ' sur ' + total) + (total > 1 ? ' réglages' : ' réglage');
+    if (!total) {
+      reglagesZone.innerHTML =
+        '<div class="fr-callout fr-callout--sm"><p class="fr-callout__text">Aucun réglage d\'activité pour l\'instant. Utilisez « Ajouter un réglage » pour créer le premier.</p></div>';
+      return;
+    }
+    if (!list.length) {
+      reglagesZone.innerHTML = '<p class="fr-hint-text">Aucun réglage ne correspond à « ' + escapeHtml(reglagesSearchQuery.trim()) + ' ».</p>';
       return;
     }
 
-    var head = '<tr><th>Actions</th><th>Code activité</th><th>Numéro</th><th>Durée</th><th>Intitulé</th><th>Cadres désignés</th><th>Consignes</th></tr>';
+    function sortHeader(key) {
+      var active = reglagesSort.key === key;
+      var arrow = active ? (reglagesSort.dir === 1 ? '▲' : '▼') : '↕';
+      return '<th aria-sort="' + (active ? (reglagesSort.dir === 1 ? 'ascending' : 'descending') : 'none') + '">' +
+        '<button type="button" class="req-sort" data-sort="' + key + '" data-active="' + active + '">' +
+        REGLAGES_SORT_LABELS[key] + ' <span class="req-sort__arrow" aria-hidden="true">' + arrow + '</span></button></th>';
+    }
+    var head = '<tr><th>Actions</th>' + sortHeader('code') + sortHeader('numero') + sortHeader('duree') + sortHeader('intitule') +
+      '<th>Cadres désignés</th><th>Consignes</th></tr>';
     var tableRows = '';
     var cardsHtml = '';
 
-    reglagesData.forEach(function (r) {
+    list.forEach(function (r) {
       var actionsHtml =
         '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-edit-line" title="Modifier" data-edit-id="' + r.id + '"></button>' +
         '<button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-delete-line" title="Supprimer" data-delete-id="' + r.id + '"></button>';
 
-      tableRows += '<tr data-row-id="' + r.id + '">' +
+      tableRows += '<tr data-row-id="' + r.id + '" title="Double-clic pour modifier">' +
         '<td><div class="req-actions" role="group" aria-label="Actions">' + actionsHtml + '</div></td>' +
-        '<td>' + escapeHtml(r.code) + '</td>' +
+        '<td><strong>' + escapeHtml(r.code) + '</strong></td>' +
         '<td>' + (r.numero ? escapeHtml(r.numero) : '—') + '</td>' +
         '<td>' + (r.duree ? escapeHtml(r.duree) : '—') + '</td>' +
         '<td>' + escapeHtml(r.intitule) + '</td>' +
         '<td>' + (r.cadresDesignes.length ? inlineBadgesHtml(r.cadresDesignes, 'badges') : '—') + '</td>' +
-        '<td>' + (r.consignes ? escapeHtml(r.consignes) : '—') + '</td>' +
+        '<td>' + (r.consignes ? '<span class="req-cell-clamp" title="' + escapeHtml(r.consignes) + '">' + escapeHtml(r.consignes) + '</span>' : '—') + '</td>' +
       '</tr>';
 
       cardsHtml += '<div class="req-card" data-row-id="' + r.id + '">' +
@@ -3884,6 +3836,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       '<div class="req-table-wrap req-table-view"><table class="req-table"><thead>' + head + '</thead><tbody>' + tableRows + '</tbody></table></div>' +
       '<div class="req-cards req-cards-view">' + cardsHtml + '</div>';
 
+    reglagesZone.querySelectorAll('button[data-sort]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var key = btn.getAttribute('data-sort');
+        if (reglagesSort.key === key) reglagesSort.dir = -reglagesSort.dir;
+        else reglagesSort = { key: key, dir: 1 };
+        renderReglagesList();
+      });
+    });
     reglagesZone.querySelectorAll('button[data-edit-id]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var rowId = Number(btn.getAttribute('data-edit-id'));
@@ -3898,6 +3858,18 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       });
     });
   }
+
+  // Double-clic sur une ligne du tableau : ouvre l'édition (comme les
+  // occurrences de la Progression). Délégué sur la zone, reconstruite à
+  // chaque rendu.
+  reglagesZone.addEventListener('dblclick', function (e) {
+    if (e.target.closest && e.target.closest('button')) return;
+    var tr = e.target.closest ? e.target.closest('tr[data-row-id]') : null;
+    if (!tr) return;
+    var rowId = Number(tr.getAttribute('data-row-id'));
+    var row = reglagesData.filter(function (r) { return r.id === rowId; })[0];
+    if (row) openReglageEditForm(row);
+  });
 
   // ---- Modale de création/édition d'un réglage d'activité ---------------
 
@@ -3925,7 +3897,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   function openReglageEditForm(row) {
     try {
       reglageEditingRowId = row ? row.id : null;
-      reglageEditModalTitle.textContent = row ? 'Modifier ce réglage' : 'Nouveau réglage';
+      reglageEditModalTitle.textContent = row ? 'Modifier le réglage ' + row.code : 'Nouveau réglage d\'activité';
       reglageEditStatusZone.innerHTML = '';
 
       reglageEditFields.code.value = row ? row.code : '';
@@ -3942,6 +3914,8 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
       reglageEditDeleteBtn.hidden = !row;
 
       reglageModalDisclose();
+      // Curseur directement sur le premier champ utile.
+      setTimeout(function () { (row ? reglageEditFields.intitule : reglageEditFields.code).focus(); }, 80);
     } catch (e) {
       if (window.console && console.error) console.error('openReglageEditForm a échoué :', e);
     }
@@ -3964,6 +3938,14 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
     if (!code || !intitule) {
       renderAlert(reglageEditStatusZone, 'error', 'Merci de renseigner au moins le code activité et l\'intitulé.');
+      return;
+    }
+    // Le code est la clé de recherche du pré-remplissage des occurrences :
+    // deux réglages ne doivent pas porter le même (casse et accents ignorés).
+    var codeKey = normalizeNameKey(code);
+    var duplicate = reglagesData.filter(function (r) { return r.id !== reglageEditingRowId && normalizeNameKey(r.code) === codeKey; })[0];
+    if (duplicate) {
+      renderAlert(reglageEditStatusZone, 'error', 'Le code « ' + duplicate.code + ' » est déjà utilisé par le réglage « ' + duplicate.intitule + ' ». Modifiez plutôt ce réglage existant.');
       return;
     }
 
@@ -4020,6 +4002,22 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
   }
 
   reglageNewBtn.addEventListener('click', function () { openReglageEditForm(null); });
+  // Tout cocher / décocher les cadres désignés.
+  document.getElementById('reglageCadresAllBtn').addEventListener('click', function () {
+    reglageEditCadresList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = true; });
+  });
+  document.getElementById('reglageCadresNoneBtn').addEventListener('click', function () {
+    reglageEditCadresList.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+  });
+  // Entrée dans un champ texte simple : enregistre (au lieu de soumettre le
+  // formulaire, ce qui rechargerait la page du widget).
+  document.getElementById('reglageEditForm').addEventListener('submit', function (e) { e.preventDefault(); });
+  document.getElementById('reglageEditForm').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT' && e.target.type === 'text') {
+      e.preventDefault();
+      saveReglageEditForm();
+    }
+  });
   reglageEditModalCloseBtn.addEventListener('click', closeReglageEditModal);
   reglageEditCancelBtn.addEventListener('click', closeReglageEditModal);
   reglageEditDeleteBtn.addEventListener('click', deleteReglage);
@@ -4303,7 +4301,7 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 
   // ---- Date du jour par défaut, et limite FSJ configurable --------------
   //
-  // Si fsjLimit3Days est activé (backoffice, onglet FSJ), le bouton de
+  // Si fsjLimit3Days est activé (backoffice, onglet Général), le bouton de
   // téléchargement de la FSJ est inopérant pour toute date postérieure à
   // J+3 : la feuille de service journalier n'a alors vocation à être
   // générée que pour une échéance proche. Les dates passées et jusqu'à J+3
