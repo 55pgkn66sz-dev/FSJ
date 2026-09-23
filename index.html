@@ -5842,3 +5842,68 @@ window.__MARIANNE_BOLD_B64 = "AAEAAAASAQAABAAgRFNJRwAAAAEAA6vcAAAACEdERUYx/zCUAA
 </script>
 </body>
 </html>
+ce = rowH / cols;
+          var boxY = rowTop + ev.col * slice + 0.25;
+          var boxH = slice - 0.5;
+          var boxX = minutesToX(ev.start);
+          var boxW = ev.boxWidth;
+          drawEventBox(ev, boxX, boxW, boxY, boxH);
+        });
+      });
+
+      day.layout.mergedGroups.forEach(function (g) {
+        var top = rowTops[g.rowCodes[0]];
+        var height = g.rowCodes.reduce(function (s, rc) { return s + day.rowHeights[rc]; }, 0);
+        var cols = g.maxCols;
+        g.events.forEach(function (ev) {
+          var slice = height / cols;
+          var boxY = top + ev.col * slice + 0.25;
+          var boxH = slice - 0.5;
+          var boxX = minutesToX(ev.start);
+          var boxW = ev.boxWidth;
+          drawEventBox(ev, boxX, boxW, boxY, boxH);
+        });
+      });
+
+      doc.setDrawColor(70, 70, 70);
+      doc.setLineWidth(0.6);
+      doc.line(marginLeft, dayTop + dayHeight, gridRight, dayTop + dayHeight);
+
+      doc.setFont(baseFont, 'bold');
+      doc.setFontSize(FONT_DAYLABEL);
+      doc.setTextColor(0, 0, 0);
+      var dow = day.date.getDay(); // 0 = dimanche
+      var dowIdx = (dow === 0) ? 6 : dow - 1;
+      doc.text(dayNamesShort[dowIdx] + ' ' + fmtDayTitle(day.date), marginLeft, textY(dayTop, dayHeight));
+
+      y = dayTop + dayHeight;
+    });
+
+    doc.setDrawColor(120, 120, 120);
+    doc.setLineWidth(0.3);
+    doc.rect(marginLeft, contentTop, gridRight - marginLeft, y - contentTop, 'S');
+  }
+
+  function drawImportantNotice(doc, pageWidth, bannerHeight, text, baseFont, marginLeft) {
+    var bg = [254, 231, 231];
+    var fg = [206, 5, 0];
+
+    doc.setFillColor(bg[0], bg[1], bg[2]);
+    doc.rect(0, 0, pageWidth, bannerHeight, 'F');
+
+    doc.setDrawColor(fg[0], fg[1], fg[2]);
+    doc.setLineWidth(0.6);
+    doc.line(0, bannerHeight, pageWidth, bannerHeight);
+
+    doc.setFont(baseFont, 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(fg[0], fg[1], fg[2]);
+    doc.text(text, pageWidth / 2, bannerHeight / 2 + 1.5, { align: 'center', maxWidth: pageWidth - 16 });
+
+    doc.setTextColor(0, 0, 0);
+  }
+
+})();
+</script>
+</body>
+</html>
