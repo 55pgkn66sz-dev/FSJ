@@ -1416,3 +1416,21 @@
 </script>
 </body>
 </html>
+ypeof Blob === 'undefined' || typeof TextDecoder === 'undefined') {
+    fail('Ce navigateur est trop ancien pour afficher le widget (décompression indisponible) : mettez-le à jour.');
+    return;
+  }
+  var bin = atob(PACKED);
+  var bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer().then(function (buf) {
+    var el = document.createElement('script');
+    el.text = new TextDecoder('utf-8').decode(buf);
+    document.body.appendChild(el);
+  }).catch(function (e) {
+    fail('Chargement du widget impossible : ' + (e && e.message ? e.message : e));
+  });
+})();
+</script>
+</body>
+</html>
